@@ -6,6 +6,9 @@
 logs/
 *.log
 
+# Ignore some dataset_directories
+pretrained_imagenet_models
+
 #standard build directories
 build/
 cmake-build/
