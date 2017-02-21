@@ -6,7 +6,7 @@ import _init_paths
 from multiprocessing import Process
 import caffe
 import os.path as osp
-
+import warnings
 
 def train(
         solver,  # solver proto definition
@@ -74,12 +74,16 @@ def solve(proto, initialization, gpus, timing, uid, rank):
 
     if initialization is not None:
         assert osp.exists(initialization), 'Path to weights/solverstate does not exist: {}'.format(initialization)
-        if m.endswith('.solverstate'):
+        if initialization.endswith('.solverstate'):
+            print 'Restoring solverstate from {}'.format(initialization)
             solver.restore(initialization)
-        elif m.endswith('.caffemodel'):
+        elif initialization.endswith('.caffemodel'):
+            print 'Initializing weights from {}'.format(initialization)
             solver.net.copy_from(initialization)
         else:
             raise ValueError('ERROR: {} is not supported for initailization'.format(initialization))
+    else:
+        warnings.warn("Warning: No initialization provided. Training from scratch.")
 
     nccl = caffe.NCCL(solver, uid)
     nccl.bcast()
@@ -103,5 +107,7 @@ if __name__ == '__main__':
     parser.add_argument("--gpus", type=int, nargs='+', default=[0], help="List of device ids.")
     parser.add_argument("--timing", action='store_true', help="Show timing info.")
     args = parser.parse_args()
+
+    # print args.init
 
     train(args.solver, args.init, args.gpus, args.timing)
