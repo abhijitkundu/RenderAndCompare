@@ -15,4 +15,4 @@ cur_dir = os.path.dirname(__file__)
 root_dir = os.path.join(cur_dir, '..')
 
 # Add lib to PYTHONPATH
-add_path(os.path.join(root_dir, 'lib'))
+add_path(os.path.join(root_dir, 'lib', 'datasets'))

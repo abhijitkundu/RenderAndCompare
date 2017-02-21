@@ -52,6 +52,10 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
         self.data_ids = range(len(image_files))     # set of data indices in [0, num_of_images)
         self.curr_data_ids_idx = 0                  # current_data_id
 
+        # Shuffle from the begining if in the train phase
+        if (self.phase == caffe.TRAIN):
+            shuffle(self.data_ids)
+
 
         # Create a loader to load the images.
         self.image_loader = BatchImageLoader(image_files, params.im_size)
@@ -76,6 +80,9 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
         """
         Load current batch of data and labels to caffe blobs
         """
+        # For Debug
+        # print "{} -- {}".format(self.data_ids[self.curr_data_ids_idx], self.data_ids[self.curr_data_ids_idx + 100])
+
         for i in xrange(self.batch_size):
             # Did we finish an epoch?
             if self.curr_data_ids_idx == len(self.data_ids):
