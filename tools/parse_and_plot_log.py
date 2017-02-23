@@ -7,7 +7,6 @@ Evolved from caffe's parse_log.py
 """
 
 import os
-import datetime
 import re
 import argparse
 from collections import OrderedDict
@@ -39,10 +38,7 @@ def parse_log(path_to_log):
     train_row = None
     test_row = None
 
-    logfile_year = get_log_created_year(path_to_log)
     with open(path_to_log) as f:
-        start_time = get_start_time(f, logfile_year)
-        last_time = start_time
 
         for line in f:
             iteration_match = regex_iteration.search(line)
@@ -53,32 +49,17 @@ def parse_log(path_to_log):
                 # iteration
                 continue
 
-            try:
-                time = extract_datetime_from_line(line, logfile_year)
-            except ValueError:
-                # Skip lines with bad formatting, for example when resuming
-                # solver
-                continue
-
-            # if it's another year
-            if time.month < last_time.month:
-                logfile_year += 1
-                time = extract_datetime_from_line(line, logfile_year)
-            last_time = time
-
-            seconds = (time - start_time).total_seconds()
-
             learning_rate_match = regex_learning_rate.search(line)
             if learning_rate_match:
                 learning_rate = float(learning_rate_match.group(1))
 
             train_dict_list, train_row = parse_line_for_net_output(
                 regex_train_output, train_row, train_dict_list,
-                line, iteration, seconds, learning_rate
+                line, iteration, learning_rate
             )
             test_dict_list, test_row = parse_line_for_net_output(
                 regex_test_output, test_row, test_dict_list,
-                line, iteration, seconds, learning_rate
+                line, iteration, learning_rate
             )
 
     fix_initial_nan_learning_rate(train_dict_list)
@@ -88,7 +69,7 @@ def parse_log(path_to_log):
 
 
 def parse_line_for_net_output(regex_obj, row, row_dict_list,
-                              line, iteration, seconds, learning_rate):
+                              line, iteration, learning_rate):
     """Parse a single line for training or test output
 
     Returns a a tuple with (row_dict_list, row)
@@ -110,7 +91,6 @@ def parse_line_for_net_output(regex_obj, row, row_dict_list,
 
             row = OrderedDict([
                 ('NumIters', iteration),
-                ('Seconds', seconds),
                 ('LearningRate', learning_rate)
             ])
 
@@ -140,45 +120,6 @@ def fix_initial_nan_learning_rate(dict_list):
 
     if len(dict_list) > 1:
         dict_list[0]['LearningRate'] = dict_list[1]['LearningRate']
-
-
-def extract_datetime_from_line(line, year):
-    # Expected format: I0210 13:39:22.381027 25210 solver.cpp:204] Iteration
-    # 100, lr = 0.00992565
-    line = line.strip().split()
-    month = int(line[0][1:3])
-    day = int(line[0][3:])
-    timestamp = line[1]
-    pos = timestamp.rfind('.')
-    ts = [int(x) for x in timestamp[:pos].split(':')]
-    hour = ts[0]
-    minute = ts[1]
-    second = ts[2]
-    microsecond = int(timestamp[pos + 1:])
-    dt = datetime.datetime(year, month, day, hour, minute, second, microsecond)
-    return dt
-
-
-def get_log_created_year(input_file):
-    """Get year from log file system timestamp
-    """
-
-    log_created_time = os.path.getctime(input_file)
-    log_created_year = datetime.datetime.fromtimestamp(log_created_time).year
-    return log_created_year
-
-
-def get_start_time(line_iterable, year):
-    """Find start time from group of lines
-    """
-
-    start_datetime = None
-    for line in line_iterable:
-        line = line.strip()
-        if line.find('Solving') != -1:
-            start_datetime = extract_datetime_from_line(line, year)
-            break
-    return start_datetime
 
 
 def parse_args():
