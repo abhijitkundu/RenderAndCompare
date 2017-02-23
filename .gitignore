@@ -13,6 +13,13 @@ pretrained_imagenet_models
 build/
 cmake-build/
 
+# Common IDE Project Files
+######################
+.project
+.cproject
+.settings/
+.idea/
+
 # Distribution / packaging
 .Python
 env/
