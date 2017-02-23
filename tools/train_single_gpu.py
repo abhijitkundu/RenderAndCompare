@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Trains a model using one or more GPUs.
+Trains a model using one GPU.
 """
 import _init_paths
 import caffe
