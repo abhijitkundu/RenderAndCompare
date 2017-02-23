@@ -10,18 +10,12 @@ from image_loaders import BatchImageLoader
 class ViewpoinPredictionDataLayer(caffe.Layer):
 
     def parse_param_str(self, param_str):
-        parser = argparse.ArgumentParser(
-            description='View Prediction Data Layer')
-        parser.add_argument("-b", "--batch_size", default=50,
-                            type=int, help="Batch Size")
-        parser.add_argument(
-            "-s", "--split_file", default='../../data/render4cnn/car_train.txt', help="Path to split file")
-        parser.add_argument("-a", "--azimuth_bins", default=24,
-                            type=int, help="Number of bins for azimuth")
-        parser.add_argument("-wh", "--im_size", nargs=2, default=[
-                            227, 227], type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
-        parser.add_argument("-m", "--mean_bgr", nargs=3, default=[
-                            104.00698793, 116.66876762, 122.67891434], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
+        parser = argparse.ArgumentParser(description='View Prediction Data Layer')
+        parser.add_argument("-b", "--batch_size", default=50, type=int, help="Batch Size")
+        parser.add_argument("-s", "--split_file", default='../../data/render4cnn/car_train.txt', help="Path to split file")
+        parser.add_argument("-a", "--azimuth_bins", default=24, type=int, help="Number of bins for azimuth")
+        parser.add_argument("-wh", "--im_size", nargs=2, default=[227, 227], type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
+        parser.add_argument("-m", "--mean_bgr", nargs=3, default=[104.00698793, 116.66876762, 122.67891434], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
         params = parser.parse_args(param_str.split())
 
         print "------------- ViewpoinPredictionDataLayer Config ------------------"

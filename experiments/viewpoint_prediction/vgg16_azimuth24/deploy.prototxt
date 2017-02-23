@@ -451,8 +451,8 @@ layer {
   }
 }
 layer {
-  name: "prob"
+  name: "azimuth24_prob"
   type: "Softmax"
   bottom: "fc8_azimuth24"
-  top: "prob"
+  top: "azimuth24_prob"
 }

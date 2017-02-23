@@ -38,10 +38,8 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--solver", required=True,
-                        help="Solver solver_proto definition.")
-    parser.add_argument(
-        "--init", help="Initialization weights or Solver state to restore from")
+    parser.add_argument("--solver", required=True, help="Solver solver_proto definition.")
+    parser.add_argument("--init", help="Initialization weights or Solver state to restore from")
     parser.add_argument("--gpu", type=int, default=0, help="Gpu Id.")
     args = parser.parse_args()
 

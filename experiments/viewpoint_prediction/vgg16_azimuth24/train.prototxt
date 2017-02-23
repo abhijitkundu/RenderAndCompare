@@ -5,7 +5,7 @@ layer {
   top: "data"
   top: "label"
   python_param {
-    module: "viewpoint_pred_layers"
+    module: "RenderAndCompare.datasets.viewpoint_pred_layers"
     layer: "ViewpoinPredictionDataLayer"
     # a lot of the params are default so we don't need to always specify all args like below
     param_str: "-b 100 -a 24 -s ../../../data/render4cnn/syn_voc2012_car_train.txt -wh 224 224 -m 103.939  116.779  123.68"

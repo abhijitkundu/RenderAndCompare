@@ -3,9 +3,8 @@ import os.path
 import sys
 
 """
-Add lib paths to python system search path i.e. PYTHONPATH
+Add  RenderAndCompare python module to python system search path i.e. PYTHONPATH
 """
-
 
 def add_path(path):
     if path not in sys.path:
@@ -14,5 +13,5 @@ def add_path(path):
 cur_dir = os.path.dirname(__file__)
 root_dir = os.path.join(cur_dir, '..')
 
-# Add lib to PYTHONPATH
-add_path(os.path.join(root_dir, 'lib', 'datasets'))
+# Add root_dir to PYTHONPATH
+add_path(os.path.join(root_dir))
