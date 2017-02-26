@@ -1,0 +1,138 @@
+function prepare_imagenet_imgs(pascal_root_dir, img_set, output_img_dir, cls_name, opts)
+% PREPARE_IMAGENET_IMGS
+%   prepare voc12 images (cropped from ground truth bboxes with jittering)
+% input:
+%   pascal_root_dir: pascal3d+ root dir (See http://cvgl.stanford.edu/projects/pascal3d.html)
+%   img_set: 'train' or 'val'
+%   output_img_dir: output folder names, final structure is <output_img_dir>/<category>/<imgs>
+%   cls_name: category name e.g 'car'
+%   opts: matlab struct with flip, aug_n, jitter_IoU, difficult, truncated, occluded fields
+%       if flip is 1, images will be flipped.
+%       if ang_n>1, images will be augmented by jittering bbox. jitter_IoU==1 means normal crop
+%       difficult, truncated, occluded \in {0,1}, where 0 indicated that we do not
+%           want images with that property (e.g. 0,0,0 means we want easy images only)
+% output:
+%   cropped images according to ground-truth bounding boxes (with jittering) and image filelists
+%
+
+% paths
+annotation_path = fullfile(pascal_root_dir, 'Annotations');
+image_path = fullfile(pascal_root_dir, 'Images');
+
+
+imageset_file = fullfile(pascal_root_dir, 'Image_sets', sprintf('%s_imagenet_%s.txt', cls_name, img_set));
+
+% read ids of train/val set images
+ids = textread( imageset_file , '%s');
+M = numel(ids);
+
+if ~exist(output_img_dir, 'dir')
+    mkdir(output_img_dir);
+end
+
+dirname = fullfile(output_img_dir, cls_name);
+if ~exist(dirname, 'dir')
+    mkdir(dirname)
+end
+
+labelfile = fopen(fullfile(output_img_dir, sprintf('%s.txt',cls_name)),'w');
+CADPath = fullfile(pascal_root_dir, 'CAD', sprintf('%s.mat', cls_name));
+cad = load(CADPath);
+cad = cad.(cls_name);
+
+for i = 1:M
+    anno_filename = fullfile(annotation_path, sprintf('%s_imagenet/%s.mat', cls_name, ids{i}));
+    if ~exist(anno_filename,'file')
+        continue;
+    end
+    anno = load(anno_filename);
+    objects = anno.record.objects;
+    
+    for k = 1:length(objects)
+        obj = objects(k);
+        
+        if ~isempty(obj.viewpoint) && strcmp(obj.class, cls_name)
+            % skip of viewpoint annotation is not continuous
+            if obj.viewpoint.distance == 0
+                %                     fprintf('skip %s..\n.', ids{i});
+                continue;
+            end
+            % write view annotation
+            azimuth = mod(obj.viewpoint.azimuth, 360);
+            elevation = mod(obj.viewpoint.elevation, 360);
+            tilt = mod(obj.viewpoint.theta, 360);
+            distance = obj.viewpoint.distance / 2.86; % 2.86 was determined empiracally
+            principal_offset = [obj.viewpoint.px-480.0 obj.viewpoint.py-270.0]; % Center them in 960x540 image
+            
+            
+            truncated = obj.truncated;
+            occluded = obj.occluded;
+            difficult = obj.difficult;
+            % skip un-annotated image
+            if azimuth == 0 && elevation == 0 && tilt == 0
+                fprintf('skip weird viewpoints %s..\n.', ids{i});
+                continue;
+            end
+            % skip unwanted image
+            if (difficult==1 && opts.difficult==0) || (truncated==1 && opts.truncated==0) || (occluded==1 && opts.occluded==0)
+                fprintf('fliter skip %s...\n', ids{i});
+                continue;
+            end
+            
+            img_filename = fullfile(image_path, sprintf('%s_imagenet/%s.JPEG', cls_name, ids{i}));
+            im = imread(img_filename);
+            box = obj.bbox;
+            w = box(3)-box(1)+1;
+            h = box(4)-box(2)+1;
+            gt_crop_bbx = [box(1),box(2), w, h];
+            
+            % too small
+            if w < 14 || h < 14
+                fprintf('Tiny Image skip %s...\n', ids{i});
+                continue;
+            end
+            
+             if box(1) < 0 || box(2) < 0 || w > size(im,2) || h > size(im,1)
+                fprintf('bad bbx %s...\n', ids{i});
+                continue;
+             end            
+            
+            vertex = cad(obj.cad_index).vertices;
+            x2d = project_3d(vertex, obj);
+            assert(~isempty(x2d), 'x2d should not be empty');
+            
+            cad_min_max = [min(x2d(:,1)),min(x2d(:,2)),max(x2d(:,1)),max(x2d(:,2))];
+            amodal_bbx = [cad_min_max(1), cad_min_max(2), cad_min_max(3)-cad_min_max(1), cad_min_max(4)-cad_min_max(2)];
+            
+            for aug_i = 1:opts.aug_n
+                if aug_i == 1
+                    cropped_im = imcrop(im, gt_crop_bbx);
+                    crop_bbx = gt_crop_bbx;
+                else
+                    [cropped_im, ~, crop_bbx] = jitter_imcrop(im, gt_crop_bbx, opts.jitter_IoU);
+                end
+                cropped_im_filename = sprintf('%s_%s_%s_%s.jpg', cls_name, ids{i}, num2str(k), num2str(aug_i));
+                imwrite(cropped_im, fullfile(output_img_dir, cls_name, cropped_im_filename));
+                
+                crop_bbx(1:2) = crop_bbx(1:2) - principal_offset - [1, 1];
+                amodal_bbx(1:2) = amodal_bbx(1:2) - principal_offset;
+                
+                fprintf(labelfile, '%s %f %f %f %f ', cropped_im_filename, azimuth, elevation, tilt, distance);
+                fprintf(labelfile, '%f %f %f %f ', amodal_bbx(1), amodal_bbx(2), amodal_bbx(3), amodal_bbx(4));
+                fprintf(labelfile, '%f %f %f %f\n', crop_bbx(1), crop_bbx(2), crop_bbx(3), crop_bbx(4));
+                
+                
+                if opts.flip
+                    cropped_im_flip = fliplr(cropped_im); % flip the image horizontally
+                    cropped_im_flip_filename = sprintf('%s_%s_%s_%s_%s.jpg', cls_name, ids{i}, num2str(k), num2str(aug_i), 'flip');
+                    imwrite(cropped_im_flip, fullfile(output_img_dir, cls_name ,cropped_im_flip_filename));
+                    
+                    fprintf(labelfile, '%s %f %f %f %f ', cropped_im_flip_filename, mod(360-azimuth,360), elevation, mod(-1*tilt,360), distance);
+                    fprintf(labelfile, '%f %f %f %f ', amodal_bbx(1), amodal_bbx(2), amodal_bbx(3), amodal_bbx(4));
+                    fprintf(labelfile, '%f %f %f %f\n', crop_bbx(1), crop_bbx(2), crop_bbx(3), crop_bbx(4));
+                end
+            end
+        end
+    end
+end
+fclose(labelfile);
