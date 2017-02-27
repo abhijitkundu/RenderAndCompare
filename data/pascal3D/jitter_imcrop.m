@@ -15,6 +15,7 @@ function [cropped_im, ov, jrect] = jitter_imcrop(im, rect, IoU)
     % original imcrop
     if IoU >= 1
         cropped_im = imcrop(im, rect);
+        jrect = rect;
         return;
     end
     

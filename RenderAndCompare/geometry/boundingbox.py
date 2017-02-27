@@ -23,6 +23,9 @@ class BoundingBox:
     def center(self):
         return self._min + self._size / 2
 
+    def size(self):
+        return self._size
+
 
 
 class BoundingBoxTransform:

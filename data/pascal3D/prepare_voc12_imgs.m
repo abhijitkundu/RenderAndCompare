@@ -83,11 +83,11 @@ for i = 1:M
             img_filename = fullfile(image_path, sprintf('%s_pascal/%s.jpg', cls_name, ids{i}));
             im = imread(img_filename);
             box = obj.bbox;
-            w = box(3)-box(1)+1;
-            h = box(4)-box(2)+1;
-            gt_crop_bbx = [box(1),box(2), w, h];
+            gt_crop_bbx = [box(1),box(2), box(3)-box(1), box(4)-box(2)];
             
-            % too small
+             % too small
+            w = gt_crop_bbx(3) + 1;
+            h = gt_crop_bbx(4) + 1;
             if w < 14 || h < 14
                 fprintf('Tiny Image skip %s...\n', ids{i});
                 continue;
@@ -111,12 +111,12 @@ for i = 1:M
                 cropped_im_filename = sprintf('%s_%s_%s_%s.jpg', cls_name, ids{i}, num2str(k), num2str(aug_i));
                 imwrite(cropped_im, fullfile(output_img_dir, cls_name, cropped_im_filename));
 
+                adj_amodal_bbx = amodal_bbx;
+                adj_amodal_bbx(1:2) = adj_amodal_bbx(1:2) - principal_offset;
 
                 adj_crop_bbx = crop_bbx;
-                adj_amodal_bbx = amodal_bbx;
-
-                adj_crop_bbx(1:2) = adj_crop_bbx(1:2) - principal_offset - [1, 1];
-                adj_amodal_bbx(1:2) = adj_amodal_bbx(1:2) - principal_offset;
+                adj_crop_bbx(3:4) = adj_crop_bbx(3:4) +  [1, 1];
+                adj_crop_bbx(1:2) = adj_crop_bbx(1:2) - principal_offset + [0.5, 0.5];                
 
                 
                 fprintf(labelfile, '%s %f %f %f %f ', cropped_im_filename, azimuth, elevation, tilt, distance);
