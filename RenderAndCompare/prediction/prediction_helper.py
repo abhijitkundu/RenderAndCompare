@@ -3,7 +3,7 @@ import math
 import numpy as np
 import os.path as osp
 
-from RenderAndCompare.datasets.image_loaders import BatchImageLoader
+from RenderAndCompare.datasets import BatchImageLoader
 
 def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
     assert osp.exists(net), 'Path to test net prototxt does not exist: {}'.format(net)

@@ -6,8 +6,7 @@ import numpy as np
 
 root_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 sys.path.insert(0, root_dir)
-from RenderAndCompare.prediction.prediction_helper import get_predictions_on_image_files
-
+import RenderAndCompare as rac
 
 if __name__ == '__main__':
     import argparse
@@ -31,7 +30,7 @@ if __name__ == '__main__':
 
     print 'Predicting viewpoint for {} images'.format(num_of_images)
 
-    predictions = get_predictions_on_image_files(img_files, args.net, args.weights, ['azimuth24_prob'], args.mean_bgr, args.gpu)
+    predictions = rac.prediction.get_predictions_on_image_files(img_files, args.net, args.weights, ['azimuth24_prob'], args.mean_bgr, args.gpu)
 
 
     azimuth_labels = np.argmax(predictions['azimuth24_prob'], axis=1)
