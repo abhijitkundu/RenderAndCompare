@@ -82,8 +82,16 @@ for i = 1:M
             
             img_filename = fullfile(image_path, sprintf('%s_pascal/%s.jpg', cls_name, ids{i}));
             im = imread(img_filename);
-            box = obj.bbox;
-            gt_crop_bbx = [box(1),box(2), box(3)-box(1), box(4)-box(2)];
+            
+            [im_height, im_width, ~] = size(im);
+            
+            bbx_extremes = obj.bbox;
+            bbx_extremes(1:2) = max(bbx_extremes(1:2), 1);
+            bbx_extremes(3:4) = min(bbx_extremes(3:4), [im_width, im_height]);
+            assert(bbx_extremes(3)>=bbx_extremes(1));
+            assert(bbx_extremes(4)>=bbx_extremes(2));
+
+            gt_crop_bbx = [ bbx_extremes(1), bbx_extremes(2), bbx_extremes(3)-bbx_extremes(1), bbx_extremes(4)-bbx_extremes(2)];
             
              % too small
             w = gt_crop_bbx(3) + 1;
@@ -116,7 +124,11 @@ for i = 1:M
 
                 adj_crop_bbx = crop_bbx;
                 adj_crop_bbx(3:4) = adj_crop_bbx(3:4) +  [1, 1];
-                adj_crop_bbx(1:2) = adj_crop_bbx(1:2) - principal_offset + [0.5, 0.5];                
+                adj_crop_bbx(1:2) = adj_crop_bbx(1:2) - principal_offset - [0.5, 0.5];
+                
+                [cropped_im_height, cropped_im_width, ~] = size(cropped_im);
+                assert(cropped_im_width==adj_crop_bbx(3), '%d != %f',cropped_im_width, adj_crop_bbx(3));
+                assert(cropped_im_height==adj_crop_bbx(4), '%d != %f',cropped_im_height, adj_crop_bbx(3));
 
                 
                 fprintf(labelfile, '%s %f %f %f %f ', cropped_im_filename, azimuth, elevation, tilt, distance);

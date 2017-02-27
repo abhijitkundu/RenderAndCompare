@@ -18,6 +18,7 @@ function prepare_imagenet_imgs(pascal_root_dir, img_set, output_img_dir, cls_nam
 % paths
 annotation_path = fullfile(pascal_root_dir, 'Annotations');
 image_path = fullfile(pascal_root_dir, 'Images');
+addpath(fullfile(pascal_root_dir, 'VDPM'));
 
 
 imageset_file = fullfile(pascal_root_dir, 'Image_sets', sprintf('%s_imagenet_%s.txt', cls_name, img_set));
@@ -81,21 +82,25 @@ for i = 1:M
             
             img_filename = fullfile(image_path, sprintf('%s_imagenet/%s.JPEG', cls_name, ids{i}));
             im = imread(img_filename);
-            box = obj.bbox;
-            w = box(3)-box(1)+1;
-            h = box(4)-box(2)+1;
-            gt_crop_bbx = [box(1),box(2), w, h];
             
-            % too small
+            [im_height, im_width, ~] = size(im);
+            
+            bbx_extremes = obj.bbox;
+            bbx_extremes(1:2) = max(bbx_extremes(1:2), 1);
+            bbx_extremes(3:4) = min(bbx_extremes(3:4), [im_width, im_height]);
+            assert(bbx_extremes(3)>=bbx_extremes(1));
+            assert(bbx_extremes(4)>=bbx_extremes(2));
+            
+            gt_crop_bbx = [ bbx_extremes(1), bbx_extremes(2), bbx_extremes(3)-bbx_extremes(1), bbx_extremes(4)-bbx_extremes(2)];
+            gt_crop_bbx = round(gt_crop_bbx);
+            
+             % too small
+            w = gt_crop_bbx(3) + 1;
+            h = gt_crop_bbx(4) + 1;
             if w < 14 || h < 14
                 fprintf('Tiny Image skip %s...\n', ids{i});
                 continue;
-            end
-            
-             if box(1) < 0 || box(2) < 0 || w > size(im,2) || h > size(im,1)
-                fprintf('bad bbx %s...\n', ids{i});
-                continue;
-             end            
+            end     
             
             vertex = cad(obj.cad_index).vertices;
             x2d = project_3d(vertex, obj);
@@ -106,20 +111,29 @@ for i = 1:M
             
             for aug_i = 1:opts.aug_n
                 if aug_i == 1
-                    cropped_im = imcrop(im, gt_crop_bbx);
+                    cropped_im = imcrop(im, gt_crop_bbx); 
                     crop_bbx = gt_crop_bbx;
                 else
                     [cropped_im, ~, crop_bbx] = jitter_imcrop(im, gt_crop_bbx, opts.jitter_IoU);
                 end
                 cropped_im_filename = sprintf('%s_%s_%s_%s.jpg', cls_name, ids{i}, num2str(k), num2str(aug_i));
                 imwrite(cropped_im, fullfile(output_img_dir, cls_name, cropped_im_filename));
+
+                adj_amodal_bbx = amodal_bbx;
+                adj_amodal_bbx(1:2) = adj_amodal_bbx(1:2) - principal_offset;
+
+                adj_crop_bbx = crop_bbx;
+                adj_crop_bbx(3:4) = adj_crop_bbx(3:4) +  [1, 1];
+                adj_crop_bbx(1:2) = adj_crop_bbx(1:2) - principal_offset - [0.5, 0.5];
                 
-                crop_bbx(1:2) = crop_bbx(1:2) - principal_offset - [1, 1];
-                amodal_bbx(1:2) = amodal_bbx(1:2) - principal_offset;
+                [cropped_im_height, cropped_im_width, ~] = size(cropped_im);
+                assert(cropped_im_width==adj_crop_bbx(3), '%d != %f',cropped_im_width, adj_crop_bbx(3));
+                assert(cropped_im_height==adj_crop_bbx(4), '%d != %f',cropped_im_height, adj_crop_bbx(3));
+
                 
                 fprintf(labelfile, '%s %f %f %f %f ', cropped_im_filename, azimuth, elevation, tilt, distance);
-                fprintf(labelfile, '%f %f %f %f ', amodal_bbx(1), amodal_bbx(2), amodal_bbx(3), amodal_bbx(4));
-                fprintf(labelfile, '%f %f %f %f\n', crop_bbx(1), crop_bbx(2), crop_bbx(3), crop_bbx(4));
+                fprintf(labelfile, '%f %f %f %f ', adj_amodal_bbx(1), adj_amodal_bbx(2), adj_amodal_bbx(3), adj_amodal_bbx(4));
+                fprintf(labelfile, '%f %f %f %f\n', adj_crop_bbx(1), adj_crop_bbx(2), adj_crop_bbx(3), adj_crop_bbx(4));
                 
                 
                 if opts.flip
@@ -128,8 +142,8 @@ for i = 1:M
                     imwrite(cropped_im_flip, fullfile(output_img_dir, cls_name ,cropped_im_flip_filename));
                     
                     fprintf(labelfile, '%s %f %f %f %f ', cropped_im_flip_filename, mod(360-azimuth,360), elevation, mod(-1*tilt,360), distance);
-                    fprintf(labelfile, '%f %f %f %f ', amodal_bbx(1), amodal_bbx(2), amodal_bbx(3), amodal_bbx(4));
-                    fprintf(labelfile, '%f %f %f %f\n', crop_bbx(1), crop_bbx(2), crop_bbx(3), crop_bbx(4));
+                    fprintf(labelfile, '%f %f %f %f ', adj_amodal_bbx(1), adj_amodal_bbx(2), adj_amodal_bbx(3), adj_amodal_bbx(4));
+                    fprintf(labelfile, '%f %f %f %f\n', adj_crop_bbx(1), adj_crop_bbx(2), adj_crop_bbx(3), adj_crop_bbx(4));
                 end
             end
         end

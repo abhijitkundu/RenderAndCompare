@@ -24,6 +24,9 @@ cmake-build/
 .Python
 env/
 
+#temp files
+*.*~
+
 develop-eggs/
 dist/
 downloads/

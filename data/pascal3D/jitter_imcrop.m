@@ -5,17 +5,19 @@ function [cropped_im, ov, jrect] = jitter_imcrop(im, rect, IoU)
 % IoU: 0~1 intersection-area/union-area
     w = size(im,2);
     h = size(im,1);
+    assert(rect(1) > 0);
+    assert(rect(2) > 0);
+    assert((rect(1) + rect(3)) <= w);
+    assert((rect(2) + rect(4)) <= h);
+    
     bbox_w = rect(3);
     bbox_h = rect(4);
-    assert(rect(1) > 0 && rect(1) < w);
-    assert(rect(2) > 0 && rect(2) < h);
-    assert(rect(3) <= w);
-    assert(rect(4) <= h);
 
     % original imcrop
     if IoU >= 1
         cropped_im = imcrop(im, rect);
         jrect = rect;
+        ov = 1;
         return;
     end
     
@@ -27,13 +29,13 @@ function [cropped_im, ov, jrect] = jitter_imcrop(im, rect, IoU)
     a = (1-1/IoU);
     while 1
         r = a + (b-a).*rand(4,1);
-        jrect(1) = max(min(rect(1) + r(1)*bbox_w, w), 1);
-        jrect(2) = max(min(rect(2) + r(2)*bbox_h, h), 1);
-        jrect(3) = max(min(rect(3) + r(3)*bbox_w, w), 1);
-        jrect(4) = max(min(rect(4) + r(4)*bbox_h, h), 1);
-        jrect = round(jrect);
-        ov = box_overlap([rect(1),rect(2),rect(1)+rect(3)-1,rect(2)+rect(4)-1],...
-        [jrect(1),jrect(2),jrect(1)+jrect(3)-1,jrect(2)+jrect(4)-1]);
+        
+        jrect = [rect(1) + r(1)*bbox_w, rect(2) + r(2)*bbox_h,  rect(3) + r(3)*bbox_w, rect(4) + r(4)*bbox_h];
+        jextremes = [max(min(jrect(1), w), 1), max(min(jrect(2), h), 1), max(min(jrect(1) + jrect(3), w), 1), max(min(jrect(2) + jrect(4), h), 1)];
+        jextremes = round(jextremes);        
+        ov = box_overlap([rect(1),rect(2),rect(1)+rect(3),rect(2)+rect(4)], jextremes);
+        jrect = [jextremes(1), jextremes(2), jextremes(3) - jextremes(1), jextremes(4) - jextremes(2)];
+    
         if ov > IoU
             break;
         end

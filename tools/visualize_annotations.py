@@ -36,11 +36,7 @@ if __name__ == '__main__':
 
         assert (image_size == bbx_crop.size()).all(), 'Image size {} and bbx_crop size {} should match'.format(image_size, bbx_crop.size())
 
-        print image.shape
-        print bbx_crop
-
         bbx_image = np.zeros((540, 960, 3),dtype=np.uint8)
-
         # bbx_image[bbx_crop,,:] = image
 
 
