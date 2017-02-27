@@ -141,6 +141,9 @@ for i = 1:M
                     cropped_im_flip_filename = sprintf('%s_%s_%s_%s_%s.jpg', cls_name, ids{i}, num2str(k), num2str(aug_i), 'flip');
                     imwrite(cropped_im_flip, fullfile(output_img_dir, cls_name ,cropped_im_flip_filename));
                     
+                    adj_amodal_bbx(1) = - (adj_amodal_bbx(1)  + adj_amodal_bbx(3));
+                    adj_crop_bbx(1) =  - (adj_crop_bbx(1)  + adj_crop_bbx(3));
+                    
                     fprintf(labelfile, '%s %f %f %f %f ', cropped_im_flip_filename, mod(360-azimuth,360), elevation, mod(-1*tilt,360), distance);
                     fprintf(labelfile, '%f %f %f %f ', adj_amodal_bbx(1), adj_amodal_bbx(2), adj_amodal_bbx(3), adj_amodal_bbx(4));
                     fprintf(labelfile, '%f %f %f %f\n', adj_crop_bbx(1), adj_crop_bbx(2), adj_crop_bbx(3), adj_crop_bbx(4));
