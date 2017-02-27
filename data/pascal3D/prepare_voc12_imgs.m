@@ -110,13 +110,18 @@ for i = 1:M
                 end
                 cropped_im_filename = sprintf('%s_%s_%s_%s.jpg', cls_name, ids{i}, num2str(k), num2str(aug_i));
                 imwrite(cropped_im, fullfile(output_img_dir, cls_name, cropped_im_filename));
-                
-                crop_bbx(1:2) = crop_bbx(1:2) - principal_offset - [1, 1];
-                amodal_bbx(1:2) = amodal_bbx(1:2) - principal_offset;
+
+
+                adj_crop_bbx = crop_bbx;
+                adj_amodal_bbx = amodal_bbx;
+
+                adj_crop_bbx(1:2) = adj_crop_bbx(1:2) - principal_offset - [1, 1];
+                adj_amodal_bbx(1:2) = adj_amodal_bbx(1:2) - principal_offset;
+
                 
                 fprintf(labelfile, '%s %f %f %f %f ', cropped_im_filename, azimuth, elevation, tilt, distance);
-                fprintf(labelfile, '%f %f %f %f ', amodal_bbx(1), amodal_bbx(2), amodal_bbx(3), amodal_bbx(4));
-                fprintf(labelfile, '%f %f %f %f\n', crop_bbx(1), crop_bbx(2), crop_bbx(3), crop_bbx(4));
+                fprintf(labelfile, '%f %f %f %f ', adj_amodal_bbx(1), adj_amodal_bbx(2), adj_amodal_bbx(3), adj_amodal_bbx(4));
+                fprintf(labelfile, '%f %f %f %f\n', adj_crop_bbx(1), adj_crop_bbx(2), adj_crop_bbx(3), adj_crop_bbx(4));
                 
                 
                 if opts.flip
@@ -125,8 +130,8 @@ for i = 1:M
                     imwrite(cropped_im_flip, fullfile(output_img_dir, cls_name ,cropped_im_flip_filename));
                     
                     fprintf(labelfile, '%s %f %f %f %f ', cropped_im_flip_filename, mod(360-azimuth,360), elevation, mod(-1*tilt,360), distance);
-                    fprintf(labelfile, '%f %f %f %f ', amodal_bbx(1), amodal_bbx(2), amodal_bbx(3), amodal_bbx(4));
-                    fprintf(labelfile, '%f %f %f %f\n', crop_bbx(1), crop_bbx(2), crop_bbx(3), crop_bbx(4));
+                    fprintf(labelfile, '%f %f %f %f ', adj_amodal_bbx(1), adj_amodal_bbx(2), adj_amodal_bbx(3), adj_amodal_bbx(4));
+                    fprintf(labelfile, '%f %f %f %f\n', adj_crop_bbx(1), adj_crop_bbx(2), adj_crop_bbx(3), adj_crop_bbx(4));
                 end
             end
         end
