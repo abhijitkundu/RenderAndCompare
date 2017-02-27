@@ -56,6 +56,9 @@ class Dataset(object):
             loaded_data = json.load(f, object_pairs_hook=OrderedDict)
         return cls(data=loaded_data)
 
+    def __repr__(self):
+        return 'Dataset(name="%s", with %d annotations)' % (self.name(), self.num_of_annotations())
+
 
 
 
