@@ -26,6 +26,9 @@ class BoundingBox:
     def size(self):
         return self._size
 
+    def translate(self, translation):
+        self._min += translation
+
 
 
 class BoundingBoxTransform:

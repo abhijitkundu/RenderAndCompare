@@ -63,7 +63,7 @@ for i = 1:M
             elevation = mod(obj.viewpoint.elevation, 360);
             tilt = mod(obj.viewpoint.theta, 360);
             distance = obj.viewpoint.distance / 2.86; % 2.86 was determined empiracally
-            principal_offset = [obj.viewpoint.px-480.0 obj.viewpoint.py-270.0]; % Center them in 960x540 image
+            principal_offset = [obj.viewpoint.px obj.viewpoint.py]; % Center them at origin
             
             
             truncated = obj.truncated;

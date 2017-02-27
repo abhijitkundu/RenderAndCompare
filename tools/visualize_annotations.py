@@ -33,11 +33,18 @@ if __name__ == '__main__':
         bbx_crop = rac.geometry.BoundingBox.fromRect(annotation['bbx_crop'])
 
         image_size = np.array([image.shape[1], image.shape[0]])
-
         assert (image_size == bbx_crop.size()).all(), 'Image size {} and bbx_crop size {} should match'.format(image_size, bbx_crop.size())
 
-        bbx_image = np.zeros((540, 960, 3),dtype=np.uint8)
-        # bbx_image[bbx_crop,,:] = image
+
+        camera_width = 2560
+        camera_height = 1600
+        principal_point = np.array([camera_width/2.0, camera_height/2.0], dtype=np.float)
+
+        bbx_amodal.translate(principal_point)
+        bbx_crop.translate(principal_point)
+
+        bbx_image = np.zeros((camera_height, camera_width, 3),dtype=np.uint8)
+        bbx_image[bbx_crop.min()[1]:bbx_crop.max()[1],bbx_crop.min()[0]:bbx_crop.max()[0]] = image
 
 
         cv2.rectangle(bbx_image,
