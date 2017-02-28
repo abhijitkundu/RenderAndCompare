@@ -129,6 +129,11 @@ for i = 1:M
                 [cropped_im_height, cropped_im_width, ~] = size(cropped_im);
                 assert(cropped_im_width==adj_crop_bbx(3), '%d != %f',cropped_im_width, adj_crop_bbx(3));
                 assert(cropped_im_height==adj_crop_bbx(4), '%d != %f',cropped_im_height, adj_crop_bbx(3));
+                
+                assert(azimuth < 360);
+                assert(elevation < 360);
+                assert(tilt < 360);
+
 
                 
                 fprintf(labelfile, '%s %f %f %f %f ', cropped_im_filename, azimuth, elevation, tilt, distance);
@@ -143,6 +148,12 @@ for i = 1:M
                     
                     adj_amodal_bbx(1) = - (adj_amodal_bbx(1)  + adj_amodal_bbx(3));
                     adj_crop_bbx(1) =  - (adj_crop_bbx(1)  + adj_crop_bbx(3));
+                    
+                    flipped_azimuth = mod(360.0-azimuth,360);
+                    flipped_tilt = mod(-1.0*tilt,360);
+
+                    assert(flipped_azimuth < 360);
+                    assert(flipped_tilt < 360);
                     
                     fprintf(labelfile, '%s %f %f %f %f ', cropped_im_flip_filename, mod(360-azimuth,360), elevation, mod(-1*tilt,360), distance);
                     fprintf(labelfile, '%f %f %f %f ', adj_amodal_bbx(1), adj_amodal_bbx(2), adj_amodal_bbx(3), adj_amodal_bbx(4));

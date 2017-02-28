@@ -81,6 +81,10 @@ def loadPascal3Ddataset(filename, name=None):
             annotation['bbx_amodal'] = [float(x) for x in tokens[5:9]]
             annotation['bbx_crop'] = [float(x) for x in tokens[9:13]]
 
+            # Make sure a,e,t are in [0, 360)
+            for i in xrange(3):
+                annotation['viewpoint'][i] = annotation['viewpoint'][i] % 360.0
+
             dataset.add_annotation(annotation)
 
     print 'Loaded {} annotations from {}'.format(dataset.num_of_annotations(), filename)
