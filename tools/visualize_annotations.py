@@ -10,8 +10,8 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='visualizes annotations')
     parser.add_argument('annotation_file', help='Path to our json Annotation file')
+    parser.add_argument("-p", "--pause", default=0, type=int, help="Set number of milliseconds to pause. Use 0 to pause indefinitely")
     args = parser.parse_args()
-
 
     dataset = rac.datasets.Dataset.from_json(args.annotation_file)
     print dataset
@@ -27,7 +27,10 @@ if __name__ == '__main__':
         image =cv2.imread(img_path)
 
         viewpoint = annotation['viewpoint']
-        print '-a {} -e{} -t {} -d {}'.format(viewpoint[0], viewpoint[1], viewpoint[2], viewpoint[3])
+        print '{} -a {} -e{} -t {} -d {}'.format(annotation['image_file'], viewpoint[0], viewpoint[1], viewpoint[2], viewpoint[3])
+
+        assert all(i >= 0 for i in viewpoint), 'Bad viewpoint {}'.format(viewpoint)
+        assert all(i < 360 for i in viewpoint[:3]), 'Bad viewpoint {}'.format(viewpoint)
 
         bbx_amodal = rac.geometry.BoundingBox.fromRect(annotation['bbx_amodal']) 
         bbx_crop = rac.geometry.BoundingBox.fromRect(annotation['bbx_crop'])
@@ -61,7 +64,7 @@ if __name__ == '__main__':
 
         cv2.imshow('image',image)
         cv2.imshow('bbox',bbx_image)
-        key = cv2.waitKey(0)
+        key = cv2.waitKey(args.pause)
 
         if key == 27:         # wait for ESC key to exit
             cv2.destroyAllWindows()
