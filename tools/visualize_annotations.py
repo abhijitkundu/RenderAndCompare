@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='visualizes annotations')
     parser.add_argument('annotation_file', help='Path to our json Annotation file')
     parser.add_argument("-p", "--pause", default=0, type=int, help="Set number of milliseconds to pause. Use 0 to pause indefinitely")
+    parser.add_argument("-wh", "--camera_size", nargs=2, default=[960, 540], type=int, metavar=('WIDTH', 'HEIGHT'), help="Camera Image Size [width, height]")
     args = parser.parse_args()
 
     dataset = rac.datasets.Dataset.from_json(args.annotation_file)
@@ -27,7 +28,7 @@ if __name__ == '__main__':
         image =cv2.imread(img_path)
 
         viewpoint = annotation['viewpoint']
-        print '{} -a {} -e{} -t {} -d {}'.format(annotation['image_file'], viewpoint[0], viewpoint[1], viewpoint[2], viewpoint[3])
+        print '{} -a {} -e {} -t {} -d {}'.format(annotation['image_file'], viewpoint[0], viewpoint[1], viewpoint[2], viewpoint[3])
 
         assert all(i >= 0 for i in viewpoint), 'Bad viewpoint {}'.format(viewpoint)
         assert all(i < 360 for i in viewpoint[:3]), 'Bad viewpoint {}'.format(viewpoint)
@@ -39,8 +40,8 @@ if __name__ == '__main__':
         assert (image_size == bbx_crop.size()).all(), 'Image size {} and bbx_crop size {} should match'.format(image_size, bbx_crop.size())
 
 
-        camera_width = 2560
-        camera_height = 1600
+        camera_width = args.camera_size[0]
+        camera_height = args.camera_size[1]
         principal_point = np.array([camera_width/2.0, camera_height/2.0], dtype=np.float)
 
         bbx_amodal.translate(principal_point)

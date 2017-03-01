@@ -62,12 +62,17 @@ class Dataset(object):
 
 
 
-def loadPascal3Ddataset(filename, name=None):
+def load_viewpoint_and_crop_annotations(filename, name=None):
+    """Loads viewpoint, cropping pattern annotations from a text file.
+    Expects each line to have 13 fields separated by space
+    <image_filename> <viewpoint> <bbx_amodal> <bbx_crop>
+    <viewpoint>, <bbx_amodal>, and <bbx_crop> have 4 numbers each.
+    """
     assert osp.exists(filename), 'Path does not exist: {}'.format(filename)
     dataset = Dataset(filename if name==None else name)
     dataset.set_rootdir(osp.dirname(filename))
 
-    print 'Loading Pascal3Ddataset from {}'.format(filename)
+    print 'Loading annotations from {}'.format(filename)
 
     with open(filename, 'rb') as f:
         for line in f:
