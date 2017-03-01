@@ -9,6 +9,8 @@ logs/
 # Ignore some dataset_directories
 pretrained_imagenet_models
 
+coco
+
 #standard build directories
 build/
 cmake-build/
