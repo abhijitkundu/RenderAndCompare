@@ -8,7 +8,7 @@ layer {
     module: "RenderAndCompare.datasets"
     layer: "ViewpoinPredictionDataLayer"
     # a lot of the params are default so we don't need to always specify all args like below
-    param_str: "-b 100 -a 24 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
+    param_str: "-b 40 -a 24 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
   }
 }
 
