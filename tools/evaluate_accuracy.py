@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     print 'Loading dataset from {}'.format(args.dataset)
     dataset = rac.datasets.Dataset.from_json(args.dataset)
-    print 'Loaded {} annotations from {}'.format(dataset.num_of_annotations(), args.dataset)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
     # init caffe
     caffe.set_mode_gpu()

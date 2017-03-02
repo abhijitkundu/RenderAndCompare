@@ -13,6 +13,7 @@ class Dataset(object):
             self.data['annotations'] = []
         else:
             self.data = data
+            assert osp.exists(self.data['rootdir']), 'Root dir does not exist: {}'.format(self.data['rootdir'])
         
         
     def data(self):
