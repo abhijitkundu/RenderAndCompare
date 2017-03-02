@@ -2,11 +2,11 @@ import os.path as osp
 import pandas as pd
 from shutil import copyfile
 
-voc_root_dir = '/media/Scratchspace/PascalVOC-Datasets/VOCdevkit2012/VOC2012'
+voc_root_dir = '/media/Scratchspace/PascalVOC-Datasets/VOCdevkit2007/VOC2007'
 voc_images_dir = osp.join(voc_root_dir, 'JPEGImages')
 image_set_file = osp.join(voc_root_dir, 'ImageSets', 'Main', 'car_train.txt')
 
-df = pd.read_csv(image_set_file, delim_whitespace=True, names = ['image_name', 'presence'], header=None)
+df = pd.read_csv(image_set_file, delim_whitespace=True, names = ['image_name', 'presence'], dtype={'image_name': object, 'presence': int}, header=None)
 car_images = df.loc[df['presence'] >= 0]
 car_image_names = car_images['image_name'].tolist()
 

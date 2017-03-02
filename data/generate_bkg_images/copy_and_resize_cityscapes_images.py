@@ -3,9 +3,9 @@ import glob
 import cv2
 from progressbar import ProgressBar, Percentage, Bar
 
-images_dir = '/media/Scratchspace/Cityscapes-Dataset/leftImg8bit/train'
+images_dir = '/media/Scratchspace/Cityscapes-Dataset/leftImg8bit/val'
 glob_pattern = images_dir + '/*/*.png'
-out_dir = '/media/Scratchspace/BackGroundImages/cityscapes_train_resized'
+out_dir = '/media/Scratchspace/BackGroundImages/cityscapes_val_resized'
 
 filelist = glob.glob(glob_pattern)
 pbar = ProgressBar(widgets=[Percentage(), Bar()], maxval=len(filelist)).start()
