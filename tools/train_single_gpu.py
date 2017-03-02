@@ -3,20 +3,20 @@
 Trains a model using one GPU.
 """
 import _init_paths
+import RenderAndCompare as rac
 import caffe
 import os.path as osp
 import warnings
 
 
-def train(solver_proto, initialization, gpu_id):
+def train(solver_proto, dataset, initialization, gpu_id):
     caffe.set_mode_gpu()
     caffe.set_device(gpu_id)
 
     solver = caffe.get_solver(solver_proto)
 
     if initialization is not None:
-        assert osp.exists(
-            initialization), 'Path to weights/solverstate does not exist: {}'.format(initialization)
+        assert osp.exists(initialization), 'Path to weights/solverstate does not exist: {}'.format(initialization)
         if initialization.endswith('.solverstate'):
             print 'Restoring solverstate from {}'.format(initialization)
             solver.restore(initialization)
@@ -30,6 +30,8 @@ def train(solver_proto, initialization, gpu_id):
         warnings.warn(
             "Warning: No initialization provided. Training from scratch.")
 
+    solver.net.layers[0].set_dataset(dataset)
+
     # train according to solver params
     solver.solve()
 
@@ -39,10 +41,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--solver", required=True, help="Solver solver_proto definition.")
+    parser.add_argument("--dataset", required=True, help="Path to RenderAndCompare JSON dataset files")
     parser.add_argument("--init", help="Initialization weights or Solver state to restore from")
     parser.add_argument("--gpu", type=int, default=0, help="Gpu Id.")
     args = parser.parse_args()
 
-    # print args.init
+    print 'Loading dataset from {}'.format(args.dataset)
+    dataset = rac.datasets.Dataset.from_json(args.dataset)
+    print 'Loaded {} annotations from {}'.format(dataset.num_of_annotations(), args.dataset)
 
-    train(args.solver, args.init, args.gpu)
+    train(args.solver, dataset, args.init, args.gpu)
