@@ -1,0 +1,12 @@
+name: "resnet50_aet48"
+layer {
+  name: "data"
+  type: "Python"
+  top: "data"
+  top: "label"
+  python_param {
+    module: "RenderAndCompare.datasets"
+    layer: "DataLayer"
+    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
+  }
+}
