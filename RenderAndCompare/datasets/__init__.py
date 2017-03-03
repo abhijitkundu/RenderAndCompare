@@ -1,4 +1,5 @@
-__all__ = ['annotation_parser', 'image_loaders', 'viewpoint_pred_layers']
-from annotation_parser import *
+__all__ = ['datasets', 'annotation_loaders', 'image_loaders', 'viewpoint_pred_layers']
+from datasets import *
+from annotation_loaders import *
 from image_loaders import *
 from viewpoint_pred_layers import *
