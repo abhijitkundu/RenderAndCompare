@@ -126,3 +126,42 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
         image = image.transpose(1, 2, 0)
         image = image[:, :, ::-1]  # change to RGB
         return np.uint8(image)
+
+
+
+
+
+class LabelToViewPoint(caffe.Layer):
+    """
+    Converts a blob of label data into continious viewpoint
+    """
+    def parse_param_str(self, param_str):
+        parser = argparse.ArgumentParser(description='View Prediction LabelToViewPoint Layer')
+        parser.add_argument("-b", "--bins", default=24, type=int, help="Number of bins")
+        params = parser.parse_args(param_str.split())
+
+        print "------------- ViewpoinPredictionDataLayer Config ------------------"
+        for arg in vars(params):
+            print "\t{} \t= {}".format(arg, getattr(params, arg))
+        print "------------------------------------------------------------"
+
+        return params
+
+    def setup(self, bottom, top):
+        assert len(bottom) == 1, 'requires a single layer.bottom'
+        assert len(top) == 1, 'requires a single layer.top'
+
+        # params is expected as argparse style string
+        params = self.parse_param_str(self.param_str)
+        self.degrees_per_bin = 360.0 / params.bins
+
+    def reshape(self, bottom, top):
+        # Copy shape from bottom
+        top[0].reshape(*bottom[0].data.shape)
+
+    def forward(self, bottom, top):
+        top[0].data[...] = self.degrees_per_bin  * bottom[0].data + self.degrees_per_bin / 2.0
+    
+    def backward(self, bottom, top):
+        pass
+

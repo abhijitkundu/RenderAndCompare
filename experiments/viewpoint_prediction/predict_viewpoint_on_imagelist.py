@@ -3,6 +3,7 @@
 import sys
 import os.path as osp
 import numpy as np
+import time
 
 root_dir = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 sys.path.insert(0, root_dir)
@@ -30,19 +31,13 @@ if __name__ == '__main__':
 
     print 'Predicting viewpoint for {} images'.format(num_of_images)
 
-    predictions = rac.prediction.get_predictions_on_image_files(img_files, args.net, args.weights, ['azimuth24_prob'], args.mean_bgr, args.gpu)
+    t0 = time.time()
+    predictions = rac.prediction.get_predictions_on_image_files(img_files, args.net, args.weights, ['azimuth_pred'], args.mean_bgr, args.gpu)
+    t1 = time.time()
+    total = t1-t0
+    print 'Took {} seconds'.format(total)
 
-
-    azimuth_labels = np.argmax(predictions['azimuth24_prob'], axis=1)
-    azimuth_bins = predictions['azimuth24_prob'].shape[1]
-
-    assert azimuth_bins == 24
-    assert azimuth_labels.shape[0] == num_of_images
-
-    degrees_per_bin = (360 / azimuth_bins)
-    azimuths = azimuth_labels * degrees_per_bin + degrees_per_bin / 2.0
-
-    print ('azimuth_labels = ', azimuth_labels)
+    azimuths = np.squeeze(predictions['azimuth_pred'])
     print ('azimuths = ', azimuths)
 
     # OUTPUT: apred epred tpred

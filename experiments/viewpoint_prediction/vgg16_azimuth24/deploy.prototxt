@@ -451,8 +451,21 @@ layer {
   }
 }
 layer {
-  name: "azimuth24_prob"
-  type: "Softmax"
+  name:"azimuth24_pred_label"
+  type: "ArgMax"
   bottom: "fc8_azimuth24"
-  top: "azimuth24_prob"
+  top: "azimuth24_pred_label"
+}
+
+
+layer {
+  name: "azimuth_pred"
+  type: "Python"
+  bottom: "azimuth24_pred_label"
+  top: "azimuth_pred"
+  python_param {
+    module: "RenderAndCompare.datasets"
+    layer: "LabelToViewPoint"
+    param_str: "-b 24"
+  }
 }
