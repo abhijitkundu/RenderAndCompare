@@ -9,7 +9,7 @@ import os.path as osp
 import warnings
 
 
-def train(solver_proto, dataset, initialization, gpu_id):
+def train(solver_proto, datasets, initialization, gpu_id):
     caffe.set_mode_gpu()
     caffe.set_device(gpu_id)
 
@@ -30,7 +30,9 @@ def train(solver_proto, dataset, initialization, gpu_id):
         warnings.warn(
             "Warning: No initialization provided. Training from scratch.")
 
-    solver.net.layers[0].set_dataset(dataset)
+    for dataset in datasets:
+        solver.net.layers[0].add_dataset(dataset)
+    solver.net.layers[0].generate_datum_ids()
 
     # train according to solver params
     solver.solve()
@@ -40,14 +42,17 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--solver", required=True, help="Solver solver_proto definition.")
-    parser.add_argument("--dataset", required=True, help="Path to RenderAndCompare JSON dataset files")
-    parser.add_argument("--init", help="Initialization weights or Solver state to restore from")
-    parser.add_argument("--gpu", type=int, default=0, help="Gpu Id.")
+    parser.add_argument("datasets", nargs='+', help="Path to RenderAndCompare JSON dataset files")
+    parser.add_argument("-s", "--solver", required=True, help="Solver solver_proto definition.")
+    parser.add_argument("-i", "--init", help="Initialization weights or Solver state to restore from")
+    parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
     args = parser.parse_args()
 
-    print 'Loading dataset from {}'.format(args.dataset)
-    dataset = rac.datasets.Dataset.from_json(args.dataset)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+    datasets = []
+    for dataset_path in args.datasets:
+        print 'Loading dataset from {}'.format(dataset_path)
+        dataset = rac.datasets.Dataset.from_json(dataset_path)
+        datasets.append(dataset)
+        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
-    train(args.solver, dataset, args.init, args.gpu)
+    train(args.solver, datasets, args.init, args.gpu)

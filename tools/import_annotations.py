@@ -12,7 +12,6 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--rootdir", help="Specify rootdir for the dataset")
     args = parser.parse_args()
 
-
     dataset = rac.datasets.load_viewpoint_and_crop_annotations(args.annotation_file)
 
     if args.rootdir is not None:
@@ -20,5 +19,3 @@ if __name__ == '__main__':
         dataset.set_rootdir(abs_rootdir_path)
 
     dataset.write_data_to_json(args.outfile)
-
-

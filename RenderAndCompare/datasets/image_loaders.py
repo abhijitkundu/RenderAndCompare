@@ -15,8 +15,7 @@ class LazyImageLoader(object):
 
     def __getitem__(self, index):
         image = cv2.imread(self.image_files[index])
-        image = cv2.resize(image, (self.im_size[0], self.im_size[
-                           1]), interpolation=cv2.INTER_LINEAR)
+        image = cv2.resize(image, (self.im_size[0], self.im_size[1]), interpolation=cv2.INTER_LINEAR)
         # move image channels to outermost dimension
         image = image.transpose((2, 0, 1))
         return image.astype(np.float32)
@@ -31,19 +30,21 @@ class BatchImageLoader(object):
     which can be fit to memory, this class ensures no disk IO except at the initialization.
     """
 
-    def __init__(self, image_files, im_size):
-        print "BatchImageLoader: Preloading {} images".format(len(image_files))
-
-        # TODO Fill the preloaded_images in parallel
+    def __init__(self, im_size, image_files=None):
+        self.im_size = im_size
         self.preloaded_images = []
+        if image_files is not None:
+            self.preloaded_images(image_files)
+
+    def preload_images(self, image_files):
+        # TODO Fill the preloaded_images in parallel
+        print "BatchImageLoader: Preloading {} images".format(len(image_files))
         for i in xrange(len(image_files)):
             image = cv2.imread(image_files[i])
-            image = cv2.resize(image, (im_size[0], im_size[
-                               1]), interpolation=cv2.INTER_LINEAR)
+            image = cv2.resize(image, (self.im_size[0], self.im_size[1]), interpolation=cv2.INTER_LINEAR)
             # move image channels to outermost dimension
             image = image.transpose((2, 0, 1))
             self.preloaded_images.append(image)
-
         print "BatchImageLoader initialized with {} images".format(len(self.preloaded_images))
 
     def __getitem__(self, index):
