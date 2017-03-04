@@ -10,22 +10,44 @@ layer {
   python_param {
     module: "RenderAndCompare.datasets"
     layer: "ViewpoinPredictionDataLayer"
-    # a lot of the params are default so we don't need to always specify all args like below
     param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
   }
 }
 layer {
   name: "silence_layer"
   type: "Silence"
-  bottom: "gt_vp_elevation"
-  bottom: "gt_vp_tilt"
   bottom: "gt_vp_distance"
 }
+
 layer {
   name:"azimuth_quantizer"
   type: "Python"
   bottom: "gt_vp_azimuth"
   top: "gt_vp_azimuth_label"
+  python_param {
+    module: "RenderAndCompare.datasets"
+    layer: "QuantizeViewPoint"
+    param_str: "--num_of_bins 48"
+  }
+}
+
+layer {
+  name:"elevation_quantizer"
+  type: "Python"
+  bottom: "gt_vp_elevation"
+  top: "gt_vp_elevation_label"
+  python_param {
+    module: "RenderAndCompare.datasets"
+    layer: "QuantizeViewPoint"
+    param_str: "--num_of_bins 48"
+  }
+}
+
+layer {
+  name:"tilt_quantizer"
+  type: "Python"
+  bottom: "gt_vp_tilt"
+  top: "gt_vp_tilt_label"
   python_param {
     module: "RenderAndCompare.datasets"
     layer: "QuantizeViewPoint"
@@ -3599,16 +3621,97 @@ layer {
   }
 }
 layer {
-  name: "accuracy"
+  name: "accuracy_azimuth"
   type: "Accuracy"
   bottom: "fc_azimuth48"
   bottom: "gt_vp_azimuth_label"
-  top: "accuracy"
+  top: "accuracy_azimuth"
 }
 layer {
-  name: "loss"
+  name: "loss_azimuth"
   type: "SoftmaxWithLoss"
   bottom: "fc_azimuth48"
   bottom: "gt_vp_azimuth_label"
-  top: "loss"
+  top: "loss_azimuth"
+  loss_weight: 1
+}
+
+
+layer {
+  name: "fc_elevation48"
+  type: "InnerProduct"
+  bottom: "pool5"
+  top: "fc_elevation48"
+  param {
+    lr_mult: 2
+  }
+  param {
+    lr_mult: 4
+  }
+  inner_product_param {
+    num_output: 48
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "accuracy_elevation"
+  type: "Accuracy"
+  bottom: "fc_elevation48"
+  bottom: "gt_vp_elevation_label"
+  top: "accuracy_elevation"
+}
+layer {
+  name: "loss_elevation"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_elevation48"
+  bottom: "gt_vp_elevation_label"
+  top: "loss_elevation"
+  loss_weight: 1
+}
+
+layer {
+  name: "fc_tilt48"
+  type: "InnerProduct"
+  bottom: "pool5"
+  top: "fc_tilt48"
+  param {
+    lr_mult: 2
+  }
+  param {
+    lr_mult: 4
+  }
+  inner_product_param {
+    num_output: 48
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "accuracy_tilt"
+  type: "Accuracy"
+  bottom: "fc_tilt48"
+  bottom: "gt_vp_tilt_label"
+  top: "accuracy_tilt"
+}
+layer {
+  name: "loss_tilt"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_tilt48"
+  bottom: "gt_vp_tilt_label"
+  top: "loss_tilt"
+  loss_weight: 1
 }
