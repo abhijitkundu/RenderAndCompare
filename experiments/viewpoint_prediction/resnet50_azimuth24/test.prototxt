@@ -10,10 +10,10 @@ layer {
   python_param {
     module: "RenderAndCompare.datasets"
     layer: "ViewpoinPredictionDataLayer"
-    # a lot of the params are default so we don't need to always specify all args like below
     param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
   }
 }
+
 layer {
   name: "silence_layer"
   type: "Silence"
@@ -29,7 +29,7 @@ layer {
   python_param {
     module: "RenderAndCompare.datasets"
     layer: "QuantizeViewPoint"
-    param_str: "--num_of_bins 24"
+    param_str: "-b 24"
   }
 }
 
@@ -3604,11 +3604,4 @@ layer {
   bottom: "fc_azimuth24"
   bottom: "gt_vp_azimuth_label"
   top: "accuracy"
-}
-layer {
-  name: "loss"
-  type: "SoftmaxWithLoss"
-  bottom: "fc_azimuth24"
-  bottom: "gt_vp_azimuth_label"
-  top: "loss"
 }

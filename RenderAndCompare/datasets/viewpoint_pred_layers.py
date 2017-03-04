@@ -1,18 +1,17 @@
-import caffe
-
+from datalayer import DataLayer
+from image_loaders import BatchImageLoader
+from random import shuffle
 import numpy as np
 import os.path as osp
 import argparse
-from random import shuffle
-from image_loaders import BatchImageLoader
+import caffe
 
 
-class ViewpoinPredictionDataLayer(caffe.Layer):
+class ViewpoinPredictionDataLayer(DataLayer):
 
     def parse_param_str(self, param_str):
         parser = argparse.ArgumentParser(description='View Prediction Data Layer')
         parser.add_argument("-b", "--batch_size", default=50, type=int, help="Batch Size")
-        parser.add_argument("-a", "--azimuth_bins", default=24, type=int, help="Number of bins for azimuth")
         parser.add_argument("-wh", "--im_size", nargs=2, default=[227, 227], type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
         parser.add_argument("-m", "--mean_bgr", nargs=3, default=[104.00698793, 116.66876762, 122.67891434], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
         params = parser.parse_args(param_str.split())
@@ -25,17 +24,21 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
         return params
 
     def setup(self, bottom, top):
-        self.top_names = ['data', 'label']
+        print "Setting up ViewpoinPredictionDataLayer ..."
+        assert len(top) >= 5, 'requires atleas one data and viewpoint tops' 
 
         # params is expected as argparse style string
         self.params = self.parse_param_str(self.param_str)
 
         # ----- Reshape tops -----#
         # data_shape = B x C x H x W
-        # label_shape = B x
+        # azimuth_shape = B x
 
-        top[0].reshape(self.params.batch_size, 3, self.params.im_size[1], self.params.im_size[0])
-        top[1].reshape(self.params.batch_size,)
+        top[0].reshape(self.params.batch_size, 3, self.params.im_size[1], self.params.im_size[0])   #Image Data
+        top[1].reshape(self.params.batch_size,) # AzimuthTarget
+        top[2].reshape(self.params.batch_size,) # ElevationTarget
+        top[3].reshape(self.params.batch_size,) # TiltTarget
+        top[4].reshape(self.params.batch_size,) # distanceTarget
 
         # create mean bgr to directly operate on image data blob
         self.mean_bgr = np.array(self.params.mean_bgr).reshape(1, 3, 1, 1)
@@ -46,11 +49,8 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
         assert dataset.num_of_annotations() >= self.params.batch_size, 'Numbers of data points ({}) should be >= batch size ({})'.format(
             len(dataset.num_of_annotations()), len(self.params.batch_size))
 
-        azimuth_bins = self.params.azimuth_bins
-        degrees_per_azimuth_bin = 360 / azimuth_bins
-
         image_files = []
-        self.labels = []
+        self.viewpoints = []
 
         for i in xrange(dataset.num_of_annotations()):
             annotation = dataset.annotations()[i]
@@ -59,11 +59,7 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
             image_files.append(img_path)
 
             viewpoint = annotation['viewpoint']
-            azimuth = int(viewpoint[0])
-            azimuth_label = azimuth / degrees_per_azimuth_bin
-            assert 0 <= azimuth_label < azimuth_bins, "label (%d) >= num_classes (%d) for Image at %s" % (
-                    azimuth_label, azimuth_bins, osp.basename(img_path))
-            self.labels.append(azimuth_label)
+            self.viewpoints.append(viewpoint)
 
 
         # Create a loader to load the images.
@@ -77,14 +73,6 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
         # Shuffle from the begining if in the train phase
         if (self.phase == caffe.TRAIN):
             shuffle(self.data_ids)
-
-
-    def reshape(self, bottom, top):
-        """
-        There is no need to reshape the data, since the input is of fixed size
-        (rows and columns)
-        """
-        pass
 
     def forward(self, bottom, top):
         """
@@ -107,40 +95,30 @@ class ViewpoinPredictionDataLayer(caffe.Layer):
             # Add directly to the caffe data layer
             data_idx = self.data_ids[self.curr_data_ids_idx]
             top[0].data[i, ...] = self.image_loader[data_idx]
-            top[1].data[i, ...] = self.labels[data_idx]
+
+            viewpoint = self.viewpoints[data_idx]
+            top[1].data[i, ...] = viewpoint[0]
+            top[2].data[i, ...] = viewpoint[1]
+            top[3].data[i, ...] = viewpoint[2]
+            top[4].data[i, ...] = viewpoint[3]
 
             self.curr_data_ids_idx += 1
 
         # subtarct mean from image data blob
         top[0].data[...] -= self.mean_bgr
 
-    def backward(self, bottom, top):
-        """
-        These layers does not back propagate
-        """
-        pass
 
-    def make_rgb8_from_blob(self, blob_data):
-        assert blob_data.ndim == 3, 'expects a color image (dim: 3)'
-        image = blob_data + self.mean_bgr.reshape(3, 1, 1)
-        image = image.transpose(1, 2, 0)
-        image = image[:, :, ::-1]  # change to RGB
-        return np.uint8(image)
-
-
-
-
-
-class LabelToViewPoint(caffe.Layer):
+class QuantizeViewPoint(caffe.Layer):
     """
-    Converts a blob of label data into continious viewpoint
+    Converts continious ViewPoint measurement to quantized discrete labels
+    Note the original viewpoint is asumed to lie in [0, 360)
     """
     def parse_param_str(self, param_str):
-        parser = argparse.ArgumentParser(description='View Prediction LabelToViewPoint Layer')
-        parser.add_argument("-b", "--bins", default=24, type=int, help="Number of bins")
+        parser = argparse.ArgumentParser(description='Quantize Layer')
+        parser.add_argument("-b", "--num_of_bins", default=24, type=int, help="Number of bins")
         params = parser.parse_args(param_str.split())
 
-        print "------------- ViewpoinPredictionDataLayer Config ------------------"
+        print "------------- Quantize Layer Config ------------------"
         for arg in vars(params):
             print "\t{} \t= {}".format(arg, getattr(params, arg))
         print "------------------------------------------------------------"
@@ -153,15 +131,50 @@ class LabelToViewPoint(caffe.Layer):
 
         # params is expected as argparse style string
         params = self.parse_param_str(self.param_str)
-        self.degrees_per_bin = 360.0 / params.bins
+        self.degrees_per_bin = 360.0 / params.num_of_bins
 
     def reshape(self, bottom, top):
         # Copy shape from bottom
         top[0].reshape(*bottom[0].data.shape)
 
     def forward(self, bottom, top):
-        top[0].data[...] = self.degrees_per_bin  * bottom[0].data + self.degrees_per_bin / 2.0
+        top[0].data[...] = np.floor_divide(bottom[0].data , self.degrees_per_bin)
     
     def backward(self, bottom, top):
         pass
 
+
+class DeQuantizeViewPoint(caffe.Layer):
+    """
+    Converts quantized viewpoint labels to continious ViewPoint estimate
+    Note the input is expected to lie within [0, num_of_bins)
+    """
+    def parse_param_str(self, param_str):
+        parser = argparse.ArgumentParser(description='Quantize Layer')
+        parser.add_argument("-b", "--num_of_bins", default=24, type=int, help="Number of bins")
+        params = parser.parse_args(param_str.split())
+
+        print "------------- Quantize Layer Config ------------------"
+        for arg in vars(params):
+            print "\t{} \t= {}".format(arg, getattr(params, arg))
+        print "------------------------------------------------------------"
+
+        return params
+
+    def setup(self, bottom, top):
+        assert len(bottom) == 1, 'requires a single layer.bottom'
+        assert len(top) == 1, 'requires a single layer.top'
+
+        # params is expected as argparse style string
+        params = self.parse_param_str(self.param_str)
+        self.degrees_per_bin = 360.0 / params.num_of_bins
+
+    def reshape(self, bottom, top):
+        # Copy shape from bottom
+        top[0].reshape(*bottom[0].data.shape)
+
+    def forward(self, bottom, top):
+        top[0].data[...] = (self.degrees_per_bin  * bottom[0].data) + self.degrees_per_bin / 2.0
+    
+    def backward(self, bottom, top):
+        pass

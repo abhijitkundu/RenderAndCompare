@@ -3,14 +3,37 @@ layer {
   name: "data"
   type: "Python"
   top: "data"
-  top: "label"
+  top: "gt_vp_azimuth"
+  top: "gt_vp_elevation"
+  top: "gt_vp_tilt"
+  top: "gt_vp_distance"
   python_param {
     module: "RenderAndCompare.datasets"
     layer: "ViewpoinPredictionDataLayer"
-    # a lot of the params are default so we don't need to always specify all args like below
-    param_str: "-b 100 -a 24 -wh 224 224 -m 103.939 116.779 123.68"
+    param_str: "-b 100 -wh 224 224 -m 103.939 116.779 123.68"
   }
 }
+
+layer {
+  name: "silence_layer"
+  type: "Silence"
+  bottom: "gt_vp_elevation"
+  bottom: "gt_vp_tilt"
+  bottom: "gt_vp_distance"
+}
+
+layer {
+  name:"azimuth_quantizer"
+  type: "Python"
+  bottom: "gt_vp_azimuth"
+  top: "gt_vp_azimuth_label"
+  python_param {
+    module: "RenderAndCompare.datasets"
+    layer: "QuantizeViewPoint"
+    param_str: "-b 24"
+  }
+}
+
 layer {
   name: "conv1_1"
   type: "Convolution"
@@ -460,13 +483,13 @@ layer {
   name: "accuracy"
   type: "Accuracy"
   bottom: "fc8_azimuth24"
-  bottom: "label"
+  bottom: "gt_vp_azimuth_label"
   top: "accuracy"
 }
 layer {
   name: "loss"
   type: "SoftmaxWithLoss"
   bottom: "fc8_azimuth24"
-  bottom: "label"
+  bottom: "gt_vp_azimuth_label"
   top: "loss"
 }

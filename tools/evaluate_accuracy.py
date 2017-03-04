@@ -29,11 +29,11 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--net", required=True, help="Solver solver_proto definition.")
-    parser.add_argument("--weights", required=True, help="Initialization weights")
-    parser.add_argument("--dataset", required=True, help="Path to RenderAndCompare JSON dataset files")
-    parser.add_argument("--gpu", type=int, default=0, help="Gpu Id.")
-    parser.add_argument("--iters", type=int, default=10, help="Number of test iterations")
+    parser.add_argument("-n", "--net", required=True, help="Solver solver_proto definition.")
+    parser.add_argument("-w", "--weights", required=True, help="Initialization weights")
+    parser.add_argument("-d", "--dataset", required=True, help="Path to RenderAndCompare JSON dataset files")
+    parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
+    parser.add_argument("-i", "--iters", type=int, default=10, help="Number of test iterations")
     args = parser.parse_args()
 
     print 'Loading dataset from {}'.format(args.dataset)

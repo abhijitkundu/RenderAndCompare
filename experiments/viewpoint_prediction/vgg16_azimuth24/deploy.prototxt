@@ -465,7 +465,7 @@ layer {
   top: "azimuth_pred"
   python_param {
     module: "RenderAndCompare.datasets"
-    layer: "LabelToViewPoint"
+    layer: "DeQuantizeViewPoint"
     param_str: "-b 24"
   }
 }
