@@ -23,6 +23,7 @@ def parse_log(path_to_log):
     """
 
     regex_iteration = re.compile('Iteration (\d+)')
+    regex_iteration_loss = re.compile('loss = ([-+]?[0-9]*\.?[0-9]+([eE]?[-+]?[0-9]+)?)')
     regex_train_output = re.compile(
         'Train net output #(\d+): (\S+) = ([\.\deE+-]+)')
     regex_test_output = re.compile(
@@ -33,6 +34,7 @@ def parse_log(path_to_log):
     # Pick out lines of interest
     iteration = -1
     learning_rate = float('NaN')
+    total_loss = float('NaN')
     train_dict_list = []
     test_dict_list = []
     train_row = None
@@ -44,6 +46,9 @@ def parse_log(path_to_log):
             iteration_match = regex_iteration.search(line)
             if iteration_match:
                 iteration = float(iteration_match.group(1))
+                iteration_loss_match = regex_iteration_loss.search(line)
+                if iteration_loss_match:
+                    total_loss = float(iteration_loss_match.group(1))
             if iteration == -1:
                 # Only start parsing for other stuff if we've found the first
                 # iteration
@@ -55,11 +60,11 @@ def parse_log(path_to_log):
 
             train_dict_list, train_row = parse_line_for_net_output(
                 regex_train_output, train_row, train_dict_list,
-                line, iteration, learning_rate
+                line, iteration, total_loss, learning_rate
             )
             test_dict_list, test_row = parse_line_for_net_output(
                 regex_test_output, test_row, test_dict_list,
-                line, iteration, learning_rate
+                line, iteration, total_loss, learning_rate
             )
 
     fix_initial_nan_learning_rate(train_dict_list)
@@ -69,7 +74,7 @@ def parse_log(path_to_log):
 
 
 def parse_line_for_net_output(regex_obj, row, row_dict_list,
-                              line, iteration, learning_rate):
+                              line, iteration, total_loss, learning_rate):
     """Parse a single line for training or test output
 
     Returns a a tuple with (row_dict_list, row)
@@ -91,6 +96,7 @@ def parse_line_for_net_output(regex_obj, row, row_dict_list,
 
             row = OrderedDict([
                 ('NumIters', iteration),
+                ('TotalLoss', total_loss),
                 ('LearningRate', learning_rate)
             ])
 
@@ -140,21 +146,38 @@ def main():
         print "No training data found"
     else:
         print "Found training data with {} data points".format(len(train_df))
-        plt.plot(train_df["NumIters"], train_df["loss"], color="red", alpha=0.6, label="training_loss")
-        plt.plot(train_df["NumIters"], train_df["accuracy"], color="green", alpha=0.6, label="training_accuracy")
+        all_column_names = list(train_df.columns.values)
+        print "and column names = {}".format(all_column_names)
+
+        outputs = [e for e in all_column_names if e not in ('NumIters', 'TotalLoss', 'LearningRate')]
+
+        plt.plot(train_df['NumIters'], train_df['TotalLoss'], color="red", alpha=0.6, label="TotalLoss")
+        # plt.plot(train_df['NumIters'], train_df['LearningRate'], color="blue", alpha=0.5, label="LearningRate")
+        # plt.plot(train_df["NumIters"], train_df["accuracy"], color="green", alpha=0.6, label="training_accuracy")
         # plt.plot(train_df["NumIters"], train_df["LearningRate"], color="green", alpha=0.6, label="LearningRate")
+
+        for output in outputs:
+            plt.plot(train_df['NumIters'], train_df[output], alpha=0.5, label=output)
+
+        plt.axhline(1.0, color='b', linestyle='dashed', linewidth=2)
+        plt.xlabel('NumIters')
+        plt.legend(loc='upper right')
+        plt.title(os.path.basename(args.logfile_path) + ' Training')
+        plt.show()
 
     if test_df.empty:
         print "No testing data found"
     else:
         print "Found testing data with {} data points".format(len(test_df))
-        plt.plot(test_df["NumIters"], test_df["loss"], color="red", alpha=0.6, linestyle="--", label="testing_loss")
+        plt.plot(test_df["NumIters"], test_df["TotalLoss"], color="red", alpha=0.6, linestyle="--", label="total_testing_loss")
         plt.plot(test_df["NumIters"], test_df["accuracy"], color="green", alpha=0.6, linestyle="--", label="testing_accuracy")
 
-    plt.xlabel('NumIters')
-    plt.legend(loc='upper right')
-    plt.title(os.path.basename(args.logfile_path))
-    plt.show()
+        plt.xlabel('NumIters')
+        plt.legend(loc='upper right')
+        plt.title(os.path.basename(args.logfile_path) + ' Testing')
+        plt.show()
+
+
 
 if __name__ == '__main__':
     main()
