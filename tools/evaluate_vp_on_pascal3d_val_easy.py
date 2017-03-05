@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--dataset", default=osp.join(_init_paths.root_dir, 'data', 'pascal3D', 'pascal3d_voc2012_val_easy', 'pascal3d_voc2012_val_easy_car.json'), help="Dataset JSON file")
     parser.add_argument("-m", "--mean_bgr", nargs=3, default=[103.0626238, 115.90288257, 123.15163084], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="GPU Id.")
+    parser.add_argument("-o", "--output_file", help="textfile to save the results to")
 
     args = parser.parse_args()
 
@@ -68,5 +69,13 @@ if __name__ == '__main__':
 
     viewpoints_pred = zip(azimuths, elevations, tilts)
 
-    acc_pi_by_6, med_err_deg = rac.geometry.compute_vp_acc(viewpoints_gt, viewpoints_gt)
+    acc_pi_by_6, med_err_deg = rac.geometry.compute_vp_acc(viewpoints_gt, viewpoints_pred)
     print 'acc_pi_by_6 = {}, med_err_deg = {}'.format(acc_pi_by_6, med_err_deg)
+
+    if args.output_file is not None:
+        fout = open(args.output_file, 'w')
+        for i in range(num_of_images):
+            # OUTPUT: apred epred tpred
+            fout.write('%f %f %f\n' % (azimuths[i], elevations[i], tilts[i]))
+        fout.close()
+        print 'Results written to {}'.format(args.output_file)
