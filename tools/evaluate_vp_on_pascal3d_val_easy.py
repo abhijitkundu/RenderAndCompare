@@ -8,6 +8,7 @@ import RenderAndCompare as rac
 import numpy as np
 import os.path as osp
 import time
+import math
 
 if __name__ == '__main__':
     import argparse
@@ -69,7 +70,11 @@ if __name__ == '__main__':
 
     viewpoints_pred = zip(azimuths, elevations, tilts)
 
-    acc_pi_by_6, med_err_deg = rac.geometry.compute_vp_acc(viewpoints_gt, viewpoints_pred)
+    geodesic_errors = rac.geometry.compute_geodesic_errors(viewpoints_gt, viewpoints_pred)
+
+    acc_pi_by_6 = float((geodesic_errors < (np.pi / 6)).sum()) / num_of_images
+    med_err_deg = math.degrees(np.median(geodesic_errors))
+
     print 'acc_pi_by_6 = {}, med_err_deg = {}'.format(acc_pi_by_6, med_err_deg)
 
     if args.output_file is not None:

@@ -57,7 +57,7 @@ def viewpoint2dcm(viewpoint):
     return anglesTodcm(theta)
 
 
-def compute_vp_acc(gt_vps, pred_vps):
+def compute_geodesic_errors(gt_vps, pred_vps):
     assert len(gt_vps) == len(pred_vps)
     num_of_data_points = len(gt_vps)
     geodesic_errors = np.zeros(num_of_data_points)
@@ -65,8 +65,4 @@ def compute_vp_acc(gt_vps, pred_vps):
         R_gt = viewpoint2dcm(gt_vps[i])
         R_pred = viewpoint2dcm(pred_vps[i])
         geodesic_errors[i] = norm(logm(np.transpose(R_pred).dot(R_gt)), 2) / math.sqrt(2)
-
-    thresh_angle = np.pi / 6.0
-    acc_pi_by_6 = float((geodesic_errors < thresh_angle).sum()) / num_of_data_points
-    med_err_deg = math.degrees(np.median(geodesic_errors))
-    return acc_pi_by_6, med_err_deg
+    return geodesic_errors
