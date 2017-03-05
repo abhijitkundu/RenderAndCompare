@@ -5,6 +5,7 @@ import os.path as osp
 
 from RenderAndCompare.datasets import BatchImageLoader
 
+
 def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
     assert osp.exists(net), 'Path to test net prototxt does not exist: {}'.format(net)
     assert osp.exists(weights), 'Path to weights file does not exist: {}'.format(weights)
@@ -23,9 +24,9 @@ def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
     assert data_blob_shape[1] == 3, 'Expects 2nd channel to be 3 for BGR image'
 
     batch_size = data_blob_shape[0]
-    im_size = [data_blob_shape[3], data_blob_shape[2]] # caffe blob are (b,c,h,w)
+    im_size = [data_blob_shape[3], data_blob_shape[2]]  # caffe blob are (b,c,h,w)
 
-    image_loader = BatchImageLoader(img_files, im_size)
+    image_loader = BatchImageLoader(im_size, img_files)
 
     predictions = {}
     for key in keys:
@@ -35,18 +36,16 @@ def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
         pred_shape[0] = num_of_images
         predictions[key] = np.zeros(tuple(pred_shape))
 
-
     mean_bgr = np.array(mean).reshape(1, 3, 1, 1)
 
-    num_of_batches = int(math.ceil(num_of_images/float(batch_size)))
+    num_of_batches = int(math.ceil(num_of_images / float(batch_size)))
     for b in xrange(num_of_batches):
         start_idx = batch_size * b
-        end_idx = min(batch_size * (b+1), num_of_images)
+        end_idx = min(batch_size * (b + 1), num_of_images)
         print 'Working on batch: %d/%d (Image# %d - %d)' % (b, num_of_batches, start_idx, end_idx)
 
-
         for i in xrange(start_idx, end_idx):
-            net.blobs['data'].data[i-start_idx, ...] = image_loader[i]
+            net.blobs['data'].data[i - start_idx, ...] = image_loader[i]
 
         # subtarct mean from image data blob
         net.blobs['data'].data[...] -= mean_bgr
@@ -54,9 +53,6 @@ def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
         output = net.forward()
 
         for key in keys:
-            predictions[key][start_idx:end_idx, :] = output[key][0:end_idx-start_idx, :]
+            predictions[key][start_idx:end_idx, :] = output[key][0:end_idx - start_idx, :]
 
     return predictions
-
-
-

@@ -8,9 +8,11 @@ class LazyImageLoader(object):
     Does not hold any image data.
     """
 
-    def __init__(self, image_files, im_size):
-        self.image_files = image_files
+    def __init__(self, im_size, image_files):
+        assert len(im_size) == 2, 'Expects a int list/tuple of lenght 2 as im_size'
+        assert all(isinstance(n, int) for n in im_size), 'Expects im_size to be in int'
         self.im_size = im_size
+        self.image_files = image_files
         print "LazyImageLoader initialized with {} images".format(len(self.image_files))
 
     def __getitem__(self, index):
@@ -31,21 +33,24 @@ class BatchImageLoader(object):
     """
 
     def __init__(self, im_size, image_files=None):
+        assert len(im_size) == 2, 'Expects a int list/tuple of lenght 2 as im_size'
+        assert all(isinstance(n, int) for n in im_size), 'Expects im_size to be in int'
         self.im_size = im_size
         self.preloaded_images = []
         if image_files is not None:
-            self.preloaded_images(image_files)
+            self.preload_images(image_files)
+        print "BatchImageLoader initialized with {:,} images".format(len(self.preloaded_images))
 
     def preload_images(self, image_files):
         # TODO Fill the preloaded_images in parallel
-        print "BatchImageLoader: Preloading {} images".format(len(image_files))
+        print "BatchImageLoader: Preloading {:,} images".format(len(image_files))
         for i in xrange(len(image_files)):
             image = cv2.imread(image_files[i])
             image = cv2.resize(image, (self.im_size[0], self.im_size[1]), interpolation=cv2.INTER_LINEAR)
             # move image channels to outermost dimension
             image = image.transpose((2, 0, 1))
             self.preloaded_images.append(image)
-        print "BatchImageLoader initialized with {} images".format(len(self.preloaded_images))
+        print "BatchImageLoader now has {:,} images".format(len(self.preloaded_images))
 
     def __getitem__(self, index):
         return self.preloaded_images[index].astype(np.float32)
