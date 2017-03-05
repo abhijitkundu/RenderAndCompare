@@ -2,8 +2,9 @@ import os.path as osp
 from collections import OrderedDict
 import json
 
+
 class Dataset(object):
-    def __init__(self, name = 'RenderAndCompareDataset', data=None):
+    def __init__(self, name='RenderAndCompareDataset', data=None):
         if data is None:
             self.data = OrderedDict()
             self.data['name'] = name
@@ -13,29 +14,28 @@ class Dataset(object):
         else:
             self.data = data
             assert osp.exists(self.data['rootdir']), 'Root dir does not exist: {}'.format(self.data['rootdir'])
-        
-        
+
     def data(self):
         return self.data
-    
+
     def name(self):
         return self.data['name']
-    
+
     def rootdir(self):
         return self.data['rootdir']
-    
+
     def annotations(self):
         return self.data['annotations']
 
     def num_of_annotations(self):
         return len(self.data['annotations'])
-    
+
     def set_name(self, new_name):
         self.data['name'] = new_name
-    
+
     def set_rootdir(self, rootdir):
         self.data['rootdir'] = rootdir
-    
+
     def add_annotation(self, annotation):
         self.data['annotations'].append(annotation)
 
