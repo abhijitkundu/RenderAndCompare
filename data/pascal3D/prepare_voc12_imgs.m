@@ -6,7 +6,8 @@ function prepare_voc12_imgs(pascal_root_dir, img_set, output_img_dir, cls_name, 
 %   img_set: 'train' or 'val'
 %   output_img_dir: output folder names, final structure is <output_img_dir>/<category>/<imgs>
 %   cls_names: cell array of category names
-%   opts: matlab struct with flip, aug_n, jitter_IoU, difficult, truncated, occluded fields
+%   opts: matlab struct with flip, aug_n, jitter_IoU, difficult, truncated,
+%   occluded, and min_size fields
 %       if flip is 1, images will be flipped.
 %       if ang_n>1, images will be augmented by jittering bbox. jitter_IoU==1 means normal crop
 %       difficult, truncated, occluded \in {0,1}, where 0 indicated that we do not
@@ -96,7 +97,7 @@ for i = 1:M
              % too small
             w = gt_crop_bbx(3) + 1;
             h = gt_crop_bbx(4) + 1;
-            if w < 14 || h < 14
+            if w < opts.min_size || h < opts.min_size
                 fprintf('Tiny Image skip %s...\n', ids{i});
                 continue;
             end
