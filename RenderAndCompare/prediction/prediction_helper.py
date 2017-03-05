@@ -6,7 +6,7 @@ import os.path as osp
 from RenderAndCompare.datasets import BatchImageLoader
 
 
-def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
+def get_predictions_on_image_files(img_files, net, weights, requested_keys, mean, gpu_id):
     assert osp.exists(net), 'Path to test net prototxt does not exist: {}'.format(net)
     assert osp.exists(weights), 'Path to weights file does not exist: {}'.format(weights)
     assert len(mean) == 3, 'Expects mean as list of 3 numbers ([B, G, R])'
@@ -29,12 +29,15 @@ def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
     image_loader = BatchImageLoader(im_size, img_files)
 
     predictions = {}
-    for key in keys:
-        blob_shape = net.blobs[key].data.shape
-        assert blob_shape[0] == batch_size, 'Expects 1st channel to be batch_size'
-        pred_shape = list(blob_shape)
-        pred_shape[0] = num_of_images
-        predictions[key] = np.zeros(tuple(pred_shape))
+    for key in requested_keys:
+        if key in net.blobs:
+            blob_shape = net.blobs[key].data.shape
+            assert blob_shape[0] == batch_size, 'Expects 1st channel to be batch_size'
+            pred_shape = list(blob_shape)
+            pred_shape[0] = num_of_images
+            predictions[key] = np.zeros(tuple(pred_shape))
+        else:
+            print 'Requested key {} not available in network'.format(key)
 
     mean_bgr = np.array(mean).reshape(1, 3, 1, 1)
 
@@ -52,7 +55,7 @@ def get_predictions_on_image_files(img_files, net, weights, keys, mean, gpu_id):
 
         output = net.forward()
 
-        for key in keys:
+        for key in predictions:
             predictions[key][start_idx:end_idx, :] = output[key][0:end_idx - start_idx, :]
 
     return predictions
