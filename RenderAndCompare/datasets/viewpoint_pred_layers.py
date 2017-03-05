@@ -52,7 +52,7 @@ class ViewpoinPredictionDataLayer(DataLayer):
         print 'ViewpoinPredictionDataLayer has been setup.'
 
     def add_dataset(self, dataset):
-        print 'Adding data from {} datatset'.format(dataset.name())
+        print '---- Adding data from {} datatset -----'.format(dataset.name())
 
         image_files = []
         for i in xrange(dataset.num_of_annotations()):
@@ -64,8 +64,7 @@ class ViewpoinPredictionDataLayer(DataLayer):
             self.viewpoints.append(viewpoint)
 
         self.image_loader.preload_images(image_files)
-
-        print "------------------------------------------------------------"
+        print "--------------------------------------------------------------------"
 
     def generate_datum_ids(self):
         num_of_data_points = len(self.viewpoints)
@@ -78,7 +77,7 @@ class ViewpoinPredictionDataLayer(DataLayer):
         if (self.phase == caffe.TRAIN):
             shuffle(self.data_ids)
 
-        assert num_of_data_points >= self.params.batch_size, 'Numbers of data points ({}) should be >= batch size ({})'.format(num_of_data_points, self.params.batch_size)
+        print 'Total number of data points (annotations) = {:,}'.format(num_of_data_points)
 
     def forward(self, bottom, top):
         """
