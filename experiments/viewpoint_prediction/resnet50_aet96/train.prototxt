@@ -3598,10 +3598,10 @@ layer {
 #-------------- Loss/Output Layers -------------#
 
 layer {
-  name: "fc_azimuth48"
+  name: "fc_azimuth96"
   type: "InnerProduct"
   bottom: "pool5"
-  top: "fc_azimuth48"
+  top: "fc_azimuth96"
   param {
     lr_mult: 2
   }
@@ -3623,14 +3623,14 @@ layer {
 layer {
   name: "accuracy_azimuth"
   type: "Accuracy"
-  bottom: "fc_azimuth48"
+  bottom: "fc_azimuth96"
   bottom: "gt_vp_azimuth_label"
   top: "accuracy_azimuth"
 }
 layer {
   name: "loss_azimuth"
   type: "SoftmaxWithLoss"
-  bottom: "fc_azimuth48"
+  bottom: "fc_azimuth96"
   bottom: "gt_vp_azimuth_label"
   top: "loss_azimuth"
   loss_weight: 1
@@ -3638,10 +3638,10 @@ layer {
 
 
 layer {
-  name: "fc_elevation48"
+  name: "fc_elevation96"
   type: "InnerProduct"
   bottom: "pool5"
-  top: "fc_elevation48"
+  top: "fc_elevation96"
   param {
     lr_mult: 2
   }
@@ -3663,24 +3663,24 @@ layer {
 layer {
   name: "accuracy_elevation"
   type: "Accuracy"
-  bottom: "fc_elevation48"
+  bottom: "fc_elevation96"
   bottom: "gt_vp_elevation_label"
   top: "accuracy_elevation"
 }
 layer {
   name: "loss_elevation"
   type: "SoftmaxWithLoss"
-  bottom: "fc_elevation48"
+  bottom: "fc_elevation96"
   bottom: "gt_vp_elevation_label"
   top: "loss_elevation"
   loss_weight: 1
 }
 
 layer {
-  name: "fc_tilt48"
+  name: "fc_tilt96"
   type: "InnerProduct"
   bottom: "pool5"
-  top: "fc_tilt48"
+  top: "fc_tilt96"
   param {
     lr_mult: 2
   }
@@ -3703,14 +3703,14 @@ layer {
 layer {
   name: "accuracy_tilt"
   type: "Accuracy"
-  bottom: "fc_tilt48"
+  bottom: "fc_tilt96"
   bottom: "gt_vp_tilt_label"
   top: "accuracy_tilt"
 }
 layer {
   name: "loss_tilt"
   type: "SoftmaxWithLoss"
-  bottom: "fc_tilt48"
+  bottom: "fc_tilt96"
   bottom: "gt_vp_tilt_label"
   top: "loss_tilt"
   loss_weight: 1
