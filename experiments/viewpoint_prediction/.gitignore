@@ -1,2 +1,3 @@
 # Ignore txt files containing results
 *.txt
+*.mat
