@@ -3,30 +3,7 @@ from scipy.linalg import logm, norm
 import math
 
 
-# Calculates Rotation Matrix given euler angles (Rx Ry Rz)
-def eulerAnglesToRotationMatrix(theta):
-
-    R_x = np.array([[1, 0, 0],
-                    [0, math.cos(theta[0]), -math.sin(theta[0])],
-                    [0, math.sin(theta[0]), math.cos(theta[0])]
-                    ])
-
-    R_y = np.array([[math.cos(theta[1]), 0, math.sin(theta[1])],
-                    [0, 1, 0],
-                    [-math.sin(theta[1]), 0, math.cos(theta[1])]
-                    ])
-
-    R_z = np.array([[math.cos(theta[2]), -math.sin(theta[2]), 0],
-                    [math.sin(theta[2]), math.cos(theta[2]), 0],
-                    [0, 0, 1]
-                    ])
-
-    R = np.dot(R_x, np.dot(R_y, R_z))
-
-    return R
-
-
-def anglesTodcm(theta):
+def anglesTodcmZYX(theta):
     dcm = np.zeros((3, 3))
 
     cang = [math.cos(x) for x in theta]
@@ -45,16 +22,43 @@ def anglesTodcm(theta):
     return dcm
 
 
-def viewpoint2rotation(viewpoint):
-    assert len(viewpoint) == 2, 'Expects viewpoint to be 3 dimensional tuple/list'
-    theta = [math.radians(x) for x in viewpoint]
-    return eulerAnglesToRotationMatrix(theta)
+def anglesTodcmZXZ(theta):
+    dcm = np.zeros((3, 3))
+
+    cang = [math.cos(x) for x in theta]
+    sang = [math.sin(x) for x in theta]
+
+    dcm[0, 0] = -sang[0] * cang[1] * sang[2] + cang[0] * cang[2]
+    dcm[0, 1] = cang[0] * cang[1] * sang[2] + sang[0] * cang[2]
+    dcm[0, 2] = sang[1] * sang[2]
+    dcm[1, 0] = -sang[0] * cang[2] * cang[1] - cang[0] * sang[2]
+    dcm[1, 1] = cang[0] * cang[2] * cang[1] - sang[0] * sang[2]
+    dcm[1, 2] = sang[1] * cang[2]
+    dcm[2, 0] = sang[0] * sang[1]
+    dcm[2, 1] = -cang[0] * sang[1]
+    dcm[2, 2] = cang[1]
+
+    return dcm
 
 
 def viewpoint2dcm(viewpoint):
     assert len(viewpoint) == 3, 'Expects viewpoint to be 3 dimensional tuple/list'
     theta = [math.radians(x) for x in viewpoint]
-    return anglesTodcm(theta)
+    return anglesTodcmZYX(theta)
+
+
+def angle_error_render4cnn(gt_vp, pred_vp):
+    R_gt = viewpoint2dcm(gt_vp)
+    R_pred = viewpoint2dcm(pred_vp)
+    return norm(logm(np.transpose(R_pred).dot(R_gt)), 2) / math.sqrt(2)
+
+
+def angle_error_vpkp(gt_vp, pred_vp):
+    theta_gt = [math.radians(x) for x in gt_vp]
+    theta_pred = [math.radians(x) for x in pred_vp]
+    R_gt = anglesTodcmZXZ([theta_gt[0], theta_gt[1] - np.pi / 2.0, -theta_gt[2]])
+    R_pred = anglesTodcmZXZ([theta_pred[0], theta_pred[1] - np.pi / 2.0, -theta_pred[2]])
+    return norm(logm(R_gt.dot(np.transpose(R_pred))), ord='fro') / math.sqrt(2)
 
 
 def compute_geodesic_errors(gt_vps, pred_vps):
@@ -62,7 +66,5 @@ def compute_geodesic_errors(gt_vps, pred_vps):
     num_of_data_points = len(gt_vps)
     geodesic_errors = np.zeros(num_of_data_points)
     for i in xrange(num_of_data_points):
-        R_gt = viewpoint2dcm(gt_vps[i])
-        R_pred = viewpoint2dcm(pred_vps[i])
-        geodesic_errors[i] = norm(logm(np.transpose(R_pred).dot(R_gt)), 2) / math.sqrt(2)
+        geodesic_errors[i] = angle_error_render4cnn(gt_vps[i], pred_vps[i])
     return geodesic_errors
