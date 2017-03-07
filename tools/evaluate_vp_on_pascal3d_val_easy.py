@@ -73,9 +73,12 @@ if __name__ == '__main__':
     geodesic_errors = rac.geometry.compute_geodesic_errors(viewpoints_gt, viewpoints_pred)
 
     acc_pi_by_6 = float((geodesic_errors < (np.pi / 6)).sum()) / num_of_images
+    acc_pi_by_12 = float((geodesic_errors < (np.pi / 12)).sum()) / num_of_images
+    acc_pi_by_24 = float((geodesic_errors < (np.pi / 24)).sum()) / num_of_images
+
     med_err_deg = math.degrees(np.median(geodesic_errors))
 
-    print 'acc_pi_by_6 = {}, med_err_deg = {}'.format(acc_pi_by_6, med_err_deg)
+    print 'med_err_deg= {}, acc_pi_by_6= {}, acc_pi_by_12= {}, acc_pi_by_24= {}'.format(med_err_deg, acc_pi_by_6, acc_pi_by_12, acc_pi_by_24)
 
     if args.output_file is not None:
         fout = open(args.output_file, 'w')
