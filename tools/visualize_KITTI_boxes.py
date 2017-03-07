@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+import _init_paths
 import cv2
 import numpy as np
 import os.path as osp
@@ -49,24 +52,32 @@ def compute3Dbbox(object):
                   [0, 1, 0],
                   [-s, 0, c]])
 
-    l = object['dimension'][2]
-    w = object['dimension'][1]
-    h = object['dimension'][0]
+    W = object['dimension'][1]
+    H = object['dimension'][0]
+    L = object['dimension'][2]
 
-    x_corners = np.array([l / 2, l / 2, -l / 2, -l / 2, l / 2, l / 2, -l / 2, -l / 2])
-    y_corners = np.array([0, 0, 0, 0, -h, -h, -h, -h])
-    z_corners = np.array([w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2])
+    x_corners = np.array([L / 2, L / 2, -L / 2, -L / 2, L / 2, L / 2, -L / 2, -L / 2])
+    y_corners = np.array([0, 0, 0, 0, -H, -H, -H, -H])
+    z_corners = np.array([W / 2, -W / 2, -W / 2, W / 2, W / 2, -W / 2, -W / 2, W / 2])
 
     corners3D = R.dot(np.vstack((x_corners, y_corners, z_corners)))
     corners3D = corners3D + np.array(object['location']).reshape((3, 1))
     return corners3D
 
 
-KITTI_OBJECT_DIR = '/media/Scratchspace/KITTI-Object'
+kitti_object_dir = osp.join(_init_paths.root_dir, 'data', 'kitti', 'KITTI-Object')
+assert osp.exists(kitti_object_dir), 'KITTI Object dir "{}" soes not exist'.format(kitti_object_dir)
 
-label_dir = osp.join(KITTI_OBJECT_DIR, 'training', 'label_2')
-image_dir = osp.join(KITTI_OBJECT_DIR, 'training', 'image_2')
-calib_dir = osp.join(KITTI_OBJECT_DIR, 'training', 'calib')
+label_dir = osp.join(kitti_object_dir, 'training', 'label_2')
+image_dir = osp.join(kitti_object_dir, 'training', 'image_2')
+calib_dir = osp.join(kitti_object_dir, 'training', 'calib')
+
+
+assert osp.exists(label_dir)
+assert osp.exists(image_dir)
+assert osp.exists(calib_dir)
+
+
 # num_of_images = 7481
 num_of_images = 7481
 
