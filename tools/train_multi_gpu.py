@@ -8,6 +8,7 @@ import caffe
 import os.path as osp
 import warnings
 
+
 def train(
         solver,  # solver proto definition
         initialization,  # weights or solver snapshot to restore from

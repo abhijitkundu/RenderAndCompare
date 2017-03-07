@@ -4,10 +4,12 @@ import numpy as np
 import os.path as osp
 import argparse
 
+
 class DataLayer(caffe.Layer):
     """
     Generic Data layer for caffe
     """
+
     def parse_param_str(self, param_str):
         """
         parse the param string passed from prtotxt file. Reimplement this if rerquired.
@@ -54,7 +56,6 @@ class DataLayer(caffe.Layer):
         """
         pass
 
-
     def backward(self, bottom, top):
         """
         These layers does not back propagate
@@ -70,4 +71,3 @@ class DataLayer(caffe.Layer):
         image = image.transpose(1, 2, 0)
         image = image[:, :, ::-1]  # change to RGB
         return np.uint8(image)
-        

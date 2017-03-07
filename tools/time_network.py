@@ -7,6 +7,7 @@ import RenderAndCompare as rac
 import caffe
 import os.path as osp
 
+
 def time(net):
     fprop = []
     bprop = []
@@ -26,7 +27,6 @@ def time(net):
         s += 'solver total: %.2f\n' % total.ms
         caffe.log(s)
 
-    
     net.before_forward(lambda layer: fprop[layer].start())
     net.after_forward(lambda layer: fprop[layer].stop())
     net.before_backward(lambda layer: bprop[layer].start())
@@ -54,8 +54,6 @@ if __name__ == '__main__':
     caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
 
-
     net = caffe.Net(args.net, caffe.TRAIN)
 
     time(net)
-    
