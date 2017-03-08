@@ -40,12 +40,21 @@ if __name__ == '__main__':
         easy_ap = 100.0 * np.mean(detection_results[0:41:4, 1])
         moderate_ap = 100.0 * np.mean(detection_results[0:41:4, 2])
         hard_ap = 100.0 * np.mean(detection_results[0:41:4, 3])
-        print 'AP_easy={}, AP_modeerate={}, AP_hard={}'.format(easy_ap, moderate_ap, hard_ap)
+
+        easy_ap_tag = 'AP={0:.2f}%'.format(easy_ap)
+        mod_ap_tag = 'AP={0:.2f}%'.format(moderate_ap)
+        hard_ap_tag = 'AP={0:.2f}%'.format(hard_ap)
+
+        easy_tag = "Easy: {}".format(easy_ap_tag)
+        mod_tag = "Moderate: {}".format(mod_ap_tag)
+        hard_tag = "Hard: {}".format(hard_ap_tag)
+
+        print easy_tag, mod_tag, hard_tag
 
         plt.figure(1)
-        plt.plot(detection_results[:, 0], detection_results[:, 1], color="red", linewidth=2.0, label="Easy AP = %%%.02f" % easy_ap)
-        plt.plot(detection_results[:, 0], detection_results[:, 2], color="green", linewidth=2.0, label="Moderate AP = %%%.02f" % moderate_ap)
-        plt.plot(detection_results[:, 0], detection_results[:, 3], color="blue", alpha=0.6, label="Hard AP = %%%.02f" % hard_ap)
+        plt.plot(detection_results[:, 0], detection_results[:, 1], color="red", linewidth=2.0, label=easy_tag)
+        plt.plot(detection_results[:, 0], detection_results[:, 2], color="green", linewidth=2.0, label=mod_tag)
+        plt.plot(detection_results[:, 0], detection_results[:, 3], color="blue", alpha=0.6, label=hard_tag)
         plt.xlabel('recall')
         plt.ylabel('precision')
         plt.legend(loc='lower left')
@@ -57,13 +66,25 @@ if __name__ == '__main__':
         easy_aos = 100.0 * np.mean(orientation_results[0:41:4, 1])
         moderate_aos = 100.0 * np.mean(orientation_results[0:41:4, 2])
         hard_aos = 100.0 * np.mean(orientation_results[0:41:4, 3])
-        print 'AOS_easy={}, AOS_moderate={}, AOS_hard={}'.format(easy_aos, moderate_aos, hard_aos)
-        print 'OS_easy={}, OS_moderate={}, OS_hard={}'.format(easy_aos / easy_ap, moderate_aos / moderate_ap, hard_aos / hard_ap)
+
+        easy_aos_tag = 'AOS={0:.2f}%'.format(easy_aos)
+        mod_aos_tag = 'AOS={0:.2f}%'.format(moderate_aos)
+        hard_aos_tag = 'AOS={0:.2f}%'.format(hard_aos)
+
+        easy_os_tag = 'OS={0:.4f}%'.format(easy_aos / easy_ap)
+        mod_os_tag = 'OS={0:.4f}%'.format(moderate_aos / moderate_ap)
+        hard_os_tag = 'OS={0:.4f}%'.format(hard_aos / hard_ap)
+
+        easy_tag = "Easy: {} {}".format(easy_aos_tag, easy_os_tag)
+        mod_tag = "Moderate: {} {}".format(mod_aos_tag, mod_os_tag)
+        hard_tag = "Hard: {} {}".format(hard_aos_tag, hard_os_tag)
+
+        print easy_tag, mod_tag, hard_tag
 
         plt.figure(2)
-        plt.plot(orientation_results[:, 0], orientation_results[:, 1], color="red", linewidth=2.0, label="Easy AOS = %%%.02f" % easy_aos)
-        plt.plot(orientation_results[:, 0], orientation_results[:, 2], color="green", linewidth=2.0, label="Moderate AOS = %%%.02f" % moderate_aos)
-        plt.plot(orientation_results[:, 0], detection_results[:, 3], color="blue", linewidth=2.0, label="Hard AOS = %%%.02f" % hard_aos)
+        plt.plot(orientation_results[:, 0], orientation_results[:, 1], color="red", linewidth=2.0, label=easy_tag)
+        plt.plot(orientation_results[:, 0], orientation_results[:, 2], color="green", linewidth=2.0, label=mod_tag)
+        plt.plot(orientation_results[:, 0], detection_results[:, 3], color="blue", linewidth=2.0, label=hard_tag)
         plt.xlabel('recall')
         plt.ylabel('precision')
         plt.legend(loc='lower left')
