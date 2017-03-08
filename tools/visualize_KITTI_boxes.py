@@ -48,11 +48,12 @@ for i in xrange(num_of_images):
 
     P = rac.datasets.read_kitti_calib_file(calib_file_path)['P2'].reshape((3, 4))
 
+    filtered_objects = []
     for obj in objects:
         if obj['type'] != 'Car':
             continue
 
-        bbx = np.floor(np.asarray(obj['bbox'])).astype(int)
+        bbx = np.asarray(obj['bbox'])
 
         if (bbx[3] - bbx[1]) < min_height:
             continue
@@ -60,7 +61,10 @@ for i in xrange(num_of_images):
             continue
         if obj['truncation'] > max_truncation:
             continue
+        filtered_objects.append(obj)
 
+    for obj in filtered_objects:
+        bbx = np.floor(np.asarray(obj['bbox'])).astype(int)
         cv2.rectangle(image,
                       (bbx[0], bbx[1]),
                       (bbx[2], bbx[3]),
