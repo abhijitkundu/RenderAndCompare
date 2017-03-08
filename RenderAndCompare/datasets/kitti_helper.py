@@ -20,6 +20,10 @@ def read_kitti_object_label_file(filepath):
         obj['dimension'] = [float(x) for x in objinfo[8:11]]
         obj['location'] = [float(x) for x in objinfo[11:14]]
         obj['rotation_y'] = float(objinfo[14])
+        if len(objinfo) == 16:
+            obj['score'] = float(objinfo[15])
+        else:
+            obj['score'] = 1.0
         objects.append(obj)
     return objects
 

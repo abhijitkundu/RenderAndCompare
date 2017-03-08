@@ -8,7 +8,7 @@ import RenderAndCompare as rac
 
 
 kitti_object_dir = osp.join(_init_paths.root_dir, 'data', 'kitti', 'KITTI-Object')
-assert osp.exists(kitti_object_dir), 'KITTI Object dir "{}" soes not exist'.format(kitti_object_dir)
+assert osp.exists(kitti_object_dir), 'KITTI-Object dir "{}" dsoes not exist'.format(kitti_object_dir)
 
 label_dir = osp.join(kitti_object_dir, 'training', 'label_2')
 image_dir = osp.join(kitti_object_dir, 'training', 'image_2')
