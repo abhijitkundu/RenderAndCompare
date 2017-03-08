@@ -23,6 +23,12 @@ assert osp.exists(calib_dir)
 # num_of_images = 7481
 num_of_images = 7481
 
+
+min_height = 25  # minimum height for evaluated groundtruth/detections
+max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
+max_truncation = 0.5  # maximum truncation level of the groundtruth used for evaluation
+
+
 cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
 
 for i in xrange(num_of_images):
@@ -47,6 +53,14 @@ for i in xrange(num_of_images):
             continue
 
         bbx = np.floor(np.asarray(obj['bbox'])).astype(int)
+
+        if (bbx[3] - bbx[1]) < min_height:
+            continue
+        if obj['occlusion'] > max_occlusion:
+            continue
+        if obj['truncation'] > max_truncation:
+            continue
+
         cv2.rectangle(image,
                       (bbx[0], bbx[1]),
                       (bbx[2], bbx[3]),

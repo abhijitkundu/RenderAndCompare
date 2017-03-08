@@ -2,16 +2,19 @@ import numpy as np
 
 
 def read_kitti_object_label_file(filepath):
-    objinfos = [line.strip().split(' ') for line in open(filepath).readlines()]
+    with open(filepath, "r") as f:
+        non_empty_lines = [line.strip() for line in f if line.strip()]
+
+    objinfos = [line.strip().split(' ') for line in non_empty_lines]
 
     objects = []
 
     for objinfo in objinfos:
-        assert len(objinfo) == 15
+        assert len(objinfo) == 15 or len(objinfo) == 16, 'Found {} tokens in Line: "{}". Expects only 15/16 token'.format(len(objinfo), objinfo)
         obj = {}
         obj['type'] = objinfo[0]
-        obj['truncated'] = float(objinfo[1])
-        obj['occluded'] = int(objinfo[2])
+        obj['truncation'] = float(objinfo[1])
+        obj['occlusion'] = int(objinfo[2])
         obj['alpha'] = float(objinfo[3])
         obj['bbox'] = [float(x) for x in objinfo[4:8]]
         obj['dimension'] = [float(x) for x in objinfo[8:11]]
