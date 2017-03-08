@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Evaluates viewpoint accuracy with grounttruth boxes on pascal3d val easy
+Predicts viewpoint and then eavaluat viewpoint accuracy with groundtruth boxes on pascal3d val easy
 """
 
 import _init_paths
@@ -12,7 +12,7 @@ import math
 
 if __name__ == '__main__':
     import argparse
-    description = ('Predict viewpoints from imagelist and save to a Render4CNN style view_pred file')
+    description = ('Predict viewpoints from imagelist')
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument("-n", "--net", required=True, help="Deploy network")
