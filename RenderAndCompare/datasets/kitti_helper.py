@@ -15,41 +15,41 @@ def write_kitti_object_labels(objects, filepath):
     """
     with open(filepath, "w") as f:
         for obj in objects:
-            f.write('%s '.format(obj['type']))
+            f.write('%s ' % (obj['type']))
             if 'truncation' in obj:
-                f.write('%.2f '.format(obj['truncation']))
+                f.write('%.2f ' % (obj['truncation']))
             else:
                 f.write('-1 ')
             if 'occlusion' in obj:
-                f.write('%d '.format(obj['occlusion']))
+                f.write('%d ' % (obj['occlusion']))
             else:
                 f.write('-1 ')
             if 'alpha' in obj:
                 assert -np.pi <= obj['alpha'] <= np.pi
-                f.write('%.2f '.format(obj['alpha']))
+                f.write('%.2f ' % (obj['alpha']))
             else:
                 f.write('-10 ')
             bbx = obj['bbox']
             assert len(bbx) == 4
-            f.write('%.2f %.2f %.2f %.2f '.format(bbx[0], bbx[1], bbx[2], bbx[3]))
+            f.write('%.2f %.2f %.2f %.2f ' % (bbx[0], bbx[1], bbx[2], bbx[3]))
             if 'dimension' in obj:
                 dimension = obj['dimension']
                 assert len(dimension) == 3
-                f.write('%.2f %.2f %.2f '.format(dimension[0], dimension[1], dimension[2]))
+                f.write('%.2f %.2f %.2f ' % (dimension[0], dimension[1], dimension[2]))
             else:
                 f.write('-1 -1 -1 ')
             if 'location' in obj:
                 location = obj['location']
                 assert len(location) == 3
-                f.write('%.2f %.2f %.2f '.format(location[0], location[1], location[2]))
+                f.write('%.2f %.2f %.2f ' % (location[0], location[1], location[2]))
             else:
                 f.write('-1000 -1000 -1000 ')
             if 'rotation_y' in obj:
                 assert -np.pi <= obj['rotation_y'] <= np.pi
-                f.write('%.2f '.format(obj['rotation_y']))
+                f.write('%.2f ' % (obj['rotation_y']))
             else:
                 f.write('-10 ')
-            f.write('%.2f \n'.format(obj['score']))
+            f.write('%.2f \n' % (obj['score']))
 
 
 def read_kitti_object_labels(filepath):
@@ -70,13 +70,19 @@ def read_kitti_object_labels(filepath):
         assert len(objinfo) == 15 or len(objinfo) == 16, 'Found {} tokens in Line: "{}". Expects only 15/16 token'.format(len(objinfo), objinfo)
         obj = {}
         obj['type'] = objinfo[0]
-        obj['truncation'] = float(objinfo[1])
-        obj['occlusion'] = int(objinfo[2])
-        obj['alpha'] = float(objinfo[3])
+        if objinfo[1] != '-1':
+            obj['truncation'] = float(objinfo[1])
+        if objinfo[2] != '-1':
+            obj['occlusion'] = int(objinfo[2])
+        if objinfo[3] != '-10':
+            obj['alpha'] = float(objinfo[3])
         obj['bbox'] = [float(x) for x in objinfo[4:8]]
-        obj['dimension'] = [float(x) for x in objinfo[8:11]]
-        obj['location'] = [float(x) for x in objinfo[11:14]]
-        obj['rotation_y'] = float(objinfo[14])
+        if objinfo[8:11] != ['-1', '-1', '-1']:
+            obj['dimension'] = [float(x) for x in objinfo[8:11]]
+        if objinfo[11:14] != ['-1000', '-1000', '-1000']:
+            obj['location'] = [float(x) for x in objinfo[11:14]]
+        if objinfo[14] != '-10':
+            obj['rotation_y'] = float(objinfo[14])
         if len(objinfo) == 16:
             obj['score'] = float(objinfo[15])
         else:
