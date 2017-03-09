@@ -7,6 +7,7 @@ import os.path as osp
 import numpy as np
 import cv2
 from tqdm import tqdm
+from os import makedirs
 
 
 def deprocess(image, mean_bgr):
@@ -40,6 +41,12 @@ if __name__ == '__main__':
     assert osp.exists(kitti_object_dir), 'KITTI Object dir "{}" does not exist'.format(kitti_object_dir)
     image_dir = osp.join(kitti_object_dir, args.set, 'image_2')
     assert osp.exists(image_dir), 'KITTI image dir "{}" does not exist'.format(image_dir)
+
+    if not osp.exists(args.output_folder):
+        print 'Created new output directory at {}'.format(args.output_folder)
+        makedirs(args.output_folder)
+    else:
+        print 'Will overwrite results in {}'.format(args.output_folder)
 
     print 'Predicting on {} images'.format(len(args.label_files))
 
