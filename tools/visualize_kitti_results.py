@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-s", "--set", default='training', help="training or testing set")
-    parser.add_argument("label_files", nargs='+', help="Path to label files")
+    parser.add_argument("label_files", nargs='+', help="Path to kitti label files")
     parser.add_argument("-t", "--score_thresh", type=float, default=0.0, help="Score Threshold")
     args = parser.parse_args()
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
                           (0, 255, 0), 1)
             cv2.putText(image, bbx_str, (bbx[0] + 5, bbx[1] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
 
-        cv2.imshow('image', image)
+        cv2.imshow('Results', image)
         key = cv2.waitKey(0)
         if key == 27:
             cv2.destroyAllWindows()

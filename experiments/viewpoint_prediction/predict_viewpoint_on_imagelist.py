@@ -14,8 +14,8 @@ if __name__ == '__main__':
     description = ('Predict viewpoints from imagelist and save to a Render4CNN style view_pred file')
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("-n", "--net", required=True, help="Deploy network")
-    parser.add_argument("-w", "--weights", required=True, help="trained weights")
+    parser.add_argument("-n", "--net_file", required=True, help="Deploy network")
+    parser.add_argument("-w", "--weights_file", required=True, help="trained weights")
     parser.add_argument("-i", "--imagelist", default=osp.join(root_dir, 'data', 'render4cnn', 'voc12val_det_bbox', 'car_faster_rcnn.txt'),
                         help="textfile containing list of images")
     parser.add_argument("-o", "--output_file", default='car_pred_view.txt', help="textfile to save the results to")
@@ -32,8 +32,8 @@ if __name__ == '__main__':
 
     t0 = time.time()
     predictions = rac.prediction.get_predictions_on_image_files(img_files,
-                                                                args.net,
-                                                                args.weights,
+                                                                args.net_file,
+                                                                args.weights_file,
                                                                 ['azimuth_pred', 'elevation_pred', 'tilt_pred'],
                                                                 args.mean_bgr,
                                                                 args.gpu)

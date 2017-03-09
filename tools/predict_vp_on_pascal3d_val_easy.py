@@ -15,8 +15,8 @@ if __name__ == '__main__':
     description = ('Predict viewpoints from imagelist')
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument("-n", "--net", required=True, help="Deploy network")
-    parser.add_argument("-w", "--weights", required=True, help="trained weights")
+    parser.add_argument("-n", "--net_file", required=True, help="Deploy network")
+    parser.add_argument("-w", "--weights_file", required=True, help="trained weights")
     parser.add_argument("-d", "--dataset", default=osp.join(_init_paths.root_dir, 'data', 'pascal3D', 'pascal3d_voc2012_val_easy', 'pascal3d_voc2012_val_easy_car.json'), help="Dataset JSON file")
     parser.add_argument("-m", "--mean_bgr", nargs=3, default=[103.0626238, 115.90288257, 123.15163084], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="GPU Id.")
@@ -44,8 +44,8 @@ if __name__ == '__main__':
 
     t0 = time.time()
     predictions = rac.prediction.get_predictions_on_image_files(image_files,
-                                                                args.net,
-                                                                args.weights,
+                                                                args.net_file,
+                                                                args.weights_file,
                                                                 ['azimuth_pred', 'elevation_pred', 'tilt_pred'],
                                                                 args.mean_bgr,
                                                                 args.gpu)

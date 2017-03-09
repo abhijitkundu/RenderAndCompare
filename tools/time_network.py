@@ -42,7 +42,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("net", help="network model proto definition.")
+    parser.add_argument("net_file", help="network model proto definition.")
     parser.add_argument("--gpu", type=int, default=0, help="Gpu Id.")
     parser.add_argument("--iters", type=int, default=10, help="Number of test iterations")
     args = parser.parse_args()
@@ -54,6 +54,6 @@ if __name__ == '__main__':
     caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
 
-    net = caffe.Net(args.net, caffe.TRAIN)
+    net = caffe.Net(args.net_file, caffe.TRAIN)
 
     time(net)
