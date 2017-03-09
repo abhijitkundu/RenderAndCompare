@@ -3,6 +3,19 @@ from scipy.linalg import logm, norm
 import math
 
 
+def azimuth_to_alpha(azimuth):
+    # Add offset of 90  and then reduce the angle
+    angle = (azimuth + 90) % 360.0
+    # force it to be the positive remainder, so that 0 <= angle < 360
+    angle = (angle + 360) % 360.0
+
+    # force into the minimum absolute value residue class, so that -180 < angle <= 180
+    if angle > 180:
+        angle -= 360
+        
+    return math.radians(angle)
+
+
 def anglesTodcmZYX(theta):
     dcm = np.zeros((3, 3))
 

@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import tqdm
 
 
 class LazyImageLoader(object):
@@ -44,7 +45,7 @@ class BatchImageLoader(object):
     def preload_images(self, image_files):
         # TODO Fill the preloaded_images in parallel
         print "BatchImageLoader: Preloading {:,} images".format(len(image_files))
-        for i in xrange(len(image_files)):
+        for i in tqdm.trange(len(image_files)):
             image = cv2.imread(image_files[i])
             image = cv2.resize(image, (self.im_size[0], self.im_size[1]), interpolation=cv2.INTER_LINEAR)
             # move image channels to outermost dimension
