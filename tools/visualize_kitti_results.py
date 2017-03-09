@@ -36,7 +36,7 @@ if __name__ == '__main__':
     for label_file_path in args.label_files:
         image_stem = osp.splitext(osp.basename(label_file_path))[0]
         assert osp.exists(label_file_path)
-        objects = rac.datasets.read_kitti_object_label_file(label_file_path)
+        objects = rac.datasets.read_kitti_object_labels(label_file_path)
         dataset_objects[image_stem] = objects
 
     scores = [[obj['score'] for obj in image_objects] for image_objects in dataset_objects.values()]
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
         image = cv2.imread(image_file_path)
 
-        objects = rac.datasets.read_kitti_object_label_file(label_file_path)
+        objects = rac.datasets.read_kitti_object_labels(label_file_path)
 
         for obj in objects:
             bbx = np.floor(np.asarray(obj['bbox'])).astype(int)

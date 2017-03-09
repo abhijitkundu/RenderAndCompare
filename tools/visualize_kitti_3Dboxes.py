@@ -44,7 +44,7 @@ for i in xrange(num_of_images):
     assert osp.exists(calib_file_path)
 
     image = cv2.imread(image_file_path)
-    objects = rac.datasets.read_kitti_object_label_file(label_file_path)
+    objects = rac.datasets.read_kitti_object_labels(label_file_path)
 
     P = rac.datasets.read_kitti_calib_file(calib_file_path)['P2'].reshape((3, 4))
 

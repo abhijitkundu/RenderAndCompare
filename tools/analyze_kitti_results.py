@@ -61,8 +61,8 @@ if __name__ == '__main__':
     image_ids = [line.strip() for line in open(args.split_file).readlines()]
 
     for img_id in image_ids:
-        gt_objects = rac.datasets.read_kitti_object_label_file(osp.join(args.gt_dir, img_id + '.txt'))
-        results_objects = rac.datasets.read_kitti_object_label_file(osp.join(args.result_dir, img_id + '.txt'))
+        gt_objects = rac.datasets.read_kitti_object_labels(osp.join(args.gt_dir, img_id + '.txt'))
+        results_objects = rac.datasets.read_kitti_object_labels(osp.join(args.result_dir, img_id + '.txt'))
 
         for gt_obj in gt_objects:
             if gt_obj['type'] != 'Car':
