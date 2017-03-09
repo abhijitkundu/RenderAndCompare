@@ -15,41 +15,41 @@ def write_kitti_object_labels(objects, filepath):
     """
     with open(filepath, "w") as f:
         for obj in objects:
-            f.write('%s ' % (obj['type']))
+            f.write('{} '.format(obj['type']))
             if 'truncation' in obj:
-                f.write('%.2f ' % (obj['truncation']))
+                f.write('{} '.format(obj['truncation']))
             else:
                 f.write('-1 ')
             if 'occlusion' in obj:
-                f.write('%d ' % (obj['occlusion']))
+                f.write('{} '.format(obj['occlusion']))
             else:
                 f.write('-1 ')
             if 'alpha' in obj:
                 assert -np.pi <= obj['alpha'] <= np.pi
-                f.write('%.2f ' % (obj['alpha']))
+                f.write('{} '.format(obj['alpha']))
             else:
                 f.write('-10 ')
             bbx = obj['bbox']
             assert len(bbx) == 4
-            f.write('%.2f %.2f %.2f %.2f ' % (bbx[0], bbx[1], bbx[2], bbx[3]))
+            f.write('{} {} {} {} '.format(bbx[0], bbx[1], bbx[2], bbx[3]))
             if 'dimension' in obj:
                 dimension = obj['dimension']
                 assert len(dimension) == 3
-                f.write('%.2f %.2f %.2f ' % (dimension[0], dimension[1], dimension[2]))
+                f.write('{} {} {} '.format(dimension[0], dimension[1], dimension[2]))
             else:
                 f.write('-1 -1 -1 ')
             if 'location' in obj:
                 location = obj['location']
                 assert len(location) == 3
-                f.write('%.2f %.2f %.2f ' % (location[0], location[1], location[2]))
+                f.write('{} {} {} '.format(location[0], location[1], location[2]))
             else:
                 f.write('-1000 -1000 -1000 ')
             if 'rotation_y' in obj:
                 assert -np.pi <= obj['rotation_y'] <= np.pi
-                f.write('%.2f ' % (obj['rotation_y']))
+                f.write('{} '.format(obj['rotation_y']))
             else:
                 f.write('-10 ')
-            f.write('%.2f \n' % (obj['score']))
+            f.write('{} \n'.format(obj['score']))
 
 
 def read_kitti_object_labels(filepath):
