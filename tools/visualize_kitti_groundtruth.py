@@ -55,20 +55,26 @@ for i in xrange(num_of_images):
 
         bbx = np.asarray(obj['bbox'])
 
+        too_hard = False
         if (bbx[3] - bbx[1]) < min_height:
-            continue
+            too_hard = True
         if obj['occlusion'] > max_occlusion:
-            continue
+            too_hard = True
         if obj['truncation'] > max_truncation:
-            continue
-        filtered_objects.append(obj)
+            too_hard = True
+
+        if not too_hard:
+            filtered_objects.append(obj)
 
     for obj in filtered_objects:
         bbx = np.floor(np.asarray(obj['bbox'])).astype(int)
+
         cv2.rectangle(image,
                       (bbx[0], bbx[1]),
                       (bbx[2], bbx[3]),
                       (0, 255, 0), 1)
+        bbx_str = '{} Occ:{} Trunc{:0.2f}'.format(obj['type'], obj['occlusion'], obj['truncation'])
+        cv2.putText(image, bbx_str, (bbx[0] + 5, bbx[1] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
 
         corners3D = rac.datasets.get_kitti_3D_bbox_corners(obj)
 
