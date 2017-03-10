@@ -35,6 +35,8 @@ if __name__ == '__main__':
     detection_results_file = osp.join(args.result_dir, 'plot', 'car_detection.txt')
     orientation_results_file = osp.join(args.result_dir, 'plot', 'car_orientation.txt')
 
+    results_name = osp.basename(args.result_dir)
+
     if osp.exists(detection_results_file):
         detection_results = np.loadtxt(detection_results_file)
         easy_ap = 100.0 * np.mean(detection_results[0:41:4, 1])
@@ -58,7 +60,7 @@ if __name__ == '__main__':
         plt.xlabel('recall')
         plt.ylabel('precision')
         plt.legend(loc='lower left')
-        plt.title('Detection Performance (AP)')
+        plt.title('Detection Performance (AP) with ' + results_name)
         plt.savefig(osp.join(args.result_dir, 'plot', 'ap_plot.png'), bbox_inches='tight')
 
     if osp.exists(orientation_results_file):
@@ -88,7 +90,7 @@ if __name__ == '__main__':
         plt.xlabel('recall')
         plt.ylabel('precision')
         plt.legend(loc='lower left')
-        plt.title('Orientation + Detection Performance (AOS)')
+        plt.title('Orientation Performance (AOS) with ' + results_name)
         plt.savefig(osp.join(args.result_dir, 'plot', 'aos_plot.png'), bbox_inches='tight')
 
     if args.display:
