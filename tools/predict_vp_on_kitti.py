@@ -70,7 +70,7 @@ if __name__ == '__main__':
                 continue
             bbx = np.array(obj['bbox'])
             bbx_min = np.maximum.reduce([np.array([0, 0]), np.floor(bbx[:2]).astype(int)])
-            bbx_max = np.minimum.reduce([np.array([W, H]), np.floor(bbx[2:]).astype(int)])
+            bbx_max = np.minimum.reduce([np.array([W - 1, H - 1]), np.floor(bbx[2:]).astype(int)])
             if np.any((bbx_max - bbx_min) <= 0):
                 continue
             filtered_objects.append(obj)

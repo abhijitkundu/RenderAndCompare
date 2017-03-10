@@ -129,3 +129,13 @@ def get_kitti_3D_bbox_corners(object):
     corners3D = R.dot(np.vstack((x_corners, y_corners, z_corners)))
     corners3D = corners3D + np.array(object['location']).reshape((3, 1))
     return corners3D
+
+
+def get_kitti_amodal_bbx(object, P):
+    corners3D = get_kitti_3D_bbox_corners(object)
+    corners2D = P.dot(np.vstack((corners3D, np.ones(8))))
+    corners2D[0, :] = corners2D[0, :] / corners2D[2, :]
+    corners2D[1, :] = corners2D[1, :] / corners2D[2, :]
+    corners2D = corners2D[:2, :]
+    amodal_bbx = np.hstack((corners2D.min(axis=1), corners2D.max(axis=1)))
+    return amodal_bbx

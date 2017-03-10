@@ -98,11 +98,11 @@ def get_predictions_on_image_boxes(image, boxes, net, requested_keys, mean):
         for i in xrange(start_idx, end_idx):
             bbx = boxes[i]
             bbx_min = np.maximum.reduce([np.array([0, 0]), np.floor(bbx[:2]).astype(int)])
-            bbx_max = np.minimum.reduce([np.array([W, H]), np.floor(bbx[2:]).astype(int)])
+            bbx_max = np.minimum.reduce([np.array([W - 1, H - 1]), np.floor(bbx[2:]).astype(int)])
 
             assert np.all((bbx_max - bbx_min) > 0), 'Bad bbx: {} -- {}'.format(bbx_min, bbx_max)
 
-            bbx_image = image[bbx_min[1]:bbx_max[1], bbx_min[0]:bbx_max[0], :]
+            bbx_image = image[bbx_min[1]:bbx_max[1] + 1, bbx_min[0]:bbx_max[0] + 1, :]
             assert bbx_image.ndim == 3
 
             bbx_image = cv2.resize(bbx_image, (im_size[0], im_size[1]), interpolation=cv2.INTER_LINEAR)

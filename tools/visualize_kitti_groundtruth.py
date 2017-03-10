@@ -46,7 +46,13 @@ for i in xrange(num_of_images):
     image = cv2.imread(image_file_path)
     objects = rac.datasets.read_kitti_object_labels(label_file_path)
 
-    P = rac.datasets.read_kitti_calib_file(calib_file_path)['P2'].reshape((3, 4))
+    calib_data = rac.datasets.read_kitti_calib_file(calib_file_path)
+    P1 = calib_data['P1'].reshape((3, 4))
+    P2 = calib_data['P2'].reshape((3, 4))
+
+    K = P1[:3, :3]
+    assert np.all(P2[:3, :3] == K)
+    camera_center = -np.linalg.inv(K).dot(P2[:, 3])
 
     filtered_objects = []
     for obj in objects:
@@ -76,24 +82,17 @@ for i in xrange(num_of_images):
         bbx_str = '{} Occ:{} Trunc{:0.2f}'.format(obj['type'], obj['occlusion'], obj['truncation'])
         cv2.putText(image, bbx_str, (bbx[0] + 5, bbx[1] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
 
-        corners3D = rac.datasets.get_kitti_3D_bbox_corners(obj)
-
-        corners2D = P.dot(np.vstack((corners3D, np.ones(8))))
-        corners2D[0, :] = corners2D[0, :] / corners2D[2, :]
-        corners2D[1, :] = corners2D[1, :] / corners2D[2, :]
-        corners2D = corners2D[:2, :]
-
-        min_bbx = np.floor(corners2D.min(axis=1)).astype(int)
-        max_bbx = np.floor(corners2D.max(axis=1)).astype(int)
+        amodal_bbx = rac.datasets.get_kitti_amodal_bbx(obj, P2)
+        amodal_bbx = np.floor(amodal_bbx).astype(int)
 
         cv2.rectangle(image,
-                      (min_bbx[0], min_bbx[1]),
-                      (max_bbx[0], max_bbx[1]),
+                      (amodal_bbx[0], amodal_bbx[1]),
+                      (amodal_bbx[2], amodal_bbx[3]),
                       (255, 0, 255), 1)
 
     cv2.imshow('image', image)
 
-    key = cv2.waitKey(0)
+    key = cv2.waitKey(1)
     if key == 27:
         cv2.destroyAllWindows()
         break
