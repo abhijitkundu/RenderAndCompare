@@ -2,6 +2,7 @@
 
 import _init_paths
 import os.path as osp
+from os import makedirs
 import RenderAndCompare as rac
 from collections import OrderedDict
 import numpy as np
@@ -38,12 +39,19 @@ if __name__ == '__main__':
     assert osp.exists(image_dir)
     assert osp.exists(calib_dir)
 
+    if not osp.exists(args.output_folder):
+        print 'Created new output directory at {}'.format(args.output_folder)
+        makedirs(args.output_folder)
+    else:
+        print 'Will overwrite contents in {}'.format(args.output_folder)
+
+    dataset_name = 'kitti_' + osp.splitext(osp.basename(args.split_file))[0]
+    dataset = rac.datasets.Dataset(dataset_name)
+    dataset.set_rootdir(args.output_folder)
+
     min_height = 25  # minimum height for evaluated groundtruth/detections
     max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
     max_truncation = 0.5  # maximum truncation level of the groundtruth used for evaluation
-
-    dataset = rac.datasets.Dataset('kitti_dataset')
-    dataset.set_rootdir(args.output_folder)
 
     for image_name in tqdm(image_names):
         image_file_path = osp.join(image_dir, image_name + '.png')
@@ -135,4 +143,4 @@ if __name__ == '__main__':
             dataset.add_annotation(annotation)
 
     print 'Finished creating dataset with {} annotations'.format(dataset.num_of_annotations())
-    dataset.write_data_to_json(osp.join(args.output_folder, 'kitti_dataset.json'))
+    dataset.write_data_to_json(osp.join(osp.dirname(args.output_folder), dataset_name + '.json'))
