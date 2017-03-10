@@ -138,6 +138,35 @@ def parse_args():
     return args
 
 
+def create_plots(data_frame, data_split="Training"):
+    print "Found {} data with {} data points".format(data_split, len(data_frame))
+    all_column_names = list(data_frame.columns.values)
+    print "and column names = {}".format(all_column_names)
+
+    outputs = [e for e in all_column_names if e not in ('NumIters', 'TotalLoss', 'LearningRate')]
+    loss_outputs = (output for output in outputs if "loss" in output)
+    acc_outputs = (output for output in outputs if "acc" in output)
+
+    plt.figure()
+    plt.title(' {} Loss'.format(data_split))
+    plt.xlabel('NumIters')
+
+    plt.plot(data_frame['NumIters'], data_frame['TotalLoss'], color="red", alpha=0.6, label="TotalLoss")
+    # plt.plot(data_frame['NumIters'], data_frame['LearningRate'], color="blue", alpha=0.5, label="LearningRate")
+    for output in loss_outputs:
+        plt.plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
+    plt.legend(loc='upper right')
+
+    plt.figure()
+    plt.title(' {} Accuracy'.format(data_split))
+    plt.xlabel('NumIters')
+    # plt.plot(data_frame["NumIters"], data_frame["accuracy"], color="green", alpha=0.6, label="training_accuracy")
+    for output in acc_outputs:
+        plt.plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
+    plt.axhline(1.0, color='b', linestyle='dashed', linewidth=2)
+    plt.legend(loc='upper right')
+
+
 def main():
     args = parse_args()
     train_df, test_df = parse_log(args.logfile_path)
@@ -145,37 +174,14 @@ def main():
     if train_df.empty:
         print "No training data found"
     else:
-        print "Found training data with {} data points".format(len(train_df))
-        all_column_names = list(train_df.columns.values)
-        print "and column names = {}".format(all_column_names)
-
-        outputs = [e for e in all_column_names if e not in ('NumIters', 'TotalLoss', 'LearningRate')]
-
-        plt.plot(train_df['NumIters'], train_df['TotalLoss'], color="red", alpha=0.6, label="TotalLoss")
-        # plt.plot(train_df['NumIters'], train_df['LearningRate'], color="blue", alpha=0.5, label="LearningRate")
-        # plt.plot(train_df["NumIters"], train_df["accuracy"], color="green", alpha=0.6, label="training_accuracy")
-        # plt.plot(train_df["NumIters"], train_df["LearningRate"], color="green", alpha=0.6, label="LearningRate")
-
-        for output in outputs:
-            plt.plot(train_df['NumIters'], train_df[output], alpha=0.5, label=output)
-
-        plt.axhline(1.0, color='b', linestyle='dashed', linewidth=2)
-        plt.xlabel('NumIters')
-        plt.legend(loc='upper right')
-        plt.title(os.path.basename(args.logfile_path) + ' Training')
-        plt.show()
+        create_plots(train_df, 'Training')
 
     if test_df.empty:
         print "No testing data found"
     else:
-        print "Found testing data with {} data points".format(len(test_df))
-        plt.plot(test_df["NumIters"], test_df["TotalLoss"], color="red", alpha=0.6, linestyle="--", label="total_testing_loss")
-        plt.plot(test_df["NumIters"], test_df["accuracy"], color="green", alpha=0.6, linestyle="--", label="testing_accuracy")
+        create_plots(test_df, 'Testing')
 
-        plt.xlabel('NumIters')
-        plt.legend(loc='upper right')
-        plt.title(os.path.basename(args.logfile_path) + ' Testing')
-        plt.show()
+    plt.show()
 
 
 if __name__ == '__main__':
