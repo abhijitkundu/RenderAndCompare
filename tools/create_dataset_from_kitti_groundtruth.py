@@ -10,6 +10,79 @@ import math
 import cv2
 from tqdm import tqdm
 
+
+def compute_bbox_iou(bbxA, bbxB):
+    # overlapping bounds
+    x1 = max(bbxA[0], bbxB[0])
+    y1 = max(bbxA[1], bbxB[1])
+    x2 = min(bbxA[2], bbxB[2])
+    y2 = min(bbxA[3], bbxB[3])
+
+    # compute width and height of overlapping area
+    w = x2 - x1
+    h = y2 - y1
+
+    # set invalid entries to 0 overlap
+    if w <= 0 or h <= 0:
+        return 0
+
+    # get overlapping areas
+    inter = w * h
+    a_area = (bbxA[2] - bbxA[0]) * (bbxA[3] - bbxA[1])
+    b_area = (bbxB[2] - bbxB[0]) * (bbxB[3] - bbxB[1])
+
+    return inter / (a_area + b_area - inter)
+
+
+def crop_image(image, bbox):
+    W = image.shape[1]
+    H = image.shape[0]
+
+    bbx_min = np.maximum.reduce([np.array([0, 0]), np.floor(bbox[:2]).astype(int)])
+    bbx_max = np.minimum.reduce([np.array([W - 1, H - 1]), np.floor(bbox[2:]).astype(int)]) + 1
+    assert np.all((bbx_max - bbx_min) > 0)
+
+    cropped_image = image[bbx_min[1]:bbx_max[1], bbx_min[0]:bbx_max[0], :]
+    assert cropped_image.ndim == 3
+
+    crop_bbx = np.array([bbx_min[0], bbx_min[1], bbx_max[0], bbx_max[1]], dtype=np.float)
+    assert cropped_image.shape[0] == crop_bbx[3] - crop_bbx[1]
+    assert cropped_image.shape[1] == crop_bbx[2] - crop_bbx[0]
+
+    return cropped_image, crop_bbx
+
+
+def crop_image_with_jitter(image, bbox, min_iou=0.6):
+    assert 0 < min_iou < 1, 'Bad min_iou value'
+    W = image.shape[1]
+    H = image.shape[0]
+
+    bbx_min = np.maximum.reduce([np.array([0, 0]), np.floor(bbox[:2]).astype(int)])
+    bbx_max = np.minimum.reduce([np.array([W - 1, H - 1]), np.floor(bbox[2:]).astype(int)]) + 1
+    assert np.all((bbx_max - bbx_min) > 0)
+    bbx_actual = np.array([bbx_min[0], bbx_min[1], bbx_max[0], bbx_max[1]], dtype=np.float)
+
+    bbox_w = bbx_actual[2] - bbx_actual[0]
+    bbox_h = bbx_actual[3] - bbx_actual[1]
+
+    b = 1 - min_iou
+    a = 1 - (1 / min_iou)
+
+    while True:
+        jitter_ratio = a + (b - a) * np.random.rand(4)
+        jitter_bbox = bbox + jitter_ratio * np.array([bbox_w, bbox_h, bbox_w, bbox_h])
+
+        jitter_bbx_min = np.maximum.reduce([np.array([0, 0]), np.floor(jitter_bbox[:2]).astype(int)])
+        jitter_bbx_max = np.minimum.reduce([np.array([W - 1, H - 1]), np.floor(jitter_bbox[2:]).astype(int)]) + 1
+        if np.any((jitter_bbx_max - jitter_bbx_min) <= 0):
+            continue
+        jitter_bbox_actual = np.array([jitter_bbx_min[0], jitter_bbx_min[1], jitter_bbx_max[0], jitter_bbx_max[1]], dtype=np.float)
+        if compute_bbox_iou(bbx_actual, jitter_bbox_actual) > min_iou:
+            cropped_image = image[jitter_bbx_min[1]:jitter_bbx_max[1], jitter_bbx_min[0]:jitter_bbx_max[0], :]
+            assert cropped_image.ndim == 3
+            return cropped_image, jitter_bbox_actual
+
+
 if __name__ == '__main__':
     kitti_object_dir = osp.join(_init_paths.root_dir, 'data', 'kitti', 'KITTI-Object')
     assert osp.exists(kitti_object_dir), 'KITTI Object dir "{}" does not exist'.format(kitti_object_dir)
@@ -20,11 +93,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--split_file", default=splits_file_default, help="Path to split file")
     parser.add_argument("-o", "--output_folder", required=True, help="Output folder to save the cropped images")
-    parser.add_argument("-a", "--augment", type=int, default=0, help="Number of augmentations per gt box")
+    parser.add_argument("-a", "--augment", type=int, default=1, choices=xrange(1, 10), help="Number of augmentations per gt box minimum 1")
+    parser.add_argument("-j", "--min_jitter_iou", type=float, default=0.6, help="Minimum jitter IoU when augmenting")
     parser.add_argument('--flip', dest='flip', action='store_true')
     parser.add_argument('--no_flip', dest='flip', action='store_false')
     parser.set_defaults(flip=False)
     args = parser.parse_args()
+
+    print "------------- Config ------------------"
+    for arg in vars(args):
+        print "{} \t= {}".format(arg, getattr(args, arg))
 
     assert osp.exists(args.split_file), 'Path to split file does not exist: {}'.format(args.split_file)
     image_names = [x.rstrip() for x in open(args.split_file)]
@@ -49,9 +127,10 @@ if __name__ == '__main__':
     dataset = rac.datasets.Dataset(dataset_name)
     dataset.set_rootdir(args.output_folder)
 
-    min_height = 25  # minimum height for evaluated groundtruth/detections
+    # Using a slight harder settings thank standard kitti hardness
+    min_height = 22  # minimum height for evaluated groundtruth/detections
     max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
-    max_truncation = 0.5  # maximum truncation level of the groundtruth used for evaluation
+    max_truncation = 0.6  # maximum truncation level of the groundtruth used for evaluation
 
     for image_name in tqdm(image_names):
         image_file_path = osp.join(image_dir, image_name + '.png')
@@ -97,27 +176,9 @@ if __name__ == '__main__':
         cam2_center = -np.linalg.inv(K).dot(P2[:, 3])
         principal_point = K[:2, 2]
 
-        for i, obj in enumerate(filtered_objects):
-            crop_bbx = np.array(obj['bbox'])
-            amodal_bbx = rac.datasets.get_kitti_amodal_bbx(obj, P2)
-
-            bbx_min = np.maximum.reduce([np.array([0, 0]), np.floor(crop_bbx[:2]).astype(int)])
-            bbx_max = np.minimum.reduce([np.array([W - 1, H - 1]), np.floor(crop_bbx[2:]).astype(int)])
-
-            # Bad BBX
-            if np.any((bbx_max - bbx_min) == 0):
-                continue
-
-            cropped_image = image[bbx_min[1]:bbx_max[1] + 1, bbx_min[0]:bbx_max[0] + 1, :]
-            assert cropped_image.ndim == 3
-
-            # make sure my crop_bbx is updated with the final cropped image size
-            crop_bbx[:2] = bbx_min
-            crop_bbx[2:] = bbx_max + 1.0
-
-            # Save cropped image with some filename
-            cropped_image_name = '{}_{:04d}_aug{:02d}.png'.format(image_name, i, 0, )
-            cv2.imwrite(osp.join(args.output_folder, cropped_image_name), cropped_image)
+        for obj_id, obj in enumerate(filtered_objects):
+            crop_bbx_gt = np.array(obj['bbox'])
+            amodal_bbx_gt = rac.datasets.get_kitti_amodal_bbx(obj, P2)
 
             azimuth = rac.geometry.alpha_to_azimuth(obj['alpha'])
             obj_center = np.array(obj['location']) - np.array([0, obj['dimension'][0] / 2.0, 0])
@@ -129,18 +190,27 @@ if __name__ == '__main__':
             elevation = math.degrees(elevation_angle) % 360
             distance = np.linalg.norm(obj_center_cam2)
 
-            # subtract principal point
-            crop_bbx[:2] -= principal_point
-            crop_bbx[2:] -= principal_point
-            amodal_bbx[:2] -= principal_point
-            amodal_bbx[2:] -= principal_point
+            for aug_id in xrange(args.augment):
+                if aug_id == 0:
+                    cropped_image, crop_bbx = crop_image(image, crop_bbx_gt)
+                else:
+                    cropped_image, crop_bbx = crop_image_with_jitter(image, crop_bbx_gt, args.min_jitter_iou)
 
-            annotation = OrderedDict()
-            annotation['image_file'] = cropped_image_name
-            annotation['viewpoint'] = [azimuth, elevation, 0, distance]
-            annotation['bbx_amodal'] = [amodal_bbx[0], amodal_bbx[1], amodal_bbx[2] - amodal_bbx[0], amodal_bbx[3] - amodal_bbx[1]]
-            annotation['bbx_crop'] = [crop_bbx[0], crop_bbx[1], crop_bbx[2] - crop_bbx[0], crop_bbx[3] - crop_bbx[1]]
-            dataset.add_annotation(annotation)
+                # Save cropped image with some filename
+                cropped_image_name = '{}_{:04d}_aug{:02d}.png'.format(image_name, obj_id, aug_id)
+                cv2.imwrite(osp.join(args.output_folder, cropped_image_name), cropped_image)
+
+                # subtract principal point
+                offset = [principal_point[0], principal_point[1], principal_point[0], principal_point[1]]
+                crop_bbx_final = crop_bbx - offset
+                amodal_bbx_final = amodal_bbx_gt - offset
+
+                annotation = OrderedDict()
+                annotation['image_file'] = cropped_image_name
+                annotation['viewpoint'] = [azimuth, elevation, 0, distance]
+                annotation['bbx_amodal'] = [amodal_bbx_final[0], amodal_bbx_final[1], amodal_bbx_final[2] - amodal_bbx_final[0], amodal_bbx_final[3] - amodal_bbx_final[1]]
+                annotation['bbx_crop'] = [crop_bbx_final[0], crop_bbx_final[1], crop_bbx_final[2] - crop_bbx_final[0], crop_bbx_final[3] - crop_bbx_final[1]]
+                dataset.add_annotation(annotation)
 
     print 'Finished creating dataset with {} annotations'.format(dataset.num_of_annotations())
-    dataset.write_data_to_json(osp.join(osp.dirname(args.output_folder), dataset_name + '.json'))
+    dataset.write_data_to_json(osp.join(osp.dirname(args.output_folder), osp.basename(args.output_folder) + '.json'))
