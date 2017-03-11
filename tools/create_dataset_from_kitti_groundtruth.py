@@ -95,9 +95,7 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output_folder", required=True, help="Output folder to save the cropped images")
     parser.add_argument("-a", "--augment", type=int, default=1, choices=xrange(1, 10), help="Number of augmentations per gt box minimum 1")
     parser.add_argument("-j", "--min_jitter_iou", type=float, default=0.6, help="Minimum jitter IoU when augmenting")
-    parser.add_argument('--flip', dest='flip', action='store_true')
-    parser.add_argument('--no_flip', dest='flip', action='store_false')
-    parser.set_defaults(flip=False)
+    parser.add_argument("-f", "--flip_ratio", type=float, default=0, help="Ratio of samples for which we create a flipped version")
     args = parser.parse_args()
 
     print "------------- Config ------------------"
@@ -132,6 +130,7 @@ if __name__ == '__main__':
     max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
     max_truncation = 0.6  # maximum truncation level of the groundtruth used for evaluation
 
+    print 'Generating images. May take a long time'
     for image_name in tqdm(image_names):
         image_file_path = osp.join(image_dir, image_name + '.png')
         label_file_path = osp.join(label_dir, image_name + '.txt')
@@ -211,6 +210,23 @@ if __name__ == '__main__':
                 annotation['bbx_amodal'] = [amodal_bbx_final[0], amodal_bbx_final[1], amodal_bbx_final[2] - amodal_bbx_final[0], amodal_bbx_final[3] - amodal_bbx_final[1]]
                 annotation['bbx_crop'] = [crop_bbx_final[0], crop_bbx_final[1], crop_bbx_final[2] - crop_bbx_final[0], crop_bbx_final[3] - crop_bbx_final[1]]
                 dataset.add_annotation(annotation)
+
+                if np.random.random() < args.flip_ratio:
+                    cropped_image = np.fliplr(cropped_image)
+
+                    # Save cropped image with some filename
+                    cropped_image_name = '{}_{:04d}_aug{:02d}_flipped.png'.format(image_name, obj_id, aug_id)
+                    cv2.imwrite(osp.join(args.output_folder, cropped_image_name), cropped_image)
+
+                    crop_bbx_final = np.array([-crop_bbx_final[2], crop_bbx_final[1], -crop_bbx_final[0], crop_bbx_final[3]])
+                    amodal_bbx_final = np.array([-amodal_bbx_final[2], amodal_bbx_final[1], -amodal_bbx_final[0], amodal_bbx_final[3]])
+
+                    annotation = OrderedDict()
+                    annotation['image_file'] = cropped_image_name
+                    annotation['viewpoint'] = [(360.0 - azimuth) % 360, elevation, 0, distance]
+                    annotation['bbx_amodal'] = [amodal_bbx_final[0], amodal_bbx_final[1], amodal_bbx_final[2] - amodal_bbx_final[0], amodal_bbx_final[3] - amodal_bbx_final[1]]
+                    annotation['bbx_crop'] = [crop_bbx_final[0], crop_bbx_final[1], crop_bbx_final[2] - crop_bbx_final[0], crop_bbx_final[3] - crop_bbx_final[1]]
+                    dataset.add_annotation(annotation)
 
     print 'Finished creating dataset with {} annotations'.format(dataset.num_of_annotations())
     dataset.write_data_to_json(osp.join(osp.dirname(args.output_folder), osp.basename(args.output_folder) + '.json'))
