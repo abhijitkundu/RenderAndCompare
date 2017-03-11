@@ -164,7 +164,7 @@ def create_plots(data_frame, data_split="Training"):
     for output in acc_outputs:
         plt.plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
     plt.axhline(1.0, color='b', linestyle='dashed', linewidth=2)
-    plt.legend(loc='upper right')
+    plt.legend(loc='lower right')
 
 
 def main():
