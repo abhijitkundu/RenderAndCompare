@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     parser.add_argument("-n", "--net_file", required=True, help="Deploy network")
     parser.add_argument("-w", "--weights_file", required=True, help="trained weights")
-    parser.add_argument("-i", "--imagelist", default=osp.join(root_dir, 'data', 'render4cnn', 'voc12val_det_bbox', 'car_faster_rcnn.txt'),
+    parser.add_argument("-i", "--imagelist", default=osp.join(root_dir, 'data', 'render4cnn', 'voc12val_det_bbox', 'car_faster_rcnn_t0.001.txt'),
                         help="textfile containing list of images")
     parser.add_argument("-o", "--output_file", default='car_pred_view.txt', help="textfile to save the results to")
     parser.add_argument("-m", "--mean_bgr", nargs=3, default=[103.0626238, 115.90288257, 123.15163084], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
