@@ -1,0 +1,64 @@
+name: "Test For SoftmaxWithTemperatureLayer"
+layer {
+  name: "data"
+  type: "Input"
+  top: "data"
+  input_param { shape: { dim: 5 dim: 3 } }
+}
+
+layer {
+  name: "temperature"
+  type: "Input"
+  top: "temperature"
+  input_param { shape: { dim: 5 } }
+}
+
+layer {
+  name: "softmax_prob_fixedT"
+  type: "Python"
+  bottom: "data"
+  top: "softmax_prob_fixedT"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "SoftMaxWithTemperature"
+    param_str: "-t 1.0"
+  }
+}
+
+layer {
+  name: "fc1"
+  type: "InnerProduct"
+  bottom: "data"
+  top: "fc1"
+  param {
+    lr_mult: 0
+  }
+  param {
+    lr_mult: 0
+  }
+  inner_product_param {
+    num_output: 4
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "softmax_prob2"
+  type: "Python"
+  bottom: "fc1"
+  bottom: "temperature"
+  top: "softmax_prob2"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "SoftMaxWithTemperature"
+    param_str: "-t 1.0"
+  }
+}
+
