@@ -185,3 +185,65 @@ class DeQuantizeViewPoint(caffe.Layer):
 
     def backward(self, bottom, top):
         pass
+
+
+def softmax(x, t=1.0):
+    if x.ndim == 1:
+        x = x.reshape((1, -1))
+    assert x.ndim == 2
+    max_x = np.max(x, axis=1).reshape((-1, 1))
+    exp_x = np.exp((x - max_x) / t)
+    out = exp_x / np.sum(exp_x, axis=1).reshape((-1, 1))
+    return out
+
+
+class SoftMaxViewPoint(caffe.Layer):
+    """
+    Converts unormalized log probs of viewpoint estimate to a continious ViewPoint estimate
+    controlled by softmax temeperature
+    Has two params num_of_bins and softmax_temperature t
+    """
+
+    def parse_param_str(self, param_str):
+        parser = argparse.ArgumentParser(description='SoftMaxViewPoint Layer')
+        parser.add_argument("-b", "--num_of_bins", default=24, type=int, help="Number of bins")
+        parser.add_argument("-t", "--temperature", default=1.0, type=float, help="SoftMax temperature")
+        params = parser.parse_args(param_str.split())
+        return params
+
+    def setup(self, bottom, top):
+        assert len(bottom) == 1, 'requires a single layer.bottom'
+        assert len(top) == 1, 'requires a single layer.top'
+
+        # params is expected as argparse style string
+        params = self.parse_param_str(self.param_str)
+
+        self.num_of_bins = params.num_of_bins
+        self.temperature = params.temperature
+
+        assert self.temperature >= 0
+        assert bottom[0].data.ndim == 2
+        assert bottom[0].data.shape[1] == self.num_of_bins
+        top[0].reshape(bottom[0].data.shape[0],)
+
+        angles = (2 * np.pi / self.num_of_bins) * (np.arange(0.5, self.num_of_bins))
+        self.centers = np.exp(1j * angles)
+
+        print "------------- SoftMaxViewPoint Layer Config ------------------"
+        print "Number of bins = {}".format(self.num_of_bins)
+        print "Temperature =    {}".format(self.temperature)
+        print "bottom.shape =   {}".format(bottom[0].data.shape)
+        print "top.shape =      {}".format(top[0].data.shape)
+        print "--------------------------------------------------------------"
+
+    def reshape(self, bottom, top):
+        pass
+
+    def forward(self, bottom, top):
+        # First do softmax with temperature t
+        prob = softmax(bottom[0].data, self.temperature)
+        # Take complex expectation and then return the angle in degrees
+        top[0].data[...] = np.angle(prob.dot(self.centers), deg=True) % 360.0
+
+    def backward(self, bottom, top):
+        pass
