@@ -57,7 +57,7 @@ def get_predictions_on_image_files(img_files, net_file, weights_file, requested_
         output = net.forward()
 
         for key in predictions:
-            predictions[key][start_idx:end_idx, :] = output[key][0:end_idx - start_idx, :]
+            predictions[key][start_idx:end_idx, ...] = output[key][0:end_idx - start_idx, ...]
 
     return predictions
 
