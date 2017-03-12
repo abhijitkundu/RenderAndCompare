@@ -146,7 +146,7 @@ class QuantizeViewPoint(caffe.Layer):
     def forward(self, bottom, top):
         top[0].data[...] = np.floor_divide(bottom[0].data, self.degrees_per_bin)
 
-    def backward(self, bottom, top):
+    def backward(self, top, propagate_down, bottom):
         pass
 
 
@@ -183,7 +183,7 @@ class DeQuantizeViewPoint(caffe.Layer):
     def forward(self, bottom, top):
         top[0].data[...] = (self.degrees_per_bin * bottom[0].data) + self.degrees_per_bin / 2.0
 
-    def backward(self, bottom, top):
+    def backward(self, top, propagate_down, bottom):
         pass
 
 
@@ -245,5 +245,5 @@ class SoftMaxViewPoint(caffe.Layer):
         # Take complex expectation and then return the angle in degrees
         top[0].data[...] = np.angle(prob.dot(self.centers), deg=True) % 360.0
 
-    def backward(self, bottom, top):
+    def backward(self, top, propagate_down, bottom):
         pass

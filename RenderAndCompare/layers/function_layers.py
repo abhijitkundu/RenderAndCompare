@@ -50,5 +50,5 @@ class SoftMaxWithTemperature(caffe.Layer):
 
         top[0].data[...] = exp_x / np.sum(exp_x, axis=1).reshape((-1, 1))
 
-    def backward(self, bottom, top):
+    def backward(self, top, propagate_down, bottom):
         pass

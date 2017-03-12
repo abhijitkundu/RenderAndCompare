@@ -54,7 +54,7 @@ class DataLayer(caffe.Layer):
         """
         pass
 
-    def backward(self, bottom, top):
+    def backward(self, top, propagate_down, bottom):
         """
         These layers does not back propagate
         """
