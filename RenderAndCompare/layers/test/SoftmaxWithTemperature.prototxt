@@ -7,9 +7,9 @@ layer {
 }
 
 layer {
-  name: "temperature"
+  name: "T"
   type: "Input"
-  top: "temperature"
+  top: "T"
   input_param { shape: { dim: 5 } }
 }
 
@@ -21,7 +21,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "SoftMaxWithTemperature"
-    param_str: "-t 1.0"
+    param_str: "-t 0.001"
   }
 }
 
@@ -53,7 +53,7 @@ layer {
   name: "softmax_prob2"
   type: "Python"
   bottom: "fc1"
-  bottom: "temperature"
+  bottom: "T"
   top: "softmax_prob2"
   python_param {
     module: "RenderAndCompare.layers"
