@@ -3586,7 +3586,7 @@ layer {
   bottom: "azimuth_pred_label"
   top: "azimuth_pred"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "DeQuantizeViewPoint"
     param_str: "-b 180"
   }
@@ -3630,7 +3630,7 @@ layer {
   bottom: "elevation_pred_label"
   top: "elevation_pred"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "DeQuantizeViewPoint"
     param_str: "-b 180"
   }
@@ -3674,7 +3674,7 @@ layer {
   bottom: "tilt_pred_label"
   top: "tilt_pred"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "DeQuantizeViewPoint"
     param_str: "-b 180"
   }

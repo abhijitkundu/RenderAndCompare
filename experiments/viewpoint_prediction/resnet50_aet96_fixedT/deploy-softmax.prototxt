@@ -3578,7 +3578,7 @@ layer {
   bottom: "fc_azimuth96"
   top: "azimuth_pred"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "SoftMaxViewPoint"
     param_str: "-b 96 -t 0.0001"
   }
@@ -3614,7 +3614,7 @@ layer {
   bottom: "fc_elevation96"
   top: "elevation_pred"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "SoftMaxViewPoint"
     param_str: "-b 96 -t 0.0001"
   }
@@ -3650,7 +3650,7 @@ layer {
   bottom: "fc_tilt96"
   top: "tilt_pred"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "SoftMaxViewPoint"
     param_str: "-b 96 -t 0.0001"
   }

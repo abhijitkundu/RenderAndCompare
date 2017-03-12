@@ -3586,7 +3586,7 @@ layer {
   bottom: "azimuth24_pred_label"
   top: "azimuth_pred"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "DeQuantizeViewPoint"
     param_str: "-b 24"
   }

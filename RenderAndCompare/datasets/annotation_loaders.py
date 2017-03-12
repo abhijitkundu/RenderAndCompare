@@ -10,7 +10,7 @@ def load_viewpoint_and_crop_annotations(filename, name=None):
     <viewpoint>, <bbx_amodal>, and <bbx_crop> have 4 numbers each.
     """
     assert osp.exists(filename), 'Path does not exist: {}'.format(filename)
-    dataset = Dataset(filename if name == None else name)
+    dataset = Dataset(filename if name is None else name)
     dataset.set_rootdir(osp.dirname(filename))
 
     print 'Loading annotations from {}'.format(filename)

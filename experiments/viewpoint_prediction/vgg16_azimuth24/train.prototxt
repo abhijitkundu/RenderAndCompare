@@ -8,7 +8,7 @@ layer {
   top: "gt_vp_tilt"
   top: "gt_vp_distance"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "ViewpoinPredictionDataLayer"
     param_str: "-b 100 -wh 224 224 -m 103.939 116.779 123.68"
   }
@@ -28,7 +28,7 @@ layer {
   bottom: "gt_vp_azimuth"
   top: "gt_vp_azimuth_label"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "QuantizeViewPoint"
     param_str: "-b 24"
   }

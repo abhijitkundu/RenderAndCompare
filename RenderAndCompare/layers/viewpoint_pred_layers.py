@@ -1,5 +1,5 @@
 from datalayer import DataLayer
-from image_loaders import BatchImageLoader
+from RenderAndCompare.datasets import BatchImageLoader
 from random import shuffle
 import numpy as np
 import os.path as osp

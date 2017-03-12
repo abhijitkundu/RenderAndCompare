@@ -8,7 +8,7 @@ layer {
   top: "gt_vp_tilt"
   top: "gt_vp_distance"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "ViewpoinPredictionDataLayer"
     param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
   }
@@ -25,7 +25,7 @@ layer {
   bottom: "gt_vp_azimuth"
   top: "gt_vp_azimuth_label"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "QuantizeViewPoint"
     param_str: "--num_of_bins 96"
   }
@@ -37,7 +37,7 @@ layer {
   bottom: "gt_vp_elevation"
   top: "gt_vp_elevation_label"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "QuantizeViewPoint"
     param_str: "--num_of_bins 96"
   }
@@ -49,7 +49,7 @@ layer {
   bottom: "gt_vp_tilt"
   top: "gt_vp_tilt_label"
   python_param {
-    module: "RenderAndCompare.datasets"
+    module: "RenderAndCompare.layers"
     layer: "QuantizeViewPoint"
     param_str: "--num_of_bins 96"
   }
