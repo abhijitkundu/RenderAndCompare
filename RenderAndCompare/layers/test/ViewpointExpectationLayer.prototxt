@@ -1,4 +1,4 @@
-name: "Test For AngularExpectation Layer"
+name: "Test For ViewpointExpectation Layer"
 layer {
   name: "data"
   type: "Input"
@@ -26,24 +26,13 @@ layer {
 }
 
 layer {
-  name: "AngularExpectation"
+  name: "ViewpointExpectation"
   type: "Python"
   bottom: "softmax_prob_fixedT"
-  top: "expected_cs"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "AngularExpectation"
-    param_str: "-b 24"
-  }
-}
-
-layer {
-  name: "L2Normalization"
-  type: "Python"
-  bottom: "expected_cs"
   top: "normalized_cs"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "L2Normalization"
+    layer: "ViewpointExpectation"
+    param_str: "-b 24"
   }
 }

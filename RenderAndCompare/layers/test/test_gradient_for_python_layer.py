@@ -73,8 +73,8 @@ def test_gradient_for_python_layer(input_names_and_values, output_names, py_modu
     """
     net, propagate_down = make_net_from_python_layer(input_names_and_values, output_names, py_module, py_layer,
                                                      param_str, propagate_down)
-    h = 5e-2  # numerical gradient step size
-    thr = 5.0 * h  # numerical gradient check threshold
+    h = 1e-3  # numerical gradient step size
+    thr = 10.0 * h  # numerical gradient check threshold
     loss_weight = 2.0
     gradient_test_for_net(net, input_names_and_values, propagate_down, output_names, thr, h, loss_weight)
     print("done gradient test")
@@ -123,7 +123,7 @@ def make_net_from_python_layer(input_names_and_values, output_names, py_module, 
         tf.write('force_backward: true\n')  # must have. otherwise python's backward is not called at all.
         tf.write(str(ns.to_proto()))
     net = caffe.Net('./test_py_layer.prototxt', caffe.TEST)
-    os.unlink('./test_py_layer.prototxt')
+    # os.unlink('./test_py_layer.prototxt')
     return net, propagate_down
 
 

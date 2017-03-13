@@ -1,0 +1,21 @@
+name: "Test For VPExpectation Layer"
+force_backward: true
+layer {
+  name: "data"
+  type: "Input"
+  top: "data"
+  input_param { shape: { dim: 10 dim: 24 } }
+}
+layer {
+  name: "tested_py_layer"
+  type: "Python"
+  bottom: "data"
+  top: "veiw_normalized_cs"
+  loss_weight: 1.0
+  propagate_down: true
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "ViewpointExpectation"
+    param_str: "-b 24"
+  }
+}

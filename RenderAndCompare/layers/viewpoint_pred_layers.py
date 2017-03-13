@@ -197,6 +197,89 @@ def softmax(x, t=1.0):
     return out
 
 
+class ViewpointExpectation(caffe.Layer):
+    """
+    Takes probs over set of bins and computes the complex (angular) expectation
+    of a viewpoint angle. Combines AngularExpecation and L2Normalization layer
+    Lets say we have K bins
+    bottom[0] (N,K) probs for N samples
+    top[0] (N,2) where each row is [cos, sin] of the expected angle
+    top[1] (N,) is optional gives the angle in degress in [0, 360)
+    """
+
+    def parse_param_str(self, param_str):
+        parser = argparse.ArgumentParser(description='ViewpointExpectation Layer')
+        parser.add_argument("-b", "--num_of_bins", default=24, type=int, help="Number of bins")
+        params = parser.parse_args(param_str.split())
+        return params
+
+    def setup(self, bottom, top):
+        assert len(bottom) == 1, 'requires a single bottom blobs'
+        assert 1 <= len(top) <= 2, 'requires a 1/2 top blobs'
+
+        # params is expected as argparse style string
+        params = self.parse_param_str(self.param_str)
+        self.num_of_bins = params.num_of_bins
+
+        assert bottom[0].data.ndim == 2
+        assert bottom[0].data.shape[1] == self.num_of_bins
+        top[0].reshape(bottom[0].data.shape[0], 2)
+
+        # We have top[1]
+        if len(top) == 2:
+            top[0].reshape(bottom[0].data.shape[0],)
+
+        angles = (2 * np.pi / self.num_of_bins) * (np.arange(0.5, self.num_of_bins))
+        anglesz = np.exp(1j * angles)
+        self.cs = np.hstack((np.real(anglesz).reshape(-1, 1), np.imag(anglesz).reshape(-1, 1)))
+
+        print "----------- ViewpointExpectation Layer Config ----------------"
+        print "Number of bins = {}".format(self.num_of_bins)
+        print "bottom.shape =   {}".format(bottom[0].data.shape)
+        print "top[0].shape =   {}".format(top[0].data.shape)
+        if len(top) == 2:
+            print "top[1].shape =   {}".format(top[1].data.shape)
+        print "--------------------------------------------------------------"
+
+    def reshape(self, bottom, top):
+        pass
+
+    def forward(self, bottom, top):
+        self.dot = bottom[0].data.copy().dot(self.cs)
+        self.sq_norm = np.sum(np.square(self.dot), axis=1, keepdims=True)
+        self.inv_norm = 1. / np.sqrt(self.sq_norm)
+        top[0].data[...] = self.dot * self.inv_norm
+        if len(top) == 2:
+            top[1].data[...] = (np.arctan2(self.dot[:, 1], self.dot[:, 0]) * 180 / np.pi) % 360.0
+
+    def backward(self, top, propagate_down, bottom):
+        # diff = top[0].diff * self.inv_norm
+        # dnorm = -1. / self.sq_norm * self.dot
+        # dsq_norm = 0.5 * (1. / np.sqrt(self.sq_norm + np.finfo(np.float32).eps)) * dnorm
+        # diff += 2 * self.dot * dsq_norm
+        # bottom[0].diff[...] = diff.dot(self.cs.T)
+        """
+        Lame implementation by loop over samples
+        """
+        top_diff = top[0].diff.copy()
+        num_samples = bottom[0].data.shape[0]
+        bottom_diff = np.zeros_like(bottom[0].diff, dtype=np.float32)
+
+        # (z_1^2 + z_2^2) ^ {3/2} \in (N, 1)
+        z1, z2 = self.dot[:, 0], self.dot[:, 1]
+        c1, c2 = self.cs[:, 0], self.cs[:, 1]
+        diff1, diff2 = top_diff[:, 0], top_diff[:, 1]
+        z_factor = self.inv_norm**3
+
+        # loop over all samples individually
+        for idx in xrange(num_samples):
+            d1 = (c1 * (z2[idx]**2) - c2 * z1[idx] * z2[idx]) * z_factor[idx]
+            d2 = (c2 * (z1[idx]**2) - c1 * z1[idx] * z2[idx]) * z_factor[idx]
+            bottom_diff[idx, :] = diff1[idx] * d1 + diff2[idx] * d2
+
+        bottom[0].diff[...] = bottom_diff
+
+
 class SoftMaxViewPoint(caffe.Layer):
     """
     Converts unormalized log probs of viewpoint estimate to a continious ViewPoint estimate

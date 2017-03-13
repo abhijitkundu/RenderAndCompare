@@ -1,0 +1,25 @@
+name: "test_py_layer"
+force_backward: true
+layer {
+  name: "expected_cs"
+  type: "DummyData"
+  top: "expected_cs"
+  dummy_data_param {
+    shape {
+      dim: 10
+      dim: 24
+    }
+  }
+}
+layer {
+  name: "tested_py_layer"
+  type: "Python"
+  bottom: "expected_cs"
+  top: "normalized_cs"
+  loss_weight: 1.0
+  propagate_down: true
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "L2Normalization"
+  }
+}
