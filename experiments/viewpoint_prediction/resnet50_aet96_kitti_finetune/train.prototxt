@@ -3713,5 +3713,5 @@ layer {
   bottom: "fc_tilt96"
   bottom: "gt_vp_tilt_label"
   top: "loss_tilt"
-  loss_weight: 0
+  loss_weight: 0.001
 }
