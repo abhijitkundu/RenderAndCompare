@@ -12,7 +12,7 @@ layer {
   bottom: "data"
   top: "data_by_fixedT"
   scale_param {
-    filler {  type: "constant"  value: 1e18}
+    filler {  type: "constant"  value: 1}
     bias_term: false
   }
   param {lr_mult: 0 decay_mult: 0}

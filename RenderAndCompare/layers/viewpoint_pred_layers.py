@@ -113,6 +113,28 @@ class ViewpoinPredictionDataLayer(DataLayer):
         top[0].data[...] -= self.mean_bgr
 
 
+class AngleToCosSin(caffe.Layer):
+    """
+    Converts continious ViewPoint measurement to cos , sin represenatation
+    """
+    def setup(self, bottom, top):
+        assert len(bottom) == 1, 'requires a single layer.bottom'
+        assert len(top) == 1, 'requires a single layer.top'
+        assert bottom[0].data.ndim == 1, 'requires a bottom to be a vector'
+        top[0].reshape(bottom[0].data.shape[0], 2)
+
+    def reshape(self, bottom, top):
+        pass
+
+    def forward(self, bottom, top):
+        angles = np.radians(bottom[0].data)
+        # No need to normalize since cos^2 + sin^2 = 1
+        top[0].data[...] = np.hstack((np.cos(angles).reshape(-1, 1), np.sin(angles).reshape(-1, 1)))
+
+    def backward(self, top, propagate_down, bottom):
+        pass
+
+
 class QuantizeViewPoint(caffe.Layer):
     """
     Converts continious ViewPoint measurement to quantized discrete labels
@@ -230,8 +252,7 @@ class ViewpointExpectation(caffe.Layer):
             top[1].reshape(bottom[0].data.shape[0],)
 
         angles = (2 * np.pi / self.num_of_bins) * (np.arange(0.5, self.num_of_bins))
-        anglesz = np.exp(1j * angles)
-        self.cs = np.hstack((np.real(anglesz).reshape(-1, 1), np.imag(anglesz).reshape(-1, 1)))
+        self.cs = np.hstack((np.cos(angles).reshape(-1, 1), np.sin(angles).reshape(-1, 1)))
 
         print "----------- ViewpointExpectation Layer Config ----------------"
         print "Number of bins = {}".format(self.num_of_bins)

@@ -111,8 +111,7 @@ class AngularExpectation(caffe.Layer):
         top[0].reshape(bottom[0].data.shape[0], 2)
 
         angles = (2 * np.pi / self.num_of_bins) * (np.arange(0.5, self.num_of_bins))
-        anglesz = np.exp(1j * angles)
-        self.cs = np.hstack((np.real(anglesz).reshape(-1, 1), np.imag(anglesz).reshape(-1, 1)))
+        self.cs = np.hstack((np.cos(angles).reshape(-1, 1), np.sin(angles).reshape(-1, 1)))
 
         print "------------- AngularExpectation Layer Config ------------------"
         print "Number of bins = {}".format(self.num_of_bins)
