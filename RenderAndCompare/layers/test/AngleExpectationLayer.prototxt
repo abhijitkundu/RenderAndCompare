@@ -1,0 +1,49 @@
+name: "Test For AngularExpectation Layer"
+layer {
+  name: "data"
+  type: "Input"
+  top: "data"
+  input_param { shape: { dim: 5 dim: 24 } }
+}
+
+layer {
+  name: "scale_by_1_by_fixedT"
+  type: "Scale"
+  bottom: "data"
+  top: "data_by_fixedT"
+  scale_param {
+    filler {  type: "constant"  value: 1.0}
+    bias_term: false
+  }
+  param {lr_mult: 0 decay_mult: 0}
+}
+
+layer {
+  type: "Softmax"
+  name: "softmax_prob_fixedT"
+  bottom: "data_by_fixedT"
+  top: "softmax_prob_fixedT"
+}
+
+layer {
+  name: "AngularExpectation"
+  type: "Python"
+  bottom: "softmax_prob_fixedT"
+  top: "expected_cs"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularExpectation"
+    param_str: "-b 24"
+  }
+}
+
+layer {
+  name: "L2Normalization"
+  type: "Python"
+  bottom: "expected_cs"
+  top: "normalized_cs"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "L2Normalization"
+  }
+}
