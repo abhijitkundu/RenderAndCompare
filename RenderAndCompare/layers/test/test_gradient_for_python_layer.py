@@ -123,7 +123,7 @@ def make_net_from_python_layer(input_names_and_values, output_names, py_module, 
         tf.write('force_backward: true\n')  # must have. otherwise python's backward is not called at all.
         tf.write(str(ns.to_proto()))
     net = caffe.Net('./test_py_layer.prototxt', caffe.TEST)
-    # os.unlink('./test_py_layer.prototxt')
+    os.unlink('./test_py_layer.prototxt')
     return net, propagate_down
 
 

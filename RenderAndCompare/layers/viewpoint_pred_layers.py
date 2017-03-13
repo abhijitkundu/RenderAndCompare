@@ -227,7 +227,7 @@ class ViewpointExpectation(caffe.Layer):
 
         # We have top[1]
         if len(top) == 2:
-            top[0].reshape(bottom[0].data.shape[0],)
+            top[1].reshape(bottom[0].data.shape[0],)
 
         angles = (2 * np.pi / self.num_of_bins) * (np.arange(0.5, self.num_of_bins))
         anglesz = np.exp(1j * angles)
@@ -253,11 +253,6 @@ class ViewpointExpectation(caffe.Layer):
             top[1].data[...] = (np.arctan2(self.dot[:, 1], self.dot[:, 0]) * 180 / np.pi) % 360.0
 
     def backward(self, top, propagate_down, bottom):
-        # diff = top[0].diff * self.inv_norm
-        # dnorm = -1. / self.sq_norm * self.dot
-        # dsq_norm = 0.5 * (1. / np.sqrt(self.sq_norm + np.finfo(np.float32).eps)) * dnorm
-        # diff += 2 * self.dot * dsq_norm
-        # bottom[0].diff[...] = diff.dot(self.cs.T)
         """
         Lame implementation by loop over samples
         """
