@@ -23,3 +23,15 @@ layer {
     layer: "GenerateCropTransformationTargets"
   }
 }
+
+layer {
+  name: "create_amodal_from_crop_pred"
+  type: "Python"
+  bottom: "crop_target"
+  bottom: "gt_bbx_crop"
+  top: "pred_bbx_amodal"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "InvertCropTransformationTargets"
+  }
+}

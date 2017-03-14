@@ -112,7 +112,7 @@ class CropPredictionDataLayer(DataLayer):
 
 class GenerateCropTransformationTargets(caffe.Layer):
     """
-    Computes the relative bbx transfromation  fromtwo bounding boxes
+    Computes the relative bbx transfromation aTc (log adjsuted) from two bounding boxes bbx_a and bbx_c
     """
 
     def setup(self, bottom, top):
@@ -131,6 +131,32 @@ class GenerateCropTransformationTargets(caffe.Layer):
     def forward(self, bottom, top):
         top[0].data[:, :2] = (bottom[1].data[:, :2] - bottom[0].data[:, :2]) / bottom[0].data[:, 2:]
         top[0].data[:, 2:] = np.log(bottom[1].data[:, 2:] / bottom[0].data[:, 2:])
+
+    def backward(self, top, propagate_down, bottom):
+        pass
+
+
+class InvertCropTransformationTargets(caffe.Layer):
+    """
+    Computes the bbx_a from aTc (log adjsuted) and bbx_c
+    """
+
+    def setup(self, bottom, top):
+        assert len(bottom) == 2, 'requires two bottom layers aTc and box_c'
+        assert len(top) == 1, 'requires a single layer.top'
+        assert bottom[0].data.ndim == 2
+        assert bottom[1].data.ndim == 2
+        assert bottom[0].data.shape[0] == bottom[1].data.shape[0]
+        assert bottom[0].data.shape[1] == 4
+        assert bottom[1].data.shape[1] == 4
+        top[0].reshape(bottom[0].data.shape[0], 4)
+
+    def reshape(self, bottom, top):
+        pass
+
+    def forward(self, bottom, top):
+        top[0].data[:, 2:] = bottom[1].data[:, 2:] / np.exp(bottom[0].data[:, 2:])
+        top[0].data[:, :2] = bottom[1].data[:, :2] - top[0].data[:, 2:] * bottom[0].data[:, :2]
 
     def backward(self, top, propagate_down, bottom):
         pass

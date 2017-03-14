@@ -69,6 +69,10 @@ if __name__ == '__main__':
             assert np.allclose(bbx_crop_blob, bbx_c)
             assert np.allclose(aTc_blob, aTc)
 
+            # Only for testing perfect transformation
+            pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
+            assert np.allclose(pred_bbx_amodal, bbx_a, rtol=1e-04, atol=1e-06), 'pred_bbx_amodal={} and bbx_a={} are different'.format(pred_bbx_amodal, bbx_a)
+
             key = cv2.waitKey(args.pause)
             if key == 27:
                 cv2.destroyAllWindows()
