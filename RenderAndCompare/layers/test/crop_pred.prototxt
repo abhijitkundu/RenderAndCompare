@@ -35,3 +35,15 @@ layer {
     layer: "InvertCropTransformationTargets"
   }
 }
+
+layer {
+  name: "compute_ious"
+  type: "Python"
+  bottom: "gt_bbx_amodal"
+  bottom: "pred_bbx_amodal"
+  top: "ious"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "BoxOverlapIoU"
+  }
+}

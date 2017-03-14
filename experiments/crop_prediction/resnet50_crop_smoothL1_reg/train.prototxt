@@ -3603,3 +3603,27 @@ layer {
   }
   loss_weight: 1
 }
+
+layer {
+  name: "create_amodal_from_crop_pred"
+  type: "Python"
+  bottom: "crop_pred"
+  bottom: "gt_bbx_crop"
+  top: "pred_bbx_amodal"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "InvertCropTransformationTargets"
+  }
+}
+
+layer {
+  name: "accuracy_box_overlap"
+  type: "Python"
+  bottom: "gt_bbx_amodal"
+  bottom: "pred_bbx_amodal"
+  top: "accuracy_box_overlap"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AverageBoxOverlapIoU"
+  }
+}
