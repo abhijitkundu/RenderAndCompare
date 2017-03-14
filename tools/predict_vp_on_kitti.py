@@ -85,7 +85,9 @@ if __name__ == '__main__':
                                                                         ['azimuth_pred', 'elevation_pred', 'tilt_pred'],
                                                                         args.mean_bgr)
 
-            azimuths = np.squeeze(predictions['azimuth_pred'], axis=(1, 2))
+            assert predictions['azimuth_pred'].size == num_of_objects
+            assert predictions['azimuth_pred'].size == predictions['azimuth_pred'].shape[0]
+            azimuths = predictions['azimuth_pred'].reshape(num_of_objects)
             # elevations = np.squeeze(predictions['elevation_pred'])
             # tilts = np.squeeze(predictions['tilt_pred'])
             # viewpoints_pred = zip(azimuths, elevations, tilts)
