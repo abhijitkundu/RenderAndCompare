@@ -129,10 +129,8 @@ class GenerateCropTransformationTargets(caffe.Layer):
         pass
 
     def forward(self, bottom, top):
-        tfm = np.zeros((bottom[0].data.shape[0], 4))
-        tfm[:, :2] = (bottom[1].data[:, :2] - bottom[0].data[:, :2]) / bottom[0].data[:, 2:]
-        tfm[:, 2:] = np.log(bottom[1].data[:, 2:] / bottom[0].data[:, 2:])
-        top[0].data[...] = tfm
+        top[0].data[:, :2] = (bottom[1].data[:, :2] - bottom[0].data[:, :2]) / bottom[0].data[:, 2:]
+        top[0].data[:, 2:] = np.log(bottom[1].data[:, 2:] / bottom[0].data[:, 2:])
 
     def backward(self, top, propagate_down, bottom):
         pass
