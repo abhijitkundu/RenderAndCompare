@@ -18,5 +18,8 @@ layer {
   bottom: "pred"
   bottom: "gt"
   top: "loss"
+  smooth_l1_loss_param {
+    sigma: 0.2
+  }
   loss_weight: 1
 }
