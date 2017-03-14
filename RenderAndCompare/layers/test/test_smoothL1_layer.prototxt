@@ -1,0 +1,22 @@
+name: "Test For SmoothL1Loss Layer"
+force_backward: true
+layer {
+  name: "gt"
+  type: "Input"
+  top: "gt"
+  input_param { shape: { dim: 2 dim: 4 } }
+}
+layer {
+  name: "pred"
+  type: "Input"
+  top: "pred"
+  input_param { shape: { dim: 2 dim: 4 } }
+}
+layer {
+  name: "smooth_l1_loss"
+  type: "SmoothL1Loss"
+  bottom: "pred"
+  bottom: "gt"
+  top: "loss"
+  loss_weight: 1
+}
