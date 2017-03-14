@@ -8,13 +8,22 @@ import caffe
 import cv2
 
 if __name__ == '__main__':
+    default_net_file = osp.join(_init_paths.parent_dir, 'crop_pred.prototxt')
+
     import argparse
     description = ('Test datalayers for Crop prediction')
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("dataset", help="Dataset JSON file")
+    parser.add_argument("-n", "--net_file", default=default_net_file, help="Net (prototxt) file")
+    parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
+    parser.add_argument("-p", "--pause", default=0, type=int, help="Set number of milliseconds to pause. Use 0 to pause indefinitely")
     args = parser.parse_args()
 
-    net = caffe.Net(osp.join(_init_paths.parent_dir, 'crop_pred.prototxt'), caffe.TEST)
+    # init caffe
+    caffe.set_mode_gpu()
+    caffe.set_device(args.gpu)
+
+    net = caffe.Net(args.net_file, caffe.TEST)
 
     print 'Loading dataset from {}'.format(args.dataset)
     dataset = rac.datasets.Dataset.from_json(args.dataset)
@@ -50,7 +59,7 @@ if __name__ == '__main__':
 
             bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data[i - start_idx]
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
-            aTc_blob = output['crop_target'][i - start_idx, ...]
+            aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]
 
             bbx_a = np.array(annotation['bbx_amodal'], dtype=np.float32)
             bbx_c = np.array(annotation['bbx_crop'], dtype=np.float32)
@@ -60,13 +69,12 @@ if __name__ == '__main__':
             assert np.allclose(bbx_crop_blob, bbx_c)
             assert np.allclose(aTc_blob, aTc)
 
-            key = cv2.waitKey(0)
+            key = cv2.waitKey(args.pause)
             if key == 27:
                 cv2.destroyAllWindows()
                 quit = True
                 break
 
         if quit is True:
+            print 'User presessed ESC. Exiting'
             break
-
-    print 'User presessed ESC. Exiting'
