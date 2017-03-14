@@ -3572,10 +3572,10 @@ layer {
   bottom: "pool5"
   top: "crop_pred"
   param {
-    lr_mult: 1
+    lr_mult: 2
   }
   param {
-    lr_mult: 2
+    lr_mult: 4
   }
   inner_product_param {
     num_output: 4
