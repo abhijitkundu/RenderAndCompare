@@ -8,7 +8,7 @@ import caffe
 import os.path as osp
 
 
-def time(net):
+def time(net, iters):
     fprop = []
     bprop = []
     total = caffe.Timer()
@@ -32,8 +32,9 @@ def time(net):
     net.before_backward(lambda layer: bprop[layer].start())
     net.after_backward(lambda layer: bprop[layer].stop())
     total.start()
-    net.forward()
-    net.backward()
+    for i in xrange(iters):
+        net.forward()
+        net.backward()
     total.stop()
     show_time()
 
@@ -43,8 +44,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("net_file", help="network model proto definition.")
-    parser.add_argument("--gpu", type=int, default=0, help="Gpu Id.")
-    parser.add_argument("--iters", type=int, default=10, help="Number of test iterations")
+    parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
+    parser.add_argument("-i", "--iters", type=int, default=10, help="Number of test iterations")
+    parser.add_argument("-d", "--dataset", help="Dataset JSON file")
     args = parser.parse_args()
 
     caffe.init_log()
@@ -56,4 +58,12 @@ if __name__ == '__main__':
 
     net = caffe.Net(args.net_file, caffe.TRAIN)
 
-    time(net)
+    if args.dataset is not None:
+        print 'Loading dataset from {}'.format(args.dataset)
+        dataset = rac.datasets.Dataset.from_json(args.dataset)
+        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+        net.layers[0].add_dataset(dataset)
+        net.layers[0].generate_datum_ids()
+
+    print 'Will now run Fwd and Bkwd for {} times'.format(args.iters)
+    time(net, args.iters)
