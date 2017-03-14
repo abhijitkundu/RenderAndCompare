@@ -69,3 +69,12 @@ class DataLayer(caffe.Layer):
         image = image.transpose(1, 2, 0)
         image = image[:, :, ::-1]  # change to RGB
         return np.uint8(image)
+
+    def make_bgr8_from_blob(self, blob_data):
+        """
+        conveneince method to get an bgr8 image (compatible for OpenCV display)
+        """
+        assert blob_data.ndim == 3, 'expects a color image (dim: 3)'
+        image = blob_data + self.mean_bgr.reshape(3, 1, 1)
+        image = image.transpose(1, 2, 0)
+        return np.uint8(image)
