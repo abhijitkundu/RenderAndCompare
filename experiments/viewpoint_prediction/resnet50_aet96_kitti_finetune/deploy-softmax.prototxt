@@ -3580,7 +3580,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "SoftMaxViewPoint"
-    param_str: "-b 96 -t 2.00"
+    param_str: "-b 96 -t 11.00"
   }
 }
 
@@ -3616,7 +3616,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "SoftMaxViewPoint"
-    param_str: "-b 96 -t 2.00"
+    param_str: "-b 96 -t 11.00"
   }
 }
 
@@ -3652,6 +3652,6 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "SoftMaxViewPoint"
-    param_str: "-b 96 -t 2.00"
+    param_str: "-b 96 -t 11.00"
   }
 }
