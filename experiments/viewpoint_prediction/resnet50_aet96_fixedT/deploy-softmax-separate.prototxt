@@ -3578,7 +3578,7 @@ layer {
   bottom: "fc_azimuth96"
   top: "fc_azimuth96_by_fixedT"
   scale_param {
-    filler {  type: "constant"  value: 2.0}
+    filler {  type: "constant"  value: 0.222}
     bias_term: false
   }
   param {lr_mult: 0 decay_mult: 0}
@@ -3632,7 +3632,7 @@ layer {
   bottom: "fc_elevation96"
   top: "fc_elevation96_by_fixedT"
   scale_param {
-    filler {  type: "constant"  value: 2.0}
+    filler {  type: "constant"  value: 0.222}
     bias_term: false
   }
   param {lr_mult: 0 decay_mult: 0}
@@ -3686,7 +3686,7 @@ layer {
   bottom: "fc_tilt96"
   top: "fc_tilt96_by_fixedT"
   scale_param {
-    filler {  type: "constant"  value: 2.0}
+    filler {  type: "constant"  value: 0.222}
     bias_term: false
   }
   param {lr_mult: 0 decay_mult: 0}
