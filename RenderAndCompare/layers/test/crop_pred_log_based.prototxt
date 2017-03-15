@@ -1,0 +1,49 @@
+name: "crop_pred_layers"
+layer {
+  name: "data"
+  type: "Python"
+  top: "data"
+  top: "gt_bbx_amodal"
+  top: "gt_bbx_crop"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "CropPredictionDataLayer"
+    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
+  }
+}
+
+layer {
+  name: "create_crop_reg_targets"
+  type: "Python"
+  bottom: "gt_bbx_amodal"
+  bottom: "gt_bbx_crop"
+  top: "crop_target"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "GenerateCropTransformationTargets"
+  }
+}
+
+layer {
+  name: "create_amodal_from_crop_pred"
+  type: "Python"
+  bottom: "crop_target"
+  bottom: "gt_bbx_crop"
+  top: "pred_bbx_amodal"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "InvertCropTransformationTargets"
+  }
+}
+
+layer {
+  name: "compute_ious"
+  type: "Python"
+  bottom: "gt_bbx_amodal"
+  bottom: "pred_bbx_amodal"
+  top: "ious"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "BoxOverlapIoU"
+  }
+}

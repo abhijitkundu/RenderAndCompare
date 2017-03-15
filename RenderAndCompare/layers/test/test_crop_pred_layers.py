@@ -8,7 +8,7 @@ import caffe
 import cv2
 
 if __name__ == '__main__':
-    default_net_file = osp.join(_init_paths.parent_dir, 'crop_pred.prototxt')
+    default_net_file = osp.join(_init_paths.parent_dir, 'crop_pred_offset_based.prototxt')
 
     import argparse
     description = ('Test datalayers for Crop prediction')
@@ -59,15 +59,23 @@ if __name__ == '__main__':
 
             bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data[i - start_idx]
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
-            aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]
 
             bbx_a = np.array(annotation['bbx_amodal'], dtype=np.float32)
             bbx_c = np.array(annotation['bbx_crop'], dtype=np.float32)
-            aTc = [(bbx_c[0] - bbx_a[0]) / bbx_a[2], (bbx_c[1] - bbx_a[1]) / bbx_a[3], np.log(bbx_c[2] / bbx_a[2]), np.log(bbx_c[3] / bbx_a[3])]
 
             assert np.allclose(bbx_amodal_blob, bbx_a)
             assert np.allclose(bbx_crop_blob, bbx_c)
-            assert np.allclose(aTc_blob, aTc)
+
+            if 'crop_target' in net.blobs:
+                aTc = [(bbx_c[0] - bbx_a[0]) / bbx_a[2], (bbx_c[1] - bbx_a[1]) / bbx_a[3], np.log(bbx_c[2] / bbx_a[2]), np.log(bbx_c[3] / bbx_a[3])]
+                aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]
+                assert np.allclose(aTc_blob, aTc)
+            elif all(k in net.blobs for k in ("position_offset", "size_offset")):
+                aTc = [(bbx_c[0] - bbx_a[0]) / bbx_a[2], (bbx_c[1] - bbx_a[1]) / bbx_a[3], bbx_c[2] / bbx_a[2], bbx_c[3] / bbx_a[3]]
+                aTc_blob = np.hstack((net.blobs['position_offset'].data[i - start_idx, ...], net.blobs['size_offset'].data[i - start_idx, ...]))
+                assert np.allclose(aTc_blob, aTc), 'aTc_blob={} aTc={}'.format(aTc_blob, aTc)
+            else:
+                print 'No bbx transformation targets found'
 
             # Only for testing perfect transformation
             pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]

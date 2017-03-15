@@ -13,26 +13,28 @@ layer {
 }
 
 layer {
-  name: "create_crop_reg_targets"
+  name: "create_crop_offset_targets"
   type: "Python"
   bottom: "gt_bbx_amodal"
   bottom: "gt_bbx_crop"
-  top: "crop_target"
+  top: "position_offset"
+  top: "size_offset"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "GenerateCropTransformationTargets"
+    layer: "GenerateBoxOffsetTargets"
   }
 }
 
 layer {
-  name: "create_amodal_from_crop_pred"
+  name: "create_amodal_from_crop_offsets"
   type: "Python"
-  bottom: "crop_target"
+  bottom: "position_offset"
+  bottom: "size_offset"
   bottom: "gt_bbx_crop"
   top: "pred_bbx_amodal"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "InvertCropTransformationTargets"
+    layer: "InvertBoxOffsetTargets"
   }
 }
 
