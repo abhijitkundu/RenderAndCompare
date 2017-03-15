@@ -1,4 +1,4 @@
-from datalayer import DataLayer
+from datalayer import AbstractDataLayer
 from RenderAndCompare.datasets import BatchImageLoader
 from random import shuffle
 import numpy as np
@@ -7,7 +7,7 @@ import argparse
 import caffe
 
 
-class CropPredictionDataLayer(DataLayer):
+class CropPredictionDataLayer(AbstractDataLayer):
 
     def parse_param_str(self, param_str):
         parser = argparse.ArgumentParser(description='Crop Prediction Data Layer')
