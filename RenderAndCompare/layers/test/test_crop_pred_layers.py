@@ -77,11 +77,11 @@ if __name__ == '__main__':
             else:
                 print 'No bbx transformation targets found'
 
-            # Only for testing perfect transformation
-            pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
-            assert np.allclose(pred_bbx_amodal, bbx_a, rtol=1e-04, atol=1e-06), 'pred_bbx_amodal={} and bbx_a={} are different'.format(pred_bbx_amodal, bbx_a)
-            iou = net.blobs['ious'].data[i - start_idx, ...]
-            assert np.allclose(iou, 1.0)
+            # # Only for testing perfect transformation
+            # pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
+            # assert np.allclose(pred_bbx_amodal, bbx_a, rtol=1e-04, atol=1e-06), 'pred_bbx_amodal={} and bbx_a={} are different'.format(pred_bbx_amodal, bbx_a)
+            # iou = net.blobs['ious'].data[i - start_idx, ...]
+            # assert np.allclose(iou, 1.0)
 
             key = cv2.waitKey(args.pause)
             if key == 27:
