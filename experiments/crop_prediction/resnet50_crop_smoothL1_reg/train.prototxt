@@ -3599,7 +3599,7 @@ layer {
   propagate_down: false
   top: "loss_crop"
   smooth_l1_loss_param {
-    sigma: 0.2
+    sigma: 100.0
   }
   loss_weight: 1
 }
