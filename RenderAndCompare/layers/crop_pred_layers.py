@@ -78,6 +78,7 @@ class CropPredictionDataLayer(AbstractDataLayer):
             shuffle(self.data_ids)
 
         print 'Total number of data points (annotations) = {:,}'.format(num_of_data_points)
+        return num_of_data_points
 
     def forward(self, bottom, top):
         """
