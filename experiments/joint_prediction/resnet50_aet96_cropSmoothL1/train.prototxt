@@ -1,4 +1,4 @@
-name: "resnet50_aet96_crop"
+name: "resnet50_aet96_cropSmoothL1"
 layer {
   name: "data"
   type: "Python"
