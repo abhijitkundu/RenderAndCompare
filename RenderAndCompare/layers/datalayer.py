@@ -63,6 +63,15 @@ class AbstractDataLayer(caffe.Layer):
         """
         pass
 
+    def generate_datum_ids(self):
+        pass
+
+    def number_of_datapoints(self):
+        if hasattr(self, 'data_ids'):
+            return len(self.data_ids)
+        else:
+            return 0
+
     def make_rgb8_from_blob(self, blob_data):
         """
         conveneince method to get an rgb8 image (compatible for Matplotlib display)
