@@ -12,7 +12,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "DataLayer"
-    param_str: "-b 24 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
+    param_str: "-b 22 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
   }
 }
 layer {
