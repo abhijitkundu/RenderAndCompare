@@ -36,6 +36,9 @@ class Dataset(object):
     def set_rootdir(self, rootdir):
         self.data['rootdir'] = rootdir
 
+    def set_annotations(self, annotations):
+        self.data['annotations'] = annotations
+
     def add_annotation(self, annotation):
         self.data['annotations'].append(annotation)
 
