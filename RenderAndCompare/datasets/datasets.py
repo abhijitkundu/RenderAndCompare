@@ -44,7 +44,7 @@ class Dataset(object):
 
     def write_data_to_json(self, filename):
         with open(filename, 'w') as f:
-            json.dump(self.data, f, indent=2, separators=(',', ':'))
+            json.dump(self.data, f, indent=2, separators=(',', ':'), cls=DatasetJSONEncoder)
         print 'Saved dataset to {}'.format(filename)
 
     def set_data_from_json(self, filename):
@@ -61,3 +61,21 @@ class Dataset(object):
 
     def __repr__(self):
         return 'Dataset(name="%s", with %d annotations)' % (self.name(), self.num_of_annotations())
+
+
+class DatasetJSONEncoder(json.JSONEncoder):
+    def iterencode(self, o, _one_shot=False):
+        list_lvl = 0
+        for s in super(DatasetJSONEncoder, self).iterencode(o, _one_shot=_one_shot):
+            if s.startswith('['):
+                list_lvl += 1
+            if list_lvl > 1:
+                s = s.replace('\n', '')
+                s = s.replace(' ', '')
+                if s and s[-1] == ',':
+                    s = s[:-1] + self.item_separator
+                elif s and s[-1] == ':':
+                    s = s[:-1] + self.key_separator
+            if s.endswith(']'):
+                list_lvl -= 1
+            yield s
