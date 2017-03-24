@@ -57,7 +57,7 @@ class ShapePredictionDataLayer(AbstractDataLayer):
             img_path = osp.join(dataset.rootdir(), annotation['image_file'])
             image_files.append(img_path)
 
-            self.shape_params.append(np.array(annotation['shape_param'], dtype=np.float))
+            self.shape_params.append(np.array(annotation['shape_param'], dtype=np.float) / 100.0)
 
         self.image_loader.preload_images(image_files)
         print "--------------------------------------------------------------------"

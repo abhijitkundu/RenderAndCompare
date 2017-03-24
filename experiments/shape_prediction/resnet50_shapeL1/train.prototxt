@@ -7,7 +7,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "ShapePredictionDataLayer"
-    param_str: "-b 60 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
+    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
   }
 }
 
@@ -777,7 +777,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -834,7 +834,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -898,7 +898,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -962,7 +962,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1034,7 +1034,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1098,7 +1098,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1162,7 +1162,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1234,7 +1234,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1298,7 +1298,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1362,7 +1362,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1434,7 +1434,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1498,7 +1498,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1562,7 +1562,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1636,7 +1636,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1693,7 +1693,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1757,7 +1757,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1821,7 +1821,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1893,7 +1893,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1957,7 +1957,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2021,7 +2021,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2093,7 +2093,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2157,7 +2157,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2221,7 +2221,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2293,7 +2293,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2357,7 +2357,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2421,7 +2421,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2493,7 +2493,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2557,7 +2557,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2621,7 +2621,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2693,7 +2693,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2757,7 +2757,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2821,7 +2821,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2895,7 +2895,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2952,7 +2952,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3016,7 +3016,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3080,7 +3080,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3152,7 +3152,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3216,7 +3216,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3280,7 +3280,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3352,7 +3352,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3416,7 +3416,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3480,7 +3480,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3559,10 +3559,10 @@ layer {
   bottom: "pool5"
   top: "pred_shape"
   param {
-    lr_mult: 1
+    lr_mult: 2
   }
   param {
-    lr_mult: 2
+    lr_mult: 4
   }
   inner_product_param {
     num_output: 10
