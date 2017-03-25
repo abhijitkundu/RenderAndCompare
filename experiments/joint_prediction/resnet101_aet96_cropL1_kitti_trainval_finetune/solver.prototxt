@@ -11,4 +11,4 @@ momentum: 0.9
 weight_decay: 0.0005
 snapshot: 10000
 snapshot_prefix: "resnet101_aet96_cropL1_kitti_trainval_finetune"
-max_iter: 300000
+max_iter: 200000
