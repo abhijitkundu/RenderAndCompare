@@ -10,3 +10,16 @@ layer {
     param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
   }
 }
+
+layer {
+  name: "create_shape_target"
+  type: "Scale"
+  bottom: "gt_shape"
+  top: "gt_shape_target"
+  scale_param {
+    filler {  type: "constant"  value: 0.01}
+    bias_term: false
+  }
+  param {lr_mult: 0 decay_mult: 0}
+  propagate_down: false
+}

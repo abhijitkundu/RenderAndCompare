@@ -11,6 +11,19 @@ layer {
   }
 }
 
+layer {
+  name: "create_shape_target"
+  type: "Scale"
+  bottom: "gt_shape"
+  top: "gt_shape_target"
+  scale_param {
+    filler {  type: "constant"  value: 0.01}
+    bias_term: false
+  }
+  param {lr_mult: 0 decay_mult: 0}
+  propagate_down: false
+}
+
 #------------- conv1 (freezed) --------------#
 
 layer {
@@ -3557,7 +3570,7 @@ layer {
   name: "fc_shape"
   type: "InnerProduct"
   bottom: "pool5"
-  top: "pred_shape"
+  top: "pred_shape_target"
   param {
     lr_mult: 2
   }
@@ -3581,8 +3594,8 @@ layer {
 layer {
   name: "loss_shape"
   type: "L1Loss"
-  bottom: "pred_shape"
-  bottom: "gt_shape"
+  bottom: "pred_shape_target"
+  bottom: "gt_shape_target"
   propagate_down: true
   propagate_down: false
   top: "loss_shape"
@@ -3592,8 +3605,8 @@ layer {
 # layer {
 #   name: "loss_shape"
 #   type: "SmoothL1Loss"
-#   bottom: "pred_shape"
-#   bottom: "gt_shape"
+#   bottom: "pred_shape_target"
+#   bottom: "gt_shape_target"
 #   propagate_down: true
 #   propagate_down: false
 #   top: "loss_shape"

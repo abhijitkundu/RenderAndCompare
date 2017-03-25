@@ -58,12 +58,14 @@ if __name__ == '__main__':
             cv2.imshow('dataset_image', dataset_image)
 
             shape_params_blob = net.blobs['gt_shape'].data[i - start_idx]
+            shape_targets_blob = net.blobs['gt_shape_target'].data[i - start_idx]
 
             shape_params = np.array(annotation['shape_param'], dtype=np.float32)
             assert shape_params.shape == (10,)
             assert np.isfinite(shape_params).all()
 
             assert np.allclose(shape_params_blob, shape_params)
+            assert np.allclose(shape_targets_blob, shape_params/100.0)
 
             key = cv2.waitKey(args.pause)
             if key == 27:
