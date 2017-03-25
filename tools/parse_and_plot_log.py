@@ -12,6 +12,7 @@ import argparse
 from collections import OrderedDict
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 
 def parse_log(path_to_log):
@@ -138,48 +139,62 @@ def parse_args():
     return args
 
 
-def create_plots(data_frame, data_split="Training"):
-    print "Found {} data with {} data points".format(data_split, len(data_frame))
+fig, (train_axes, test_axes) = plt.subplots(2, 2, figsize=(20, 15))
+
+
+def init_plots():
+    train_axes[0].set_title('Training Loss')
+    train_axes[1].set_title('Training Accuracy')
+    test_axes[0].set_title('Testing Loss')
+    test_axes[1].set_title('Testing Accuracy')
+    
+
+def draw_plot(data_frame, axes):
     all_column_names = list(data_frame.columns.values)
-    print "and column names = {}".format(all_column_names)
-
     outputs = [e for e in all_column_names if e not in ('NumIters', 'TotalLoss', 'LearningRate')]
-    loss_outputs = (output for output in outputs if "loss" in output)
-    acc_outputs = (output for output in outputs if "acc" in output)
+    loss_outputs = [output for output in outputs if "loss" in output]
+    acc_outputs = [output for output in outputs if "acc" in output]
 
-    plt.figure()
-    plt.title(' {} Loss'.format(data_split))
-    plt.xlabel('NumIters')
-
-    plt.plot(data_frame['NumIters'], data_frame['TotalLoss'], color="red", alpha=0.6, label="TotalLoss")
-    # plt.plot(data_frame['NumIters'], data_frame['LearningRate'], color="blue", alpha=0.5, label="LearningRate")
+    # Plot loss outputs
+    axes[0].clear()
+    axes[0].plot(data_frame['NumIters'], data_frame['TotalLoss'], color="red", alpha=0.6, label="TotalLoss")
+    # axes[0].plot(data_frame['NumIters'], data_frame['LearningRate'], color="blue", alpha=0.5, label="LearningRate")
     for output in loss_outputs:
-        plt.plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
-    plt.legend(loc='upper right')
+        axes[0].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
+    axes[0].legend(loc='upper right')
 
-    plt.figure()
-    plt.title(' {} Accuracy'.format(data_split))
-    plt.xlabel('NumIters')
-    # plt.plot(data_frame["NumIters"], data_frame["accuracy"], color="green", alpha=0.6, label="training_accuracy")
-    for output in acc_outputs:
-        plt.plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
-    plt.axhline(1.0, color='b', linestyle='dashed', linewidth=2)
-    plt.legend(loc='lower right')
+    # Plot accuracy outputs
+    if acc_outputs:
+        axes[1].clear()
+        for output in acc_outputs:
+            axes[1].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
+        axes[1].axhline(1.0, color='b', linestyle='dashed', linewidth=2)
+        axes[1].legend(loc='lower right')
 
+    current_iters = int(data_frame['NumIters'].iloc[-1])
+    fig.suptitle('Stats after Iteration# {}'.format(current_iters), fontsize=14)
+    
+
+def update_plots(frame, logfile_path):
+    train_df, test_df = parse_log(logfile_path)
+
+    if not train_df.empty:
+        draw_plot(train_df, train_axes)
+        train_axes[0].set_title('Training Loss')
+        train_axes[1].set_title('Training Accuracy')
+        
+    if not test_df.empty:
+        draw_plot(test_df, test_axes)
+        test_axes[0].set_title('Testing Loss')
+        test_axes[1].set_title('Testing Accuracy')
 
 def main():
     args = parse_args()
-    train_df, test_df = parse_log(args.logfile_path)
 
-    if train_df.empty:
-        print "No training data found"
-    else:
-        create_plots(train_df, 'Training')
+    init_plots()
+    update_plots(0, args.logfile_path)
 
-    if test_df.empty:
-        print "No testing data found"
-    else:
-        create_plots(test_df, 'Testing')
+    ani = FuncAnimation(fig, update_plots, fargs=(args.logfile_path, ), interval = 2000)
 
     plt.show()
 
