@@ -6,8 +6,8 @@ layer {
   top: "gt_shape"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "ShapePredictionDataLayer"
-    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
+    layer: "JointDataLayer"
+    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -t data shape"
   }
 }
 
