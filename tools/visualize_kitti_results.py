@@ -15,7 +15,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-s", "--set", default='training', help="training or testing set")
+    parser.add_argument("-s", "--set", default='training', choices=['training', 'testing'], help="training or testing set")
     parser.add_argument("label_files", nargs='+', help="Path to kitti label files")
     parser.add_argument("-t", "--score_thresh", type=float, default=0.0, help="Score Threshold")
     args = parser.parse_args()
