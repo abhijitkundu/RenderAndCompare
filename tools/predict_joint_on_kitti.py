@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--mean_bgr", nargs=3, default=[103.0626238, 115.90288257, 123.15163084], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="GPU Id.")
     parser.add_argument("-o", "--output_folder", required=True, help="Output folder to save the results")
-    parser.add_argument("-s", "--set", default='training', help="training or testing set")
+    parser.add_argument("-s", "--set", default='training', choices=['training', 'testing'], help="training or testing set")
     parser.add_argument("label_files", nargs='+', help="Path to kitti label files")
 
     args = parser.parse_args()

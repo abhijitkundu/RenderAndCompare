@@ -134,6 +134,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument('logfile_path', help='Path to log file')
+    parser.add_argument('-i', '--update_interval', default=2000, type=int, help='Update interval in ms. Use -ve values for Static graph')
 
     args = parser.parse_args()
     return args
@@ -194,8 +195,9 @@ def main():
     init_plots()
     update_plots(0, args.logfile_path)
 
-    ani = FuncAnimation(fig, update_plots, fargs=(args.logfile_path, ), interval = 2000)
-
+    if args.update_interval > 0:
+         ani = FuncAnimation(fig, update_plots, fargs=(args.logfile_path, ), interval = args.update_interval)
+    
     plt.show()
 
 
