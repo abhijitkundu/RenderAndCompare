@@ -2,6 +2,9 @@
 *.caffemodel
 *.solverstate
 
+# Ignore H5 files
+*.h5
+
 # Ignore Log files and log dirs
 logs/
 *.log
