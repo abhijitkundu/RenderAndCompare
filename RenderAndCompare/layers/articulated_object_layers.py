@@ -85,7 +85,7 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
                 self.shape_params.append(np.array(annotation['body_shape'], dtype=np.float))
 
             if hasattr(self, 'pose_params'):
-                self.shape_params.append(np.array(annotation['body_pose'], dtype=np.float))
+                self.pose_params.append(np.array(annotation['body_pose'], dtype=np.float))
 
         self.image_loader.crop_and_preload_images(image_files, cropping_boxes)
         print "--------------------------------------------------------------------"
@@ -93,9 +93,10 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
     def generate_datum_ids(self):
         num_of_data_points = len(self.image_loader)
 
-        for attr in ['viewpoints', 'shape_params', 'pose_params']:
+        for attr in ['shape_params', 'pose_params']:
             if hasattr(self, attr):
-                assert len(getattr(self, attr)) == num_of_data_points
+                print attr
+                assert len(getattr(self, attr)) == num_of_data_points, 'attr {} has length {} instead of {}'.format(attr, len(getattr(self, attr)), num_of_data_points)
 
         # set of data indices in [0, num_of_data_points)
         self.data_ids = range(num_of_data_points)

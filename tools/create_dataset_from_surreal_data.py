@@ -49,6 +49,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--dataset_name", default='surreal_xxxxx', help="Dataset name")
     parser.add_argument("-m", "--smpl_model_file", default=osp.join(smpl_data_dir, 'smpl_neutral_lbs_10_207_0.h5'), help="Input folder containing single image surreal data")
     parser.add_argument("-p", "--pose_pca_file", default=osp.join(smpl_data_dir, 'smpl_pose_pca10_cmu_h36m.h5'), help="Input folder containing single image surreal data")
+    parser.add_argument("-r", "--remove_empty_bbx", default=1, type=int, help="Remove empty box")
     args = parser.parse_args()
 
     assert osp.exists(args.input_folder), 'Input data folder "{}" does not exist'.format(args.input_folder)
@@ -87,10 +88,11 @@ if __name__ == '__main__':
         # check the bbx and add only if its a good one
         bbx = np.array(annotation['visible_bbx']).astype(np.int)
 
-        if (bbx[3] - bbx[1]) > 0 and (bbx[2] - bbx[0]) > 0:
-            dataset.add_annotation(annotation)
-        else:
-            tqdm.write('Invalid bbx = {} in image {}'.format(bbx, image_file))
+        if args.remove_empty_bbx == 1:
+            if (bbx[3] - bbx[1]) <= 0 or (bbx[2] - bbx[0]) <= 0:
+                tqdm.write('Invalid bbx = {} in image {}'.format(bbx, image_file))
+                continue
+        dataset.add_annotation(annotation)
 
     print 'Finished creating dataset with {} annotations from {} images'.format(dataset.num_of_annotations(), len(image_files))
 
