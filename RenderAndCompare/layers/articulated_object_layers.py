@@ -87,8 +87,7 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
             if hasattr(self, 'pose_params'):
                 self.shape_params.append(np.array(annotation['body_pose'], dtype=np.float))
 
-        # self.image_loader.crop_and_preload_images(image_files, cropping_boxes)
-        self.image_loader.preload_images(image_files)
+        self.image_loader.crop_and_preload_images(image_files, cropping_boxes)
         print "--------------------------------------------------------------------"
 
     def generate_datum_ids(self):
