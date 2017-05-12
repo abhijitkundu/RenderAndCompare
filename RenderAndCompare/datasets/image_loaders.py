@@ -1,4 +1,5 @@
 import numpy as np
+from joblib import Parallel, delayed
 import cv2
 import tqdm
 
@@ -27,6 +28,31 @@ class LazyImageLoader(object):
         return len(self.image_files)
 
 
+def read_resize_transpose_image(image_file, im_size):
+    image = cv2.imread(image_file)
+    assert image.size != 0, 'Invalid image'
+    assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)
+
+    image = cv2.resize(image, (im_size[0], im_size[1]), interpolation=cv2.INTER_LINEAR)
+    # move image channels to outermost dimension
+    image = image.transpose((2, 0, 1))
+    return image
+
+
+def read_crop_resize_transpose_image(image_file, cropping_box, im_size):
+    image = cv2.imread(image_file)
+    assert image.size != 0, 'Invalid image'
+    assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)
+
+    bbx = cropping_box.astype(int)
+    assert (bbx[3] - bbx[1]) > 0 and (bbx[2] - bbx[0]) > 0, 'Invalid bbx = {}'.format(bbx)
+    cropped_image = image[bbx[1]:bbx[3], bbx[0]:bbx[2]]
+    image = cv2.resize(cropped_image, (im_size[0], im_size[1]), interpolation=cv2.INTER_LINEAR)
+    # move image channels to outermost dimension
+    image = image.transpose((2, 0, 1))
+    return image
+
+
 class BatchImageLoader(object):
     """
     This class first prefetches ALL the images. Can be bad for large datasets. But for datasets
@@ -46,11 +72,18 @@ class BatchImageLoader(object):
         # TODO Fill the preloaded_images in parallel
         print "BatchImageLoader: Preloading {:,} images".format(len(image_files))
         for i in tqdm.trange(len(image_files)):
-            image = cv2.imread(image_files[i])
-            image = cv2.resize(image, (self.im_size[0], self.im_size[1]), interpolation=cv2.INTER_LINEAR)
-            # move image channels to outermost dimension
-            image = image.transpose((2, 0, 1))
+            image = read_resize_transpose_image(image_files[i], self.im_size)
             self.preloaded_images.append(image)
+        print "BatchImageLoader now has {:,} images".format(len(self.preloaded_images))
+
+    def crop_and_preload_images(self, image_files, cropping_boxes):
+        assert len(image_files) == len(cropping_boxes), 'Number of images ({}) need to be same as numbe of boxes ({})'.format(len(image_files), len(cropping_boxes))
+        # TODO Fill the preloaded_images in parallel
+        print "BatchImageLoader: Crop + Preloading {:,} images".format(len(image_files))
+        for i in tqdm.trange(len(image_files)):
+            image = read_crop_resize_transpose_image(image_files[i], cropping_boxes[i], self.im_size)
+            self.preloaded_images.append(image)
+
         print "BatchImageLoader now has {:,} images".format(len(self.preloaded_images))
 
     def __getitem__(self, index):

@@ -1,0 +1,25 @@
+name: "articulated_object_layers"
+layer {
+  name: "data"
+  type: "Python"
+  top: "data"
+  top: "gt_shape"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "ArticulatedObjectDataLayer"
+    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -t data shape"
+  }
+}
+
+layer {
+  name: "create_shape_target"
+  type: "Scale"
+  bottom: "gt_shape"
+  top: "gt_shape_target"
+  scale_param {
+    filler {  type: "constant"  value: 0.01}
+    bias_term: false
+  }
+  param {lr_mult: 0 decay_mult: 0}
+  propagate_down: false
+}

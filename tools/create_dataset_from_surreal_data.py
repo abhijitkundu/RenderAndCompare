@@ -18,7 +18,7 @@ def create_annotation_for_single_image(image_file, root_dir, pose_mean, pose_bas
     annotation = OrderedDict()
     annotation['image_file'] = osp.relpath(image_file, root_dir)
 
-    info_dir = osp.join(osp.dirname(image_file), '../info_neutral')
+    info_dir = osp.join(osp.dirname(image_file), '../info_neutral_bbx')
     assert osp.exists(info_dir), 'Info directory "{}" does not exist'.format(info_dir)
 
     info_file = osp.join(info_dir, frame_name + '.h5')
@@ -29,6 +29,7 @@ def create_annotation_for_single_image(image_file, root_dir, pose_mean, pose_bas
         annotation['body_shape'] = hf['body_shape'][...].tolist()
         body_pose = hf['body_pose'][...]
         assert body_pose.shape == (69,)
+        annotation['visible_bbx'] = np.squeeze(hf['visible_bbx'][...]).tolist()
 
     encoded_body_pose = pose_basis.T.dot(body_pose - pose_mean)
     assert encoded_body_pose.shape == (10,), 'unexpected encoded_body_pose.shape = {}'.format(encoded_body_pose.shape)
@@ -82,8 +83,16 @@ if __name__ == '__main__':
     print 'Creating annotations for {:,} images'.format(len(image_files))
     for image_file in tqdm(image_files):
         annotation = create_annotation_for_single_image(image_file, dataset.rootdir(), pose_mean, pose_basis)
-        dataset.add_annotation(annotation)
-    print 'Finished creating dataset with {} annotations'.format(dataset.num_of_annotations())
+
+        # check the bbx and add only if its a good one
+        bbx = np.array(annotation['visible_bbx']).astype(np.int)
+
+        if (bbx[3] - bbx[1]) > 0 and (bbx[2] - bbx[0]) > 0:
+            dataset.add_annotation(annotation)
+        else:
+            tqdm.write('Invalid bbx = {} in image {}'.format(bbx, image_file))
+
+    print 'Finished creating dataset with {} annotations from {} images'.format(dataset.num_of_annotations(), len(image_files))
 
     output_json_file = args.dataset_name + '.json'
     print 'Saving JSON dataset file at {}'.format(output_json_file)
