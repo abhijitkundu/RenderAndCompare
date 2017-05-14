@@ -16,7 +16,7 @@ coco
 
 #standard build directories
 build/
-cmake-build/
+cmake_build/
 
 # Common IDE Project Files
 ######################
