@@ -66,10 +66,11 @@ find_package(HDF5 1.8.12
 message(STATUS "=============================================================")
 message(STATUS "========== Adding RenderAndCompare Library ==================")
 
-# add_subdirectory(RenderAndCompare)
+add_subdirectory(RenderAndCompare)
 
 message(STATUS "=============================================================")
 message(STATUS "====================== Adding Tools =========================")
+
 add_subdirectory(tools)
 
 
@@ -83,7 +84,7 @@ message(STATUS "Build type Flags:   ${CMAKE_BUILD_TYPE_FLAGS}")
 message(STATUS "C++ compile flags:  ${CMAKE_CXX_FLAGS}")
 message(STATUS "Install Path:       ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Eigen Version:      ${EIGEN_VERSION}")
-message(STATUS "Caffe:              CUDA: ${Caffe_HAVE_CUDA}  CUDNN: ${Caffe_HAVE_CUDNN}")
+message(STATUS "Caffe:              CUDA: ${Caffe_HAVE_CUDA}  CUDNN: ${Caffe_HAVE_CUDNN}  ${Caffe_DEFINITIONS}")
 message(STATUS "OpenCV Version:     ${OpenCV_VERSION}")
 message(STATUS "HDF5 Version:       ${HDF5_VERSION}")
 message(STATUS "Boost Version:      ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")

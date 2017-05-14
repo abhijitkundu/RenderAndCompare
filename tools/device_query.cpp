@@ -1,21 +1,21 @@
+/**
+ * @file device_query.cpp
+ * @brief device_query
+ *
+ * @author Abhijit Kundu
+ */
+
+#include "caffe/caffe.hpp"
+
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-
-#include <cstring>
-#include <map>
-#include <string>
 #include <vector>
 
-#include "boost/algorithm/string.hpp"
-#include "caffe/caffe.hpp"
-#include "caffe/util/signal_handler.h"
-
-using caffe::vector;
 
 int device_query() {
   LOG(INFO) << "Querying GPUs ";
-  vector<int> gpus = {0, 1, 2};
-  for (int i = 0; i < gpus.size(); ++i) {
+  std::vector<int> gpus = {0, 1, 2};
+  for (std::size_t i = 0; i < gpus.size(); ++i) {
     caffe::Caffe::SetDevice(gpus[i]);
     caffe::Caffe::DeviceQuery();
   }

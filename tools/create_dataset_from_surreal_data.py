@@ -26,14 +26,14 @@ def create_annotation_for_single_image(image_file, root_dir, pose_mean, pose_bas
 
     with h5py.File(info_file, 'r') as hf:
         assert hf['gender'][...] == 'neutral', 'Only supports gender neutral params'
-        annotation['body_shape'] = hf['body_shape'][...].tolist()
+        annotation['bbx_visible'] = np.squeeze(hf['visible_bbx'][...]).tolist()
+        annotation['shape_param'] = hf['body_shape'][...].tolist()
         body_pose = hf['body_pose'][...]
         assert body_pose.shape == (69,)
-        annotation['visible_bbx'] = np.squeeze(hf['visible_bbx'][...]).tolist()
 
     encoded_body_pose = pose_basis.T.dot(body_pose - pose_mean)
     assert encoded_body_pose.shape == (10,), 'unexpected encoded_body_pose.shape = {}'.format(encoded_body_pose.shape)
-    annotation['body_pose'] = encoded_body_pose.tolist()
+    annotation['pose_param'] = encoded_body_pose.tolist()
 
     return annotation
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         annotation = create_annotation_for_single_image(image_file, dataset.rootdir(), pose_mean, pose_basis)
 
         # check the bbx and add only if its a good one
-        bbx = np.array(annotation['visible_bbx']).astype(np.int)
+        bbx = np.array(annotation['bbx_visible']).astype(np.int)
 
         if args.remove_empty_bbx == 1:
             if (bbx[3] - bbx[1]) <= 0 or (bbx[2] - bbx[0]) <= 0:
