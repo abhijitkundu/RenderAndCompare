@@ -1,0 +1,24 @@
+train_net: "train.prototxt"
+## learning rate for ADAM
+type: "Adam"
+
+## parameter of ADAM
+momentum: 0.9
+momentum2: 0.999
+
+base_lr: 0.001
+lr_policy: "fixed"
+iter_size: 1
+
+# base_lr: 0.001
+# lr_policy: "step"
+# gamma: 0.1
+# stepsize: 40000
+
+max_iter: 100000
+display: 20
+
+weight_decay: 0.0005
+snapshot: 10000
+snapshot_prefix: "resnet50_shapeL1_poseL1"
+
