@@ -6,6 +6,10 @@
  */
 
 #include "RenderAndCompare/Dataset.h"
+#include "RenderAndCompare/ImageUtils.h"
+#include "RenderAndCompare/SMPLRenderLayer.h"
+#include "RenderAndCompare/render_layer.hpp"
+
 
 #include "caffe/caffe.hpp"
 #include <gflags/gflags.h>
@@ -14,8 +18,16 @@
 #include <boost/program_options.hpp>
 #include <QGuiApplication>
 
+namespace caffe {
+
+REGISTER_LAYER_CLASS(Render);
+REGISTER_LAYER_CLASS(SMPLRender);
+
+}  // namespace caffe
+
 using caffe::Caffe;
 using caffe::Net;
+using caffe::Blob;
 
 int main(int argc, char **argv) {
   QGuiApplication app(argc, argv);
@@ -73,6 +85,19 @@ int main(int argc, char **argv) {
   Net<float> caffe_net(net_model_file.string(), caffe::TEST);
 
   LOG(INFO)<< "Network Instantiation successful";
+
+  LOG(INFO)<< "Doing Forward pass";
+  const std::vector<Blob<float>*> output = caffe_net.Forward();
+  LOG(INFO)<< "Done Forward pass";
+
+  LOG(INFO)<< "Output Shape = " << output[0]->shape_string();
+
+
+  for (int i=0; i < output[0]->num(); ++i) {
+    using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    Eigen::Map<const Image> image(output[0]->cpu_data() + output[0]->offset(i, 0), output[0]->height(), output[0]->width());
+    RaC::saveImage(image, "image_"+ std::to_string(i) + ".png");
+  }
 
   return EXIT_SUCCESS;
 }
