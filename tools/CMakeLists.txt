@@ -12,3 +12,6 @@ target_link_libraries(check_cpp_data_layer RenderAndCompare)
 
 add_executable(check_network_model check_network_model.cpp)
 target_link_libraries(check_network_model RenderAndCompare)
+
+add_executable(demo_image_loaders demo_image_loaders.cpp)
+target_link_libraries(demo_image_loaders RenderAndCompare)
