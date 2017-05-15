@@ -27,6 +27,8 @@ def create_annotation_for_single_image(image_file, root_dir, pose_mean, pose_bas
     with h5py.File(info_file, 'r') as hf:
         assert hf['gender'][...] == 'neutral', 'Only supports gender neutral params'
         annotation['bbx_visible'] = np.squeeze(hf['visible_bbx'][...]).tolist()
+        annotation['camera_extrinsic'] = hf['camera_extrinsics'][...].flatten().tolist()
+        annotation['model_pose'] = hf['model_pose'][...].flatten().tolist()
         annotation['shape_param'] = hf['body_shape'][...].tolist()
         body_pose = hf['body_pose'][...]
         assert body_pose.shape == (69,)

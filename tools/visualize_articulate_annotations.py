@@ -17,7 +17,7 @@ def visualize_dataset(dataset):
         assert osp.exists(img_path), 'Image file {} does not exist'.format(img_path)
         image = cv2.imread(img_path)
 
-        bbx = np.array(annotation['visible_bbx']).astype(np.int)
+        bbx = np.array(annotation['bbx_visible']).astype(np.int)
 
         cv2.rectangle(image,
                       (bbx[0], bbx[1]),
