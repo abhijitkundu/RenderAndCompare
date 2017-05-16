@@ -42,8 +42,9 @@ void BatchImageLoader::preloadImages(const std::vector<std::string>& image_files
 
     cv::resize(cv_image, cv_image, cv::Size(width_, height_));
 
-    const Eigen::array<ptrdiff_t, 3> shuffles({{1, 2, 0}});
+    const Eigen::array<ptrdiff_t, 3> shuffles({{2, 0, 1}});
     images_[prev_size + i] = Eigen::TensorMap<ImageType>(cv_image.data, height_, width_, 3).shuffle(shuffles);
+    assert(images_[prev_size + i].dimension(0) == 3);
     ++show_progress;
   }
 
@@ -77,8 +78,9 @@ void BatchImageLoader::preloadImages(const std::vector<std::string>& image_files
     // Image is HWC
     cv::resize(cv_image(roi), cv_image, cv::Size(width_, height_));
 
-    const Eigen::array<ptrdiff_t, 3> shuffles({{1, 2, 0}});
+    const Eigen::array<ptrdiff_t, 3> shuffles({{2, 0, 1}});
     images_[prev_size + i] = Eigen::TensorMap<ImageType>(cv_image.data, height_, width_, 3).shuffle(shuffles);
+    assert(images_[prev_size + i].dimension(0) == 3);
     ++show_progress;
   }
 

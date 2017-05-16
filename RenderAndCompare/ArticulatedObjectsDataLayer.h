@@ -48,6 +48,8 @@ class ArticulatedObjectsDataLayer : public Layer<Dtype> {
 
   void generateDatumIds();
 
+  const Vector3& mean_bgr() const {return mean_bgr_;}
+
  protected:
 
   RaC::BatchImageLoader image_loader_;

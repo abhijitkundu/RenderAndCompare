@@ -15,3 +15,6 @@ target_link_libraries(check_network_model RenderAndCompare)
 
 add_executable(demo_image_loaders demo_image_loaders.cpp)
 target_link_libraries(demo_image_loaders RenderAndCompare)
+
+add_executable(train_network train_network.cpp)
+target_link_libraries(train_network RenderAndCompare)

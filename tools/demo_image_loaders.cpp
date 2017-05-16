@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
   bool paused = true;
   int step = 1;
   for (int i = 0;;) {
-    const Eigen::array<ptrdiff_t, 3> shuffles({{2, 0, 1}});
+    const Eigen::array<ptrdiff_t, 3> shuffles({{1, 2, 0}});
     BatchImageLoader::ImageType image = image_loader.images()[i].shuffle(shuffles);
     cv::Mat cv_image(image_loader.height(), image_loader.width(), CV_8UC3, image.data());
 
