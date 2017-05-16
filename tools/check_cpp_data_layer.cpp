@@ -6,12 +6,21 @@
  */
 
 #include "RenderAndCompare/Dataset.h"
+#include "RenderAndCompare/ArticulatedObjectsDataLayer.h"
 
 #include "caffe/caffe.hpp"
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
 #include <boost/program_options.hpp>
+
+namespace caffe {
+REGISTER_LAYER_CLASS(ArticulatedObjectsData);
+}  // namespace caffe
+
+using caffe::Caffe;
+using caffe::Net;
+using caffe::Blob;
 
 int main(int argc, char **argv) {
 
@@ -25,6 +34,9 @@ int main(int argc, char **argv) {
   po::options_description config_options("Config");
     config_options.add_options()
         ("datasets,d",  po::value<std::vector<fs::path>>(), "Path to dataset files (JSON)")
+        ("network_model,n",  po::value<fs::path>()->required(), "Path to network model file (prototxt)")
+        ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids")
+        ("use_cpu",  po::value<bool>()->default_value(false), "Use CPU")
         ;
 
   po::positional_options_description p;
@@ -70,6 +82,29 @@ int main(int argc, char **argv) {
     datasets[i] = loadDatasetFromJson(dataset_files[i].string());
   }
   std::cout << "Loaded " << datasets.size() << " datasets" << std::endl;
+
+  const fs::path net_model_file = vm["network_model"].as<fs::path>();
+
+  const int gpu_id = vm["gpu_id"].as<int>();
+
+  if (vm["use_cpu"].as<bool>()) {
+    LOG(INFO)<< "Using CPU.";
+    Caffe::set_mode(Caffe::CPU);
+  }
+  else {
+    LOG(INFO) << "Using GPU with device ID " << gpu_id;
+
+    Caffe::SetDevice(gpu_id);
+    Caffe::set_mode(Caffe::GPU);
+  }
+
+  LOG(INFO)<< "Instantiating network model from "<< net_model_file;
+  Net<float> caffe_net(net_model_file.string(), caffe::TEST);
+  LOG(INFO)<< "Network Instantiation successful";
+
+  using DataLayerType = caffe::ArticulatedObjectsDataLayer<float>;
+  auto data_layer_ptr = boost::dynamic_pointer_cast<DataLayerType>(caffe_net.layers()[0]);
+  data_layer_ptr->addDataset(datasets[0]);
 
 
   return EXIT_SUCCESS;

@@ -1,0 +1,167 @@
+/**
+ * @file DataLayer.cpp
+ * @brief DataLayer
+ *
+ * @author Abhijit Kundu
+ */
+
+#include "ArticulatedObjectsDataLayer.h"
+
+#include <boost/program_options.hpp>
+#include <boost/algorithm/string/classification.hpp> // Include boost::for is_any_of
+#include <boost/algorithm/string/split.hpp> // Include for boost::split
+
+namespace caffe {
+
+std::vector<std::string> tokenize(const std::string& input) {
+  std::vector<std::string> tokens;
+  boost::split(tokens, input, boost::is_any_of(", "), boost::token_compress_on);
+  return tokens;
+}
+
+boost::program_options::variables_map parse_param_string(const std::string& param_str) {
+  namespace po = boost::program_options;
+  po::options_description config_options("Config");
+    config_options.add_options()
+        ("batch_size,b",  po::value<int>()->default_value(50), "Batch Size")
+        ("width,w",  po::value<int>()->default_value(224), "Image Width")
+        ("height,h",  po::value<int>()->default_value(224), "Image Height")
+        ("mean_bgr,m",  po::value<vector<float>>()->multitoken()->default_value({103.0626238, 115.90288257, 123.15163084}, "103.0626238 115.90288257 123.15163084"), "Mean BGR color value")
+        ("top_names,t", po::value<vector<string>>()->multitoken()->required(), "Top Names in Order")
+        ;
+
+  po::options_description options;
+  options.add(config_options);
+
+  po::variables_map vm;
+
+  try {
+    po::store(po::command_line_parser(tokenize(param_str)).options(options).run(), vm);
+    po::notify(vm);
+  } catch (const po::error &ex) {
+    std::cerr << ex.what() << '\n';
+    std::cout << options << '\n';
+    throw std::runtime_error("Invalid param_str. Cannot continue.");
+  }
+
+  return vm;
+}
+
+template <typename T>
+std::ostream& operator<< (std::ostream& out, const std::vector<T>& v) {
+  if ( !v.empty() ) {
+    out << '[';
+    std::copy (v.begin(), v.end(), std::ostream_iterator<T>(out, ", "));
+    out << "\b\b]";
+  }
+  return out;
+}
+
+
+template<typename Dtype>
+void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+                                         const vector<Blob<Dtype>*>& top) {
+  LOG(INFO) << "Setting up ArticulatedObjectsDataLayer";
+  LOG(INFO) << "Done Setting up ArticulatedObjectsDataLayer";
+
+  string param_str = this->layer_param_.string_param().param_str();
+  LOG(INFO) << "Param = " << param_str;
+
+  namespace po = boost::program_options;
+  po::variables_map vm = parse_param_string(param_str);
+
+
+  Eigen::Vector2i image_size(vm["width"].as<int>(), vm["height"].as<int>());
+  const int batch_size = vm["batch_size"].as<int>();
+  const Eigen::Vector3f mean_bgr(vm["mean_bgr"].as<vector<float>>().data());
+  const vector<string> top_names = vm["top_names"].as<vector<string>>();
+
+  const Eigen::IOFormat fmt(6, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+  LOG(INFO) << "----------Config---------------\n";
+  LOG(INFO) << "batch_size = " << batch_size;
+  LOG(INFO) << "image_size = " << image_size.format(fmt);
+  LOG(INFO) << "mean_bgr = " << mean_bgr.format(fmt);
+  LOG(INFO) << "top_names = " << top_names;
+  LOG(INFO) << "-------------------------------\n";
+
+  CHECK_EQ(top.size(), top_names.size()) << "Number of actual tops and top_names in param_str do not match";
+
+  // Do the reshapes
+  {
+    auto it = std::find(top_names.begin(), top_names.end(), "input_image");
+    if (it != top_names.end()) {
+      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 3, image_size.y(), image_size.x()}});
+    }
+    else {
+      LOG(WARNING) << "input_image blob not set";
+    }
+  }
+  {
+    auto it = std::find(top_names.begin(), top_names.end(), "shape_param");
+    if (it != top_names.end()) {
+      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 10}});
+    } else {
+      LOG(WARNING) << "shape_param blob not set";
+    }
+  }
+  {
+    auto it = std::find(top_names.begin(), top_names.end(), "pose_param");
+    if (it != top_names.end()) {
+      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 10}});
+    } else {
+      LOG(WARNING) << "pose_param blob not set";
+    }
+  }
+  {
+    auto it = std::find(top_names.begin(), top_names.end(), "camera_extrinsic");
+    if (it != top_names.end()) {
+      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 4, 4}});
+    } else {
+      LOG(WARNING) << "camera_extrinsic blob not set";
+    }
+  }
+  {
+    auto it = std::find(top_names.begin(), top_names.end(), "model_pose");
+    if (it != top_names.end()) {
+      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 4, 4}});
+    } else {
+      LOG(WARNING) << "model_pose blob not set";
+    }
+  }
+
+  image_loader_.setImageSize(image_size.x(), image_size.y());
+}
+
+template <typename Dtype>
+void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset) {
+  LOG(INFO) << "---- Adding data from " << dataset.name << "------";
+  std::vector<std::string> image_files;
+  Eigen::AlignedStdVector<Eigen::Vector4i> visible_boxes;
+
+  image_files.reserve(dataset.annotations.size());
+  visible_boxes.reserve(dataset.annotations.size());
+
+  for (std::size_t i = 0; i< dataset.annotations.size(); ++i) {
+    const RaC::Annotation& anno = dataset.annotations[i];
+    using Vector10d = Eigen::Matrix<double, 10, 1>;
+    Eigen::Vector4d bbx(anno.bbx_visible.value().data());
+
+    visible_boxes.push_back(bbx.cast<int>());
+    image_files.push_back((dataset.rootdir / anno.image_file.value()).string());
+    shape_params_.push_back(Vector10d(anno.shape_param.value().data()).cast<Dtype>());
+    pose_params_.push_back(Vector10d(anno.pose_param.value().data()).cast<Dtype>());
+  }
+  CHECK_EQ(image_files.size(), visible_boxes.size());
+  image_loader_.preloadImages(image_files, visible_boxes);
+}
+
+
+
+template <typename Dtype>
+void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+    const vector<Blob<Dtype>*>& top) {
+}
+
+INSTANTIATE_CLASS(ArticulatedObjectsDataLayer);
+
+}  // end namespace caffe

@@ -77,15 +77,15 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
             annotation = dataset.annotations()[i]
             img_path = osp.join(dataset.rootdir(), annotation['image_file'])
             image_files.append(img_path)
-            visible_bbx = np.array(annotation['visible_bbx'], dtype=np.float)  # gt box (only visible path)
+            visible_bbx = np.array(annotation['bbx_visible'], dtype=np.float)  # gt box (only visible path)
             # We need to probably do jittering
             cropping_boxes.append(visible_bbx)
 
             if hasattr(self, 'shape_params'):
-                self.shape_params.append(np.array(annotation['body_shape'], dtype=np.float))
+                self.shape_params.append(np.array(annotation['shape_param'], dtype=np.float))
 
             if hasattr(self, 'pose_params'):
-                self.pose_params.append(np.array(annotation['body_pose'], dtype=np.float))
+                self.pose_params.append(np.array(annotation['pose_param'], dtype=np.float))
 
         self.image_loader.crop_and_preload_images(image_files, cropping_boxes)
         print "--------------------------------------------------------------------"
