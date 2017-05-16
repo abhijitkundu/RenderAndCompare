@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
   po::options_description config_options("Config");
     config_options.add_options()
         ("datasets,d",  po::value<std::vector<fs::path>>(), "Path to dataset files (JSON)")
-        ("network_prototxt,n",  po::value<fs::path>()->required(), "Path to network model file (prototxt)")
+//        ("network_prototxt,n",  po::value<fs::path>()->required(), "Path to network model file (prototxt)")
         ("solver_prototxt,s",  po::value<fs::path>()->required(), "Path to Solver param file (prototxt)")
         ("initialization,i",  po::value<fs::path>()->required(), "Path to initialization weights/solverstate (prototxt)")
         ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids")
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  const fs::path net_model_file = vm["network_prototxt"].as<fs::path>();
+//  const fs::path net_model_file = vm["network_prototxt"].as<fs::path>();
   const fs::path solver_params_file = vm["solver_prototxt"].as<fs::path>();
   const fs::path initialization_file = vm["initialization"].as<fs::path>();
   const int gpu_id = vm["gpu_id"].as<int>();
