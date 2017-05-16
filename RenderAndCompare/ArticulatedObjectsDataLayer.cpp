@@ -72,58 +72,58 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
 
 
   Eigen::Vector2i image_size(vm["width"].as<int>(), vm["height"].as<int>());
-  const int batch_size = vm["batch_size"].as<int>();
-  const Eigen::Vector3f mean_bgr(vm["mean_bgr"].as<vector<float>>().data());
-  const vector<string> top_names = vm["top_names"].as<vector<string>>();
+  batch_size_ = vm["batch_size"].as<int>();
+  mean_bgr_ = Eigen::Vector3f(vm["mean_bgr"].as<vector<float>>().data()).cast<Dtype>();
+  top_names_ = vm["top_names"].as<vector<string>>();
 
   const Eigen::IOFormat fmt(6, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
   LOG(INFO) << "----------Config---------------\n";
-  LOG(INFO) << "batch_size = " << batch_size;
+  LOG(INFO) << "batch_size = " << batch_size_;
   LOG(INFO) << "image_size = " << image_size.format(fmt);
-  LOG(INFO) << "mean_bgr = " << mean_bgr.format(fmt);
-  LOG(INFO) << "top_names = " << top_names;
+  LOG(INFO) << "mean_bgr = " << mean_bgr_.format(fmt);
+  LOG(INFO) << "top_names = " << top_names_;
   LOG(INFO) << "-------------------------------\n";
 
-  CHECK_EQ(top.size(), top_names.size()) << "Number of actual tops and top_names in param_str do not match";
+  CHECK_EQ(top.size(), top_names_.size()) << "Number of actual tops and top_names in param_str do not match";
 
   // Do the reshapes
   {
-    auto it = std::find(top_names.begin(), top_names.end(), "input_image");
-    if (it != top_names.end()) {
-      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 3, image_size.y(), image_size.x()}});
+    auto it = std::find(top_names_.begin(), top_names_.end(), "input_image");
+    if (it != top_names_.end()) {
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 3, image_size.y(), image_size.x()}});
     }
     else {
       LOG(WARNING) << "input_image blob not set";
     }
   }
   {
-    auto it = std::find(top_names.begin(), top_names.end(), "shape_param");
-    if (it != top_names.end()) {
-      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 10}});
+    auto it = std::find(top_names_.begin(), top_names_.end(), "shape_param");
+    if (it != top_names_.end()) {
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 10}});
     } else {
       LOG(WARNING) << "shape_param blob not set";
     }
   }
   {
-    auto it = std::find(top_names.begin(), top_names.end(), "pose_param");
-    if (it != top_names.end()) {
-      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 10}});
+    auto it = std::find(top_names_.begin(), top_names_.end(), "pose_param");
+    if (it != top_names_.end()) {
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 10}});
     } else {
       LOG(WARNING) << "pose_param blob not set";
     }
   }
   {
-    auto it = std::find(top_names.begin(), top_names.end(), "camera_extrinsic");
-    if (it != top_names.end()) {
-      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 4, 4}});
+    auto it = std::find(top_names_.begin(), top_names_.end(), "camera_extrinsic");
+    if (it != top_names_.end()) {
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 4, 4}});
     } else {
       LOG(WARNING) << "camera_extrinsic blob not set";
     }
   }
   {
-    auto it = std::find(top_names.begin(), top_names.end(), "model_pose");
-    if (it != top_names.end()) {
-      top[std::distance(top_names.begin(), it)]->Reshape( { {batch_size, 4, 4}});
+    auto it = std::find(top_names_.begin(), top_names_.end(), "model_pose");
+    if (it != top_names_.end()) {
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 4, 4}});
     } else {
       LOG(WARNING) << "model_pose blob not set";
     }
@@ -155,11 +155,110 @@ void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset)
   image_loader_.preloadImages(image_files, visible_boxes);
 }
 
+template <typename Dtype>
+void ArticulatedObjectsDataLayer<Dtype>::generateDatumIds() {
+  LOG(INFO) << "Generating Data Ids";
+
+  CHECK_GT(batch_size_, 0);
+  CHECK_GT(image_loader_.images().size(), batch_size_);
+
+  data_ids_.resize(image_loader_.images().size());
+  std::iota(data_ids_.begin(), data_ids_.end(), 0);
+
+
+  if (this->phase_ == caffe::TRAIN) {
+    LOG(INFO) << "Shuffling Data Ids";
+    std::shuffle(data_ids_.begin(), data_ids_.end(), rand_engine_);
+  }
+  LOG(INFO) << "Total number of data points = " << data_ids_.size();
+  LOG(INFO) << "Approx " << data_ids_.size() / batch_size_ << " iterations required per epoch";
+  curr_data_idx_ = 0;
+}
+
 
 
 template <typename Dtype>
-void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top) {
+void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  CHECK_GT(data_ids_.size(), batch_size_) << "batch size cannot be smaller than total number of data points";
+
+  std::vector<std::size_t> batch_data_ids(batch_size_);
+  for (int i = 0; i < batch_size_; ++i) {
+    if (curr_data_idx_ == data_ids_.size()) {
+      LOG(INFO) << "Shuffling Data Ids";
+      std::shuffle(data_ids_.begin(), data_ids_.end(), rand_engine_);
+      curr_data_idx_ = 0;
+    }
+    batch_data_ids[i] = data_ids_[curr_data_idx_++];
+    CHECK_LT(batch_data_ids[i], data_ids_.size());
+  }
+
+  {
+    auto it = std::find(top_names_.begin(), top_names_.end(), "input_image");
+    if (it != top_names_.end()) {
+      const auto index = std::distance(top_names_.begin(), it);
+      Dtype* top_data = top[index]->mutable_cpu_data();
+      using ImageType = Eigen::Tensor<Dtype, 3, Eigen::RowMajor>;
+#pragma omp parallel for
+      for (int i = 0; i< batch_size_; ++i) {
+        Eigen::TensorMap<ImageType> blob_image(top_data + top[index]->offset(i), 3, image_loader_.height(), image_loader_.width());
+        blob_image = image_loader_.images()[batch_data_ids[i]].cast<Dtype>();
+
+        blob_image.chip(0, 0) = blob_image.chip(0, 0) - mean_bgr_[0];
+        blob_image.chip(1, 0) = blob_image.chip(1, 0) - mean_bgr_[1];
+        blob_image.chip(2, 0) = blob_image.chip(2, 0) - mean_bgr_[2];
+      }
+    }
+  }
+
+  {
+    auto it = std::find(top_names_.begin(), top_names_.end(), "shape_param");
+    if (it != top_names_.end()) {
+      const auto index = std::distance(top_names_.begin(), it);
+      Dtype* top_data = top[index]->mutable_cpu_data();
+#pragma omp parallel for
+      for (int i = 0; i< batch_size_; ++i) {
+        Eigen::Map<Vector10>(top_data + top[index]->offset(i), 10) = shape_params_[batch_data_ids[i]];
+      }
+    }
+  }
+
+  {
+    auto it = std::find(top_names_.begin(), top_names_.end(), "pose_param");
+    if (it != top_names_.end()) {
+      const auto index = std::distance(top_names_.begin(), it);
+      Dtype* top_data = top[index]->mutable_cpu_data();
+#pragma omp parallel for
+      for (int i = 0; i< batch_size_; ++i) {
+        Eigen::Map<Vector10>(top_data + top[index]->offset(i), 10) = pose_params_[batch_data_ids[i]];
+      }
+    }
+  }
+
+
+  {
+    auto it = std::find(top_names_.begin(), top_names_.end(), "camera_extrinsic");
+    if (it != top_names_.end()) {
+      const auto index = std::distance(top_names_.begin(), it);
+      Dtype* top_data = top[index]->mutable_cpu_data();
+#pragma omp parallel for
+      for (int i = 0; i< batch_size_; ++i) {
+        Eigen::Map<Matrix4>(top_data + top[index]->offset(i), 4, 4) = camera_extrinsics_[batch_data_ids[i]];
+      }
+    }
+  }
+
+
+  {
+    auto it = std::find(top_names_.begin(), top_names_.end(), "model_pose");
+    if (it != top_names_.end()) {
+      const auto index = std::distance(top_names_.begin(), it);
+      Dtype* top_data = top[index]->mutable_cpu_data();
+#pragma omp parallel for
+      for (int i = 0; i< batch_size_; ++i) {
+        Eigen::Map<Matrix4>(top_data + top[index]->offset(i), 4, 4) = model_poses_[batch_data_ids[i]];
+      }
+    }
+  }
 }
 
 INSTANTIATE_CLASS(ArticulatedObjectsDataLayer);

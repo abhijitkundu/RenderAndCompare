@@ -99,12 +99,19 @@ int main(int argc, char **argv) {
   }
 
   LOG(INFO)<< "Instantiating network model from "<< net_model_file;
-  Net<float> caffe_net(net_model_file.string(), caffe::TEST);
+  Net<float> caffe_net(net_model_file.string(), caffe::TRAIN);
   LOG(INFO)<< "Network Instantiation successful";
 
   using DataLayerType = caffe::ArticulatedObjectsDataLayer<float>;
   auto data_layer_ptr = boost::dynamic_pointer_cast<DataLayerType>(caffe_net.layers()[0]);
   data_layer_ptr->addDataset(datasets[0]);
+  data_layer_ptr->generateDatumIds();
+
+//  const std::vector<Blob<float>*> output = caffe_net.Forward();
+  LOG(INFO)<< "Doing forward";
+  for (int i = 0; i < 1000; ++i) {
+    caffe_net.Forward();
+  }
 
 
   return EXIT_SUCCESS;

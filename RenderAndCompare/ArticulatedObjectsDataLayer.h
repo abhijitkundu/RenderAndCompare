@@ -12,6 +12,7 @@
 #include "RenderAndCompare/Dataset.h"
 #include "RenderAndCompare/ImageLoaders.h"
 #include <vector>
+#include <random>
 
 #include "caffe/blob.hpp"
 #include "caffe/layer.hpp"
@@ -23,10 +24,16 @@ template <typename Dtype>
 class ArticulatedObjectsDataLayer : public Layer<Dtype> {
  public:
   using Vector10 = Eigen::Matrix<Dtype, 10, 1>;
-  using Matrix4 = Eigen::Matrix<Dtype, 4, 4>;
+  using Matrix4 = Eigen::Matrix<Dtype, 4, 4, Eigen::RowMajor>;
+  using Vector3 = Eigen::Matrix<Dtype, 3, 1>;
 
   explicit ArticulatedObjectsDataLayer(const LayerParameter& param)
-      : Layer<Dtype>(param) {
+      : Layer<Dtype>(param),
+        batch_size_(-1),
+        curr_data_idx_(0),
+        rand_engine_() {
+    std::random_device rd;
+    rand_engine_.seed(rd());
   }
 
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
@@ -39,6 +46,8 @@ class ArticulatedObjectsDataLayer : public Layer<Dtype> {
 
   void addDataset(const RaC::Dataset& dataset);
 
+  void generateDatumIds();
+
  protected:
 
   RaC::BatchImageLoader image_loader_;
@@ -46,6 +55,13 @@ class ArticulatedObjectsDataLayer : public Layer<Dtype> {
   Eigen::AlignedStdVector<Vector10> pose_params_;
   Eigen::AlignedStdVector<Matrix4> camera_extrinsics_;
   Eigen::AlignedStdVector<Matrix4> model_poses_;
+
+  int batch_size_;
+  Vector3 mean_bgr_;
+  std::vector<std::string> top_names_;
+  std::size_t curr_data_idx_;
+  std::vector<std::size_t> data_ids_;
+  std::mt19937 rand_engine_;
 };
 
 }  // end namespace caffe
