@@ -1,0 +1,6 @@
+name: "mesh_render"
+layer {
+  name: "model_render_layer"
+  type: "ModelRender"
+  top: "rendered_output"
+}
