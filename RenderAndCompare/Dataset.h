@@ -21,6 +21,7 @@ namespace RaC {
 struct Annotation {
   using Array4d = std::array<double, 4>;
   using Array10d = std::array<double, 10>;
+  using Array16d = std::array<double, 16>;
 
   boost::optional<std::string> image_file;
   boost::optional<Array4d> viewpoint;
@@ -29,6 +30,8 @@ struct Annotation {
   boost::optional<Array4d> bbx_visible;
   boost::optional<Array10d> shape_param;
   boost::optional<Array10d> pose_param;
+  boost::optional<Array16d> camera_extrinsic;
+  boost::optional<Array16d> model_pose;
 };
 
 struct Dataset {

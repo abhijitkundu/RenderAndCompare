@@ -70,7 +70,9 @@ void to_json(nlohmann::json& j, const Annotation& p) {
     { "bbx_crop", p.bbx_crop },
     { "bbx_visible", p.bbx_visible },
     { "shape_param", p.shape_param },
-    { "pose_param", p.pose_param }
+    { "pose_param", p.pose_param },
+    { "camera_extrinsic", p.camera_extrinsic },
+    { "model_pose", p.model_pose }
   };
 }
 
@@ -107,6 +109,8 @@ void from_json(const nlohmann::json& j, Annotation& p) {
   from_json_if_present(j, "bbx_visible", p.bbx_visible);
   from_json_if_present(j, "shape_param", p.shape_param);
   from_json_if_present(j, "pose_param", p.pose_param);
+  from_json_if_present(j, "camera_extrinsic", p.camera_extrinsic);
+  from_json_if_present(j, "model_pose", p.model_pose);
 }
 
 
@@ -134,6 +138,8 @@ std::ostream& operator<<(std::ostream& os, const Annotation& anno) {
   os << "\nbbx_visible: " << anno.bbx_visible;
   os << "\nshape_param: " << anno.shape_param;
   os << "\npose_param: " << anno.pose_param;
+  os << "\ncamera_extrinsic: " << anno.camera_extrinsic;
+  os << "\nmodel_pose: " << anno.model_pose;
   return os;
 }
 

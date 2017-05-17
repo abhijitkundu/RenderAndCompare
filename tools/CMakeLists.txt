@@ -18,3 +18,7 @@ target_link_libraries(demo_image_loaders RenderAndCompare)
 
 add_executable(train_network train_network.cpp)
 target_link_libraries(train_network RenderAndCompare)
+
+add_executable(render_articulated_objects render_articulated_objects.cpp)
+target_link_libraries(render_articulated_objects RenderAndCompare)
+
