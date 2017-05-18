@@ -22,3 +22,5 @@ target_link_libraries(train_network RenderAndCompare)
 add_executable(render_articulated_objects render_articulated_objects.cpp)
 target_link_libraries(render_articulated_objects RenderAndCompare)
 
+add_executable(evaluate_bodyparts_segmentation evaluate_bodyparts_segmentation.cpp)
+target_link_libraries(evaluate_bodyparts_segmentation RenderAndCompare)
