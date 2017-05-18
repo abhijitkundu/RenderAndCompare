@@ -22,6 +22,7 @@ struct Annotation {
   using Array4d = std::array<double, 4>;
   using Array10d = std::array<double, 10>;
   using Array16d = std::array<double, 16>;
+  using VectorXd = std::vector<double>;
 
   boost::optional<std::string> image_file;
   boost::optional<Array4d> viewpoint;
@@ -29,9 +30,17 @@ struct Annotation {
   boost::optional<Array4d> bbx_crop;
   boost::optional<Array4d> bbx_visible;
   boost::optional<Array10d> shape_param;
-  boost::optional<Array10d> pose_param;
+  boost::optional<VectorXd> pose_param;
   boost::optional<Array16d> camera_extrinsic;
   boost::optional<Array16d> model_pose;
+
+  Eigen::VectorXd poseParam() const {
+    return Eigen::Map<const Eigen::VectorXd>(pose_param.value().data(), pose_param.value().size());
+  }
+
+  Eigen::VectorXd shapeParam() const {
+    return Eigen::Map<const Eigen::VectorXd>(shape_param.value().data(), shape_param.value().size());
+  }
 };
 
 struct Dataset {

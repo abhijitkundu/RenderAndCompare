@@ -19,6 +19,8 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
         parser.add_argument("-wh", "--im_size", nargs=2, default=default_im_size, type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
         parser.add_argument("-m", "--mean_bgr", nargs=3, default=default_mean_bgr, type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
         parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True, type=str, help="ordered list of top names e.g data shape")
+        parser.add_argument("-s", "--shape_param_size", default=10, type=int, help="Shape param Size")
+        parser.add_argument("-p", "--pose_param_size", default=36, type=int, help="Pose param Size")
 
         params = parser.parse_args(param_str.split())
 
@@ -42,6 +44,9 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
         # create mean bgr to directly operate on image data blob
         self.mean_bgr = np.array(params.mean_bgr).reshape(1, 3, 1, 1)
 
+        self.shape_param_size = params.shape_param_size
+        self.pose_param_size = params.pose_param_size
+
         assert 'data' in self.top_names, 'Requires atleast data layer'
         assert len(top) == len(self.top_names), 'Number of tops do not match specified top_names'
 
@@ -51,11 +56,11 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
 
         # Reshape shape top (B, 10)
         if 'shape' in self.top_names:
-            top[self.top_names.index('shape')].reshape(self.batch_size, 10)
+            top[self.top_names.index('shape')].reshape(self.batch_size, self.shape_param_size)
 
-        # Reshape pose top (B, 10)
+        # Reshape pose top (B, 36)
         if 'pose' in self.top_names:
-            top[self.top_names.index('pose')].reshape(self.batch_size, 10)
+            top[self.top_names.index('pose')].reshape(self.batch_size, self.pose_param_size)
 
         # Create a loader to load the images.
         self.image_loader = BatchImageLoader(params.im_size)
@@ -82,9 +87,11 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
             cropping_boxes.append(visible_bbx)
 
             if hasattr(self, 'shape_params'):
+                assert len(annotation['shape_param']) == self.shape_param_size
                 self.shape_params.append(np.array(annotation['shape_param'], dtype=np.float))
 
             if hasattr(self, 'pose_params'):
+                assert len(annotation['pose_param']) == self.pose_param_size
                 self.pose_params.append(np.array(annotation['pose_param'], dtype=np.float))
 
         self.image_loader.crop_and_preload_images(image_files, cropping_boxes)

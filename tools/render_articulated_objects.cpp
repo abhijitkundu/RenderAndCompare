@@ -26,7 +26,6 @@ struct PosePCADecoder {
     H5Eigen::load(file, "pose_basis", pose_basis);
     H5Eigen::load(file, "encoded_training_data", encoded_training_data);
     assert(pose_basis.rows() == 69);
-    assert(pose_basis.cols() == 10);
     assert(pose_mean.size() == 69);
   }
 
@@ -40,7 +39,7 @@ struct PosePCADecoder {
   }
 
   Eigen::Matrix<float, 69, 1> pose_mean;
-  Eigen::Matrix<float, 69, 10> pose_basis;
+  Eigen::Matrix<float, 69, Eigen::Dynamic> pose_basis;
   Eigen::Matrix<float, 10, Eigen::Dynamic> encoded_training_data;
 };
 
@@ -59,7 +58,7 @@ int main(int argc, char **argv) {
         ("dataset,d",  po::value<std::string>(), "Path to dataset file (JSON)")
         ("smpl_model_file,m", po::value<std::string>()->default_value("smpl_neutral_lbs_10_207_0.h5"), "Path to SMPL model file")
         ("smpl_segmm_file,s", po::value<std::string>()->default_value("vertex_segm24_col24_14.h5"), "Path to SMPL segmentation file")
-        ("smpl_pose_pca_file,p", po::value<std::string>()->default_value("smpl_pose_pca10_cmu_h36m.h5"), "Path to SMPL pca pose file")
+        ("smpl_pose_pca_file,p", po::value<std::string>()->default_value("smpl_pose_pca36_cmu_h36m.h5"), "Path to SMPL pca pose file")
         ;
 
   po::positional_options_description p;
@@ -137,8 +136,6 @@ int main(int argc, char **argv) {
 
   for (const Annotation& anno : dataset.annotations) {
     using Matrix4dRM = Eigen::Matrix<double, 4, 4, Eigen::RowMajor>;
-    using Vector10d = Eigen::Matrix<double, 10, 1>;
-
 
     Matrix4dRM model_pose_mat(anno.model_pose.value().data());
     Matrix4dRM camera_extrinsic_mat(anno.camera_extrinsic.value().data());
@@ -146,8 +143,8 @@ int main(int argc, char **argv) {
     viewer.camera().extrinsics() = camera_extrinsic_mat.cast<float>();
     renderer->modelPose() = model_pose_mat.cast<float>();
 
-    renderer->smplDrawer().pose() = pca_decoder(Vector10d(anno.pose_param.value().data()).cast<float>());
-    renderer->smplDrawer().shape() = Vector10d(anno.shape_param.value().data()).cast<float>();
+    renderer->smplDrawer().pose() = pca_decoder(anno.poseParam().cast<float>());
+    renderer->smplDrawer().shape() = anno.shapeParam().cast<float>();
 
     renderer->smplDrawer().updateShapeAndPose();
 
@@ -155,7 +152,7 @@ int main(int argc, char **argv) {
 
 
     const fs::path frame_name = fs::path("output") / fs::path(anno.image_file.value());
-
+    std::cout << "Ouput: " << frame_name << "\n";
     {
       QImage image = viewer.grabColorBuffer();
       image.save(QString::fromStdString(frame_name.string()));
@@ -186,3 +183,4 @@ int main(int argc, char **argv) {
 
 
 
+;

@@ -121,8 +121,15 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, N>& val) {
   return os;
 }
 
-template<typename T, std::size_t N>
-std::ostream& operator<<(std::ostream& os, const boost::optional<std::array<T, N>>& opt) {
+template<typename T, typename A>
+std::ostream& operator<<(std::ostream& os, const std::vector<T, A>& val) {
+  for (const auto& s : val)
+    os << s << ' ';
+  return os;
+}
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const boost::optional<T>& opt) {
   if (opt == boost::none) {
     os << "none";
   } else

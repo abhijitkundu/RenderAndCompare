@@ -9,7 +9,7 @@ class Dataset(object):
             self.data = OrderedDict()
             self.data['name'] = name
             self.data['rootdir'] = ''
-            self.data['meta'] = ''
+            self.data['metainfo'] = {}
             self.data['annotations'] = []
         else:
             self.data = data
@@ -30,6 +30,9 @@ class Dataset(object):
     def num_of_annotations(self):
         return len(self.data['annotations'])
 
+    def metainfo(self):
+        return self.data['metainfo']
+
     def set_name(self, new_name):
         self.data['name'] = new_name
 
@@ -38,6 +41,9 @@ class Dataset(object):
 
     def set_annotations(self, annotations):
         self.data['annotations'] = annotations
+
+    def set_metainfo(self, meta_info):
+        self.data['metainfo'] = meta_info
 
     def add_annotation(self, annotation):
         self.data['annotations'].append(annotation)

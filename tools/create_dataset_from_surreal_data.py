@@ -29,13 +29,13 @@ def create_annotation_for_single_image(image_file, root_dir, pose_mean, pose_bas
         annotation['bbx_visible'] = np.squeeze(hf['visible_bbx'][...]).tolist()
         annotation['camera_extrinsic'] = hf['camera_extrinsics'][...].flatten().tolist()
         annotation['model_pose'] = hf['model_pose'][...].flatten().tolist()
-        annotation['shape_param'] = hf['body_shape'][...].tolist()
+        annotation['shape_param'] = hf['body_shape'][...].astype(np.float).tolist()
         body_pose = hf['body_pose'][...]
         assert body_pose.shape == (69,)
 
     encoded_body_pose = pose_basis.T.dot(body_pose - pose_mean)
-    assert encoded_body_pose.shape == (10,), 'unexpected encoded_body_pose.shape = {}'.format(encoded_body_pose.shape)
-    annotation['pose_param'] = encoded_body_pose.tolist()
+    assert encoded_body_pose.shape == (pose_basis.shape[1],), 'unexpected encoded_body_pose.shape = {}'.format(encoded_body_pose.shape)
+    annotation['pose_param'] = encoded_body_pose.astype(np.float).tolist()
 
     return annotation
 
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input_folder", required=True, help="Input folder containing single image surreal data")
     parser.add_argument("-d", "--dataset_name", default='surreal_xxxxx', help="Dataset name")
     parser.add_argument("-m", "--smpl_model_file", default=osp.join(smpl_data_dir, 'smpl_neutral_lbs_10_207_0.h5'), help="Input folder containing single image surreal data")
-    parser.add_argument("-p", "--pose_pca_file", default=osp.join(smpl_data_dir, 'smpl_pose_pca10_cmu_h36m.h5'), help="Input folder containing single image surreal data")
+    parser.add_argument("-p", "--pose_pca_file", default=osp.join(smpl_data_dir, 'smpl_pose_pca36_cmu_h36m.h5'), help="Input folder containing single image surreal data")
     parser.add_argument("-r", "--remove_empty_bbx", default=1, type=int, help="Remove empty box")
     args = parser.parse_args()
 
@@ -65,7 +65,8 @@ if __name__ == '__main__':
 
     print 'Searching for images inside {}'.format(args.input_folder)
     image_files = []
-    for root, dirnames, filenames in walk(args.input_folder):
+    for root, dirnames, filenames in walk(args.input_folder, topdown=True):
+        dirnames[:] = [d for d in dirnames if d not in ['segm', 'info']]
         for filename in fnmatch.filter(filenames, '*.png'):
             image_files.append(osp.join(root, filename))
     print 'Found {:,} images in {}'.format(len(image_files), args.input_folder)
@@ -78,10 +79,12 @@ if __name__ == '__main__':
         pose_mean = np.squeeze(hf['pose_mean'][...])
         pose_basis = hf['pose_basis'][...]
         assert pose_mean.shape == (69,)
-        assert pose_basis.shape == (69, 10)
+        assert pose_basis.shape[0] == 69
 
-    # TODO remove this
-    # image_files = image_files[:100]
+    metainfo = {}
+    metainfo['pose_param_dimension'] = pose_basis.shape[1]
+    metainfo['shape_param_dimension'] = 10
+    dataset.set_metainfo(metainfo)
 
     print 'Creating annotations for {:,} images'.format(len(image_files))
     for image_file in tqdm(image_files):
