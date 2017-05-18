@@ -11,6 +11,8 @@
 #include "RenderAndCompare/Dataset.h"
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
@@ -55,10 +57,11 @@ int main(int argc, char **argv) {
 
   po::options_description config_options("Config");
     config_options.add_options()
-        ("dataset,d",  po::value<std::string>(), "Path to dataset file (JSON)")
-        ("smpl_model_file,m", po::value<std::string>()->default_value("smpl_neutral_lbs_10_207_0.h5"), "Path to SMPL model file")
-        ("smpl_segmm_file,s", po::value<std::string>()->default_value("vertex_segm24_col24_14.h5"), "Path to SMPL segmentation file")
-        ("smpl_pose_pca_file,p", po::value<std::string>()->default_value("smpl_pose_pca36_cmu_h36m.h5"), "Path to SMPL pca pose file")
+        ("dataset,d",  po::value<fs::path>(), "Path to dataset file (JSON)")
+        ("smpl_model_file,m", po::value<fs::path>()->default_value("smpl_neutral_lbs_10_207_0.h5"), "Path to SMPL model file")
+        ("smpl_segmm_file,s", po::value<fs::path>()->default_value("vertex_segm24_col24_14.h5"), "Path to SMPL segmentation file")
+        ("smpl_pose_pca_file,p", po::value<fs::path>()->default_value("smpl_pose_pca36_cmu_h36m.h5"), "Path to SMPL pca pose file")
+        ("output_dir,o", po::value<fs::path>()->required(), "Output dir")
         ;
 
   po::positional_options_description p;
@@ -89,11 +92,13 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  const fs::path dataset_file(vm["dataset"].as<std::string>());
+  const fs::path dataset_file(vm["dataset"].as<fs::path>());
   if (!fs::exists(dataset_file)) {
     std::cout << "Error:" << dataset_file << " does not exist\n";
     return EXIT_FAILURE;
   }
+
+  const fs::path out_dir(vm["output_dir"].as<fs::path>());
 
   Dataset dataset = loadDatasetFromJson(dataset_file.string());
   std::cout << "Loaded dataset \"" << dataset.name << "\" with " << dataset.annotations.size() << " annotations" << std::endl;
@@ -122,16 +127,16 @@ int main(int argc, char **argv) {
   viewer.create();
   viewer.makeCurrent();
 
-  const std::string smpl_model_file = vm["smpl_model_file"].as<std::string>();
-  const std::string smpl_segmm_file = vm["smpl_segmm_file"].as<std::string>();
-  const std::string smpl_pose_pca_file = vm["smpl_pose_pca_file"].as<std::string>();
+  const fs::path smpl_model_file = vm["smpl_model_file"].as<fs::path>();
+  const fs::path smpl_segmm_file = vm["smpl_segmm_file"].as<fs::path>();
+  const fs::path smpl_pose_pca_file = vm["smpl_pose_pca_file"].as<fs::path>();
 
 
-  const PosePCADecoder pca_decoder(smpl_pose_pca_file);
+  const PosePCADecoder pca_decoder(smpl_pose_pca_file.string());
 
-  renderer->setSMPLData(smpl_model_file, smpl_segmm_file);
+  renderer->setSMPLData(smpl_model_file.string(), smpl_segmm_file.string());
 
-  using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
 
 
   for (const Annotation& anno : dataset.annotations) {
@@ -151,36 +156,38 @@ int main(int argc, char **argv) {
     viewer.render();
 
 
-    const fs::path frame_name = fs::path("output") / fs::path(anno.image_file.value());
-    std::cout << "Ouput: " << frame_name << "\n";
-    {
-      QImage image = viewer.grabColorBuffer();
-      image.save(QString::fromStdString(frame_name.string()));
+    std::string frame_name = (out_dir / fs::path(anno.image_file.value())).string();
+    boost::replace_first(frame_name, "image", "segm");
+
+    std::cout << "Working on " << frame_name << "\n";
+
+    fs::path parant_dir = fs::path(frame_name).parent_path();
+    if (!fs::exists(parant_dir)){
+      fs::create_directories(parant_dir);
     }
 
-//    {
-//      Image buffer(H, W);
-//      viewer.grabLabelBuffer(buffer.data());
-//      buffer.colwise().reverseInPlace();
-//
-//      std::cout << buffer.minCoeff() << "  " << buffer.maxCoeff() << "\n";
-//
-//      QImage image(image_size.x(), image_size.y(), QImage::Format_RGB888);
-//      for (int x = 0; x < image_size.x(); ++x) {
-//        for (int y = 0; y < image_size.y(); ++y) {
-//          int cval = buffer(y, x) * 1.0;
-//          image.setPixel(x, y, qRgb(cval, cval, cval));
-//        }
-//      }
-//      image.save(QString("label_" + .png"));
-//    }
+
+    {
+      QImage image = viewer.grabColorBuffer();
+      image.save(QString::fromStdString(fs::path(frame_name).replace_extension(".png").string()));
+    }
+
+    {
+      using Image32FC1 = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+      using Image8UC1 = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+      Image32FC1 buffer(image_size.y(), image_size.x());
+      viewer.grabLabelBuffer(buffer.data());
+      buffer.colwise().reverseInPlace();
+      Image8UC1 label_image = buffer.cast<unsigned char>();
+      if (label_image.maxCoeff() > 24) {
+        throw std::runtime_error("Bad label value");
+      }
+      {
+        H5::H5File file(fs::path(frame_name).replace_extension(".h5").string(), H5F_ACC_TRUNC);
+        H5Eigen::save(file, "segmm", label_image);
+      }
+    }
   }
-
-
 
   return EXIT_SUCCESS;
 }
-
-
-
-;
