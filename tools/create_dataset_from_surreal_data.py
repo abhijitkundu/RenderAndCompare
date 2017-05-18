@@ -11,7 +11,7 @@ from collections import OrderedDict
 from tqdm import tqdm
 
 
-def create_annotation_for_single_image(image_file, root_dir, pose_mean, pose_basis):
+def create_annotation_for_single_image(image_file, root_dir, pose_mean=None, pose_basis=None):
     splits_ = image_file.split(osp.sep)
     frame_name = osp.splitext(splits_[-1])[0]
 
@@ -33,9 +33,12 @@ def create_annotation_for_single_image(image_file, root_dir, pose_mean, pose_bas
         body_pose = hf['body_pose'][...]
         assert body_pose.shape == (69,)
 
-    encoded_body_pose = pose_basis.T.dot(body_pose - pose_mean)
-    assert encoded_body_pose.shape == (pose_basis.shape[1],), 'unexpected encoded_body_pose.shape = {}'.format(encoded_body_pose.shape)
-    annotation['pose_param'] = encoded_body_pose.astype(np.float).tolist()
+    if pose_mean is not None and pose_basis is not None:
+        encoded_body_pose = pose_basis.T.dot(body_pose - pose_mean)
+        assert encoded_body_pose.shape == (pose_basis.shape[1],), 'unexpected encoded_body_pose.shape = {}'.format(encoded_body_pose.shape)
+        annotation['pose_param'] = encoded_body_pose.astype(np.float).tolist()
+    else:
+        annotation['pose_param'] = body_pose.astype(np.float).tolist()
 
     return annotation
 
@@ -49,15 +52,14 @@ if __name__ == '__main__':
 
     parser.add_argument("-i", "--input_folder", required=True, help="Input folder containing single image surreal data")
     parser.add_argument("-d", "--dataset_name", default='surreal_xxxxx', help="Dataset name")
-    parser.add_argument("-m", "--smpl_model_file", default=osp.join(smpl_data_dir, 'smpl_neutral_lbs_10_207_0.h5'), help="Input folder containing single image surreal data")
-    parser.add_argument("-p", "--pose_pca_file", default=osp.join(smpl_data_dir, 'smpl_pose_pca36_cmu_h36m.h5'), help="Input folder containing single image surreal data")
+    parser.add_argument("-m", "--smpl_model_file", default=osp.join(smpl_data_dir, 'smpl_neutral_lbs_10_207_0.h5'), help="Path to smpl model file")
+    parser.add_argument("-p", "--pose_pca_file", help="Pose PCA file. If not provided use full 69 params")
     parser.add_argument("-r", "--remove_empty_bbx", default=1, type=int, help="Remove empty box")
     args = parser.parse_args()
 
     assert osp.exists(args.input_folder), 'Input data folder "{}" does not exist'.format(args.input_folder)
     assert osp.isdir(args.input_folder), 'Input data folder "{}" is not a directory'.format(args.input_folder)
     assert osp.exists(args.smpl_model_file), 'SMPL model file "{}" does not exist'.format(args.smpl_model_file)
-    assert osp.exists(args.pose_pca_file), 'SMPL pcal pose file "{}" does not exist'.format(args.pose_pca_file)
 
     print "------------- Config ------------------"
     for arg in vars(args):
@@ -74,22 +76,29 @@ if __name__ == '__main__':
     dataset = rac.datasets.Dataset(args.dataset_name)
     dataset.set_rootdir(args.input_folder)
 
-    print 'Loading smpl pose pca basis from {}'.format(args.pose_pca_file)
-    with h5py.File(args.pose_pca_file, 'r') as hf:
-        pose_mean = np.squeeze(hf['pose_mean'][...])
-        pose_basis = hf['pose_basis'][...]
-        assert pose_mean.shape == (69,)
-        assert pose_basis.shape[0] == 69
-
     metainfo = {}
-    metainfo['pose_param_dimension'] = pose_basis.shape[1]
     metainfo['shape_param_dimension'] = 10
+
+    if args.pose_pca_file is not None:
+        print 'Loading smpl pose pca basis from {}'.format(args.pose_pca_file)
+        with h5py.File(args.pose_pca_file, 'r') as hf:
+            pose_mean = np.squeeze(hf['pose_mean'][...])
+            pose_basis = hf['pose_basis'][...]
+            assert pose_mean.shape == (69,)
+            assert pose_basis.shape[0] == 69
+        metainfo['pose_param_dimension'] = pose_basis.shape[1]
+    else:
+        print 'No pose pca file provided. Will not do PCA on pose.'
+        metainfo['pose_param_dimension'] = 69
+
     dataset.set_metainfo(metainfo)
 
     print 'Creating annotations for {:,} images'.format(len(image_files))
     for image_file in tqdm(image_files):
-        annotation = create_annotation_for_single_image(image_file, dataset.rootdir(), pose_mean, pose_basis)
-
+        if args.pose_pca_file is not None:
+            annotation = create_annotation_for_single_image(image_file, dataset.rootdir(), pose_mean, pose_basis)
+        else:
+            annotation = create_annotation_for_single_image(image_file, dataset.rootdir())
         # check the bbx and add only if its a good one
         bbx = np.array(annotation['bbx_visible']).astype(np.int)
 

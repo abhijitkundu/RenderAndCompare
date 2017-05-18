@@ -35,7 +35,12 @@ struct PosePCADecoder {
   template <class Derived>
   Eigen::VectorXf operator()(const Eigen::MatrixBase<Derived>& encoded_pose) const {
     Eigen::Matrix<float, 72, 1> pose_param;
-    pose_param.tail<69>() = pose_mean + pose_basis * encoded_pose;
+    if (encoded_pose.size() == pose_basis.cols())
+      pose_param.tail<69>() = pose_mean + pose_basis * encoded_pose;
+    else if (encoded_pose.size() == 69)
+      pose_param.tail<69>() = encoded_pose;
+    else
+      throw std::runtime_error("Invalid pose size");
     pose_param.head<3>().setZero();
     return pose_param;
   }
