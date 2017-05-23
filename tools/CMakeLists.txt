@@ -24,3 +24,10 @@ target_link_libraries(render_articulated_objects RenderAndCompare)
 
 add_executable(evaluate_bodyparts_segmentation evaluate_bodyparts_segmentation.cpp)
 target_link_libraries(evaluate_bodyparts_segmentation RenderAndCompare)
+
+add_executable(colorizeDepthMap colorizeDepthMap.cpp)
+target_link_libraries(colorizeDepthMap RenderAndCompare)
+
+add_executable(check_smpl_render_layer check_smpl_render_layer.cpp)
+target_link_libraries(check_smpl_render_layer RenderAndCompare)
+

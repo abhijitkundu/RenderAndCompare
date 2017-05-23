@@ -8,8 +8,7 @@
 #ifndef RENDERANDCOMPARE_SMPL_RENDER_LAYER_H_
 #define RENDERANDCOMPARE_SMPL_RENDER_LAYER_H_
 
-#include "RenderAndCompare/SMPLMeshRenderer.h" // Should be included 1st
-#include "RenderAndCompare/SMPLmodel.h"
+#include "CuteGL/Renderer/SMPLRenderer.h"
 #include "CuteGL/Surface/OffScreenRenderViewer.h"
 
 #include <vector>
@@ -47,11 +46,8 @@ class SMPLRenderLayer : public Layer<Dtype> {
     NOT_IMPLEMENTED;
   }
 
-  std::unique_ptr<CuteGL::SMPLMeshRenderer> renderer_;
+  std::unique_ptr<CuteGL::SMPLRenderer> renderer_;
   std::unique_ptr<CuteGL::OffScreenRenderViewer> viewer_;
-
-  using SMPL = RaC::SMPLmodel<float>;
-  SMPL smpl_;
 };
 
 }  // end namespace caffe

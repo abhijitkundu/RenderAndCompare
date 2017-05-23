@@ -28,6 +28,8 @@ boost::program_options::variables_map parse_param_string(const std::string& para
         ("height,h",  po::value<int>()->default_value(224), "Image Height")
         ("mean_bgr,m",  po::value<vector<float>>()->multitoken()->default_value({103.0626238, 115.90288257, 123.15163084}, "103.0626238 115.90288257 123.15163084"), "Mean BGR color value")
         ("top_names,t", po::value<vector<string>>()->multitoken()->required(), "Top Names in Order")
+        ("shape_param_size,s", po::value<int>()->default_value(10)->required(), "Shape param Size")
+        ("pose_param_size,p", po::value<int>()->default_value(10)->required(), "Pose param Size")
         ;
 
   po::options_description options;
@@ -76,12 +78,17 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
   mean_bgr_ = Eigen::Vector3f(vm["mean_bgr"].as<vector<float>>().data()).cast<Dtype>();
   top_names_ = vm["top_names"].as<vector<string>>();
 
+  shape_param_size_ = vm["shape_param_size"].as<int>();
+  pose_param_size_ = vm["pose_param_size"].as<int>();
+
   const Eigen::IOFormat fmt(6, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
   LOG(INFO) << "----------Config---------------\n";
   LOG(INFO) << "batch_size = " << batch_size_;
   LOG(INFO) << "image_size = " << image_size.format(fmt);
   LOG(INFO) << "mean_bgr = " << mean_bgr_.format(fmt);
   LOG(INFO) << "top_names = " << top_names_;
+  LOG(INFO) << "shape_param_size_ = " << shape_param_size_;
+  LOG(INFO) << "pose_param_size = " << pose_param_size_;
   LOG(INFO) << "-------------------------------\n";
 
   CHECK_EQ(top.size(), top_names_.size()) << "Number of actual tops and top_names in param_str do not match";
@@ -99,7 +106,7 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
   {
     auto it = std::find(top_names_.begin(), top_names_.end(), "shape_param");
     if (it != top_names_.end()) {
-      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 10}});
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, shape_param_size_}});
     } else {
       LOG(WARNING) << "shape_param blob not set";
     }
@@ -107,7 +114,7 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
   {
     auto it = std::find(top_names_.begin(), top_names_.end(), "pose_param");
     if (it != top_names_.end()) {
-      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 10}});
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, pose_param_size_}});
     } else {
       LOG(WARNING) << "pose_param blob not set";
     }
@@ -143,13 +150,21 @@ void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset)
 
   for (std::size_t i = 0; i< dataset.annotations.size(); ++i) {
     const RaC::Annotation& anno = dataset.annotations[i];
-    using Vector10d = Eigen::Matrix<double, 10, 1>;
     Eigen::Vector4d bbx(anno.bbx_visible.value().data());
 
     visible_boxes.push_back(bbx.cast<int>());
     image_files.push_back((dataset.rootdir / anno.image_file.value()).string());
-    shape_params_.push_back(Vector10d(anno.shape_param.value().data()).cast<Dtype>());
-    pose_params_.push_back(Vector10d(anno.pose_param.value().data()).cast<Dtype>());
+
+    VectorX shape_param = anno.shapeParam().cast<Dtype>();
+    CHECK_EQ(shape_param.size(), shape_param_size_);
+    shape_params_.push_back(shape_param);
+
+    VectorX pose_param = anno.poseParam().cast<Dtype>();
+    CHECK_EQ(pose_param.size(), pose_param_size_);
+    pose_params_.push_back(pose_param);
+
+    camera_extrinsics_.push_back(anno.cameraExtrinsic().cast<Dtype>());
+    model_poses_.push_back(anno.modelPose().cast<Dtype>());
   }
   CHECK_EQ(image_files.size(), visible_boxes.size());
   image_loader_.preloadImages(image_files, visible_boxes);
@@ -217,7 +232,7 @@ void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>&
       Dtype* top_data = top[index]->mutable_cpu_data();
 #pragma omp parallel for
       for (int i = 0; i< batch_size_; ++i) {
-        Eigen::Map<Vector10>(top_data + top[index]->offset(i), 10) = shape_params_[batch_data_ids[i]];
+        Eigen::Map<VectorX>(top_data + top[index]->offset(i), shape_param_size_) = shape_params_[batch_data_ids[i]];
       }
     }
   }
@@ -229,7 +244,7 @@ void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>&
       Dtype* top_data = top[index]->mutable_cpu_data();
 #pragma omp parallel for
       for (int i = 0; i< batch_size_; ++i) {
-        Eigen::Map<Vector10>(top_data + top[index]->offset(i), 10) = pose_params_[batch_data_ids[i]];
+        Eigen::Map<VectorX>(top_data + top[index]->offset(i), pose_param_size_) = pose_params_[batch_data_ids[i]];
       }
     }
   }

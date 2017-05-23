@@ -8,6 +8,7 @@
 #include "RenderAndCompare/Dataset.h"
 #include "RenderAndCompare/ImageUtils.h"
 #include "RenderAndCompare/SMPLRenderLayer.h"
+#include "RenderAndCompare/ArticulatedObjectsDataLayer.h"
 #include "RenderAndCompare/render_layer.hpp"
 
 
@@ -22,6 +23,7 @@ namespace caffe {
 
 REGISTER_LAYER_CLASS(Render);
 REGISTER_LAYER_CLASS(SMPLRender);
+REGISTER_LAYER_CLASS(ArticulatedObjectsData);
 
 }  // namespace caffe
 

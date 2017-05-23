@@ -23,6 +23,7 @@ struct Annotation {
   using Array10d = std::array<double, 10>;
   using Array16d = std::array<double, 16>;
   using VectorXd = std::vector<double>;
+  using MatrixRM4d = Eigen::Matrix<double, 4, 4, Eigen::RowMajor>;
 
   boost::optional<std::string> image_file;
   boost::optional<Array4d> viewpoint;
@@ -40,6 +41,14 @@ struct Annotation {
 
   Eigen::VectorXd shapeParam() const {
     return Eigen::Map<const Eigen::VectorXd>(shape_param.value().data(), shape_param.value().size());
+  }
+
+  MatrixRM4d cameraExtrinsic() const {
+    return MatrixRM4d(camera_extrinsic.value().data());
+  }
+
+  MatrixRM4d modelPose() const {
+    return MatrixRM4d(model_pose.value().data());
   }
 };
 

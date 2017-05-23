@@ -27,8 +27,8 @@ if __name__ == '__main__':
     image_files = []
     cropping_boxes = []
 
-    shape_params_gt = np.zeros((dataset.num_of_annotations(), 10))
-    pose_params_gt = np.zeros((dataset.num_of_annotations(), 10))
+    shape_params_gt = np.zeros((dataset.num_of_annotations(), dataset.metainfo()['shape_param_dimension']))
+    pose_params_gt = np.zeros((dataset.num_of_annotations(), dataset.metainfo()['pose_param_dimension']))
 
     for i in xrange(dataset.num_of_annotations()):
         annotation = dataset.annotations()[i]
@@ -58,11 +58,8 @@ if __name__ == '__main__':
     total = t1 - t0
     print 'Took {} seconds'.format(total)
 
-    # print shape_params_gt.shape
-    # print pose_params_gt.shape
-
-    # print predictions['pred_shape_target'].shape
-    # print predictions['pred_pose_target'].shape
+    assert shape_params_gt.shape == predictions['pred_shape_target'].shape
+    assert pose_params_gt.shape == predictions['pred_pose_target'].shape
 
     mean_shape_L1 = np.mean(np.sum(np.absolute(shape_params_gt - predictions['pred_shape_target']), axis=1))
     mean_pose_L1 = np.mean(np.sum(np.absolute(pose_params_gt - predictions['pred_pose_target']), axis=1))

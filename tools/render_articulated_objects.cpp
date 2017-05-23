@@ -121,7 +121,8 @@ int main(int argc, char **argv) {
                                                 0.0f, 0.0f, 1.0f).finished());
 
   OffScreenRenderViewer viewer(renderer.get());
-  viewer.setBackgroundColor(0, 0, 0);
+  // viewer.setBackgroundColor(115, 139, 163);
+  viewer.setBackgroundColor(0, 0, 0, 0);
 
   viewer.resize(image_size.x(), image_size.y());
 
@@ -139,7 +140,8 @@ int main(int argc, char **argv) {
 
   const PosePCADecoder pca_decoder(smpl_pose_pca_file.string());
 
-  renderer->setSMPLData(smpl_model_file.string(), smpl_segmm_file.string());
+  // renderer->setSMPLData(smpl_model_file.string(), smpl_segmm_file.string());
+  renderer->setSMPLData(smpl_model_file.string());
 
 
 
@@ -177,21 +179,31 @@ int main(int argc, char **argv) {
       image.save(QString::fromStdString(fs::path(frame_name).replace_extension(".png").string()));
     }
 
-    {
-      using Image32FC1 = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-      using Image8UC1 = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-      Image32FC1 buffer(image_size.y(), image_size.x());
-      viewer.grabLabelBuffer(buffer.data());
-      buffer.colwise().reverseInPlace();
-      Image8UC1 label_image = buffer.cast<unsigned char>();
-      if (label_image.maxCoeff() > 24) {
-        throw std::runtime_error("Bad label value");
-      }
-      {
-        H5::H5File file(fs::path(frame_name).replace_extension(".h5").string(), H5F_ACC_TRUNC);
-        H5Eigen::save(file, "segmm", label_image);
-      }
-    }
+    // {
+    //   using Image32FC1 = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    //   Image32FC1 buffer(image_size.y(), image_size.x());
+    //   viewer.grabDepthBuffer(buffer.data());
+    //   buffer.colwise().reverseInPlace();
+    //   cv::Mat cv_image(buffer.rows(), buffer.cols(), CV_32FC1, buffer.data());
+    //   cv::imwrite(fs::path(frame_name).replace_extension(".exr").string(), cv_image);
+    // }
+
+
+//    {
+//      using Image32FC1 = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+//      using Image8UC1 = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+//      Image32FC1 buffer(image_size.y(), image_size.x());
+//      viewer.grabLabelBuffer(buffer.data());
+//      buffer.colwise().reverseInPlace();
+//      Image8UC1 label_image = buffer.cast<unsigned char>();
+//      if (label_image.maxCoeff() > 24) {
+//        throw std::runtime_error("Bad label value");
+//      }
+//      {
+//        H5::H5File file(fs::path(frame_name).replace_extension(".h5").string(), H5F_ACC_TRUNC);
+//        H5Eigen::save(file, "segmm", label_image);
+//      }
+//    }
   }
 
   return EXIT_SUCCESS;

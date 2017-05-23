@@ -20,10 +20,10 @@ void saveImage(const Eigen::Matrix<unsigned char, _Rows, _Cols, Eigen::RowMajor>
   cv::imwrite(filename, cv_image);
 }
 
-template<class Derived>
-void saveImage(const Eigen::MatrixBase<Derived>& image, const std::string& filename) {
+template<class Derived, class Scalar = double>
+void saveImage(const Eigen::MatrixBase<Derived>& image, const std::string& filename, const Scalar scale = 255.0) {
   using Image8UC1 = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-  Image8UC1 image_8UC1 = (image.array() * 255.0).template cast<unsigned char>();
+  Image8UC1 image_8UC1 = (image.array() * scale).template cast<unsigned char>();
   image_8UC1.colwise().reverseInPlace();
   saveImage(image_8UC1, filename);
 }
