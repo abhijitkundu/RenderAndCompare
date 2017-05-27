@@ -70,8 +70,8 @@ int main(int argc, char **argv) {
   }
   std::cout << "Loaded " << datasets.size() << " datasets" << std::endl;
 
-
-  BatchImageLoader image_loader(224, 224);
+  using ImageLoader = BatchImageLoader<uint8_t>;
+  ImageLoader image_loader(224, 224);
 
   for (const Dataset& dataset : datasets) {
     std::vector<std::string> image_files(dataset.annotations.size());
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
   int step = 1;
   for (int i = 0;;) {
     const Eigen::array<ptrdiff_t, 3> shuffles({{1, 2, 0}});
-    BatchImageLoader::ImageType image = image_loader.images()[i].shuffle(shuffles);
+    ImageLoader::ImageType image = image_loader.images()[i].shuffle(shuffles);
     cv::Mat cv_image(image_loader.height(), image_loader.width(), CV_8UC3, image.data());
 
     cv::imshow(windowname, cv_image);

@@ -104,6 +104,15 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
     }
   }
   {
+    auto it = std::find(top_names_.begin(), top_names_.end(), "segm_image");
+    if (it != top_names_.end()) {
+      top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 1, 240, 320}});
+    }
+    else {
+      LOG(WARNING) << "segm_image blob not set";
+    }
+  }
+  {
     auto it = std::find(top_names_.begin(), top_names_.end(), "shape_param");
     if (it != top_names_.end()) {
       top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, shape_param_size_}});
@@ -136,7 +145,7 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
     }
   }
 
-  image_loader_.setImageSize(image_size.x(), image_size.y());
+  input_image_loader_.setImageSize(image_size.x(), image_size.y());
 }
 
 template <typename Dtype>
@@ -167,7 +176,7 @@ void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset)
     model_poses_.push_back(anno.modelPose().cast<Dtype>());
   }
   CHECK_EQ(image_files.size(), visible_boxes.size());
-  image_loader_.preloadImages(image_files, visible_boxes);
+  input_image_loader_.preloadImages(image_files, visible_boxes);
 }
 
 template <typename Dtype>
@@ -175,9 +184,9 @@ void ArticulatedObjectsDataLayer<Dtype>::generateDatumIds() {
   LOG(INFO) << "Generating Data Ids";
 
   CHECK_GT(batch_size_, 0);
-  CHECK_GT(image_loader_.images().size(), batch_size_);
+  CHECK_GT(input_image_loader_.images().size(), batch_size_);
 
-  data_ids_.resize(image_loader_.images().size());
+  data_ids_.resize(input_image_loader_.images().size());
   std::iota(data_ids_.begin(), data_ids_.end(), 0);
 
 
@@ -215,8 +224,8 @@ void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>&
       using ImageType = Eigen::Tensor<Dtype, 3, Eigen::RowMajor>;
 #pragma omp parallel for
       for (int i = 0; i< batch_size_; ++i) {
-        Eigen::TensorMap<ImageType> blob_image(top_data + top[index]->offset(i), 3, image_loader_.height(), image_loader_.width());
-        blob_image = image_loader_.images()[batch_data_ids[i]].cast<Dtype>();
+        Eigen::TensorMap<ImageType> blob_image(top_data + top[index]->offset(i), 3, input_image_loader_.height(), input_image_loader_.width());
+        blob_image = input_image_loader_.images()[batch_data_ids[i]].cast<Dtype>();
 
         blob_image.chip(0, 0) = blob_image.chip(0, 0) - mean_bgr_[0];
         blob_image.chip(1, 0) = blob_image.chip(1, 0) - mean_bgr_[1];

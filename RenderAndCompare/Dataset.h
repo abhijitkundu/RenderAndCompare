@@ -26,6 +26,7 @@ struct Annotation {
   using MatrixRM4d = Eigen::Matrix<double, 4, 4, Eigen::RowMajor>;
 
   boost::optional<std::string> image_file;
+  boost::optional<std::string> segm_file;
   boost::optional<Array4d> viewpoint;
   boost::optional<Array4d> bbx_amodal;
   boost::optional<Array4d> bbx_crop;

@@ -65,6 +65,7 @@ void from_json(const nlohmann::json& j, Dataset& dataset) {
 void to_json(nlohmann::json& j, const Annotation& p) {
   j = nlohmann::json {
     { "image_file", p.image_file },
+    { "segm_file", p.segm_file },
     { "viewpoint", p.viewpoint },
     { "bbx_amodal", p.bbx_amodal },
     { "bbx_crop", p.bbx_crop },
@@ -103,6 +104,7 @@ void from_json_if_present(const nlohmann::json& j, const KeyType& key, boost::op
 
 void from_json(const nlohmann::json& j, Annotation& p) {
   from_json_if_present(j, "image_file", p.image_file);
+  from_json_if_present(j, "segm_file", p.segm_file);
   from_json_if_present(j, "viewpoint", p.viewpoint);
   from_json_if_present(j, "bbx_amodal", p.bbx_amodal);
   from_json_if_present(j, "bbx_crop", p.bbx_crop);
@@ -116,15 +118,19 @@ void from_json(const nlohmann::json& j, Annotation& p) {
 
 template<typename T, std::size_t N>
 std::ostream& operator<<(std::ostream& os, const std::array<T, N>& val) {
+  os << "[";
   for (const auto& s : val)
-    os << s << ' ';
+    os << s << ", ";
+  os << "\b\b]";
   return os;
 }
 
 template<typename T, typename A>
 std::ostream& operator<<(std::ostream& os, const std::vector<T, A>& val) {
+  os << "[";
   for (const auto& s : val)
-    os << s << ' ';
+    os << s << ", ";
+  os << "\b\b]";
   return os;
 }
 
@@ -139,6 +145,7 @@ std::ostream& operator<<(std::ostream& os, const boost::optional<T>& opt) {
 
 std::ostream& operator<<(std::ostream& os, const Annotation& anno) {
   os << "image_file: " << anno.image_file;
+  os << "\nsegm_file: " << anno.segm_file;
   os << "\nviewpoint: " << anno.viewpoint;
   os << "\nbbx_amodal: " << anno.bbx_amodal;
   os << "\nbbx_crop: " << anno.bbx_crop;
