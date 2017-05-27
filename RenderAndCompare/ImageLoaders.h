@@ -15,14 +15,16 @@
 
 namespace RaC {
 
-template <class Scalar_ = unsigned char>
+template <class Scalar_ = unsigned char, int NumOfChannels_ = 3>
 class BatchImageLoader {
  public:
   using Scalar = Scalar_;
+  static const int NumOfChannels = NumOfChannels_;
+
   using ImageType = Eigen::Tensor<Scalar, 3, Eigen::RowMajor>;
 
-  BatchImageLoader(int width = -1, int height =-1, int channels = 3);
-  void setImageSize(int width, int height, int channels = 3);
+  BatchImageLoader(int width = -1, int height =-1);
+  void setImageSize(int width, int height);
 
   void preloadImages(const std::vector<std::string>& image_files);
   void preloadImages(const std::vector<std::string>& image_files, const Eigen::AlignedStdVector<Eigen::Vector4i>& croppings);
@@ -32,13 +34,13 @@ class BatchImageLoader {
 
   inline int width() const {return width_;}
   inline int height() const {return height_;}
-  inline int channels() const {return channels_;}
+
+  inline std::size_t sizeInBytes() const {return images_.size() * NumOfChannels * height_ * width_ * sizeof(Scalar);}
 
  private:
   std::vector<ImageType> images_;
   int width_;
   int height_;
-  int channels_;
 };
 
 }  // namespace RaC

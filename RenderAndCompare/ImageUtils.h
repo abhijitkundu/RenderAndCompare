@@ -28,6 +28,8 @@ void saveImage(const Eigen::MatrixBase<Derived>& image, const std::string& filen
   saveImage(image_8UC1, filename);
 }
 
+cv::Mat getColoredImageFromLabels(const cv::Mat& label_image, const std::vector<cv::Vec3b>& colormap);
+
 }  // namespace RaC
 
 #endif // end RENDERANDCOMPARE_IMAGEUTILS_H_

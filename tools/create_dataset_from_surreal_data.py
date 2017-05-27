@@ -21,7 +21,7 @@ def create_annotation_for_single_image(image_file, root_dir, pose_mean=None, pos
     segm_dir = osp.join(osp.dirname(image_file), '../segm')
     assert osp.exists(segm_dir), 'Segm directory "{}" does not exist'.format(segm_dir)
 
-    segm_file = osp.join(segm_dir, frame_name + '.h5')
+    segm_file = osp.join(segm_dir, frame_name + '.png')
     assert osp.exists(segm_file), 'segm file "{}" does not exist'.format(segm_file)
     annotation['segm_file'] = osp.relpath(segm_file, root_dir)
 

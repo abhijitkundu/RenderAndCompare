@@ -7,6 +7,7 @@
 
 #include "RenderAndCompare/SMPLRenderLayer.h"
 #include "RenderAndCompare/Dataset.h"
+#include "RenderAndCompare/ImageUtils.h"
 #include "RenderAndCompare/ArticulatedObjectsDataLayer.h"
 
 #include "caffe/caffe.hpp"
@@ -112,9 +113,43 @@ int main(int argc, char **argv) {
   const int batch_size = data_blob_shape[0];
   const int num_of_batches = int(std::ceil(num_of_images / float(batch_size)));
 
-  cv::namedWindow("BlobInputImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+  auto segm_image_blob_shape = caffe_net.blob_by_name("gt_segm_image")->shape();
+  CHECK_EQ(segm_image_blob_shape.size(), 4) << "Expects 4D data blob";
+  CHECK_EQ(segm_image_blob_shape[1], 1) << "Expects 2nd channel to be 1 for Segm image";
+  CHECK_EQ(segm_image_blob_shape[0], batch_size) << "Expects 1st dime to be batch size";
+
   cv::namedWindow("InputImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+  cv::namedWindow("SegmImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+  cv::namedWindow("BlobInputImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+  cv::namedWindow("BlobSegmImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
   cv::namedWindow("RenderedImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+
+
+  const std::vector<cv::Vec3b> smpl24_cmap = {{55, 55, 55},
+                                              {47, 148, 84},
+                                              {231, 114, 177},
+                                              {89, 70, 0},
+                                              {187, 43, 143},
+                                              {7, 70, 70},
+                                              {251, 92, 0},
+                                              {63, 252, 211},
+                                              {53, 144, 229},
+                                              {248, 150, 144},
+                                              {52, 82, 125},
+                                              {189, 73, 1},
+                                              {42, 210, 52},
+                                              {253, 192, 40},
+                                              {231, 233, 157},
+                                              {109, 131, 203},
+                                              {190, 195, 243},
+                                              {97, 70, 171},
+                                              {32, 137, 233},
+                                              {68, 43, 29},
+                                              {142, 35, 220},
+                                              {243, 169, 53},
+                                              {119, 8, 153},
+                                              {217, 181, 152},
+                                              {32, 91, 213}};
 
 
   for (int b = 0; b < num_of_batches; ++b) {
@@ -127,13 +162,17 @@ int main(int argc, char **argv) {
 
     auto gt_shape_param_blob_ptr =  caffe_net.blob_by_name("gt_shape_param");
     auto gt_pose_param_blob_ptr =  caffe_net.blob_by_name("gt_pose_param");
-    auto image_data_blob_ptr =  caffe_net.blob_by_name("data");
-    auto rendered_image_data_blob_ptr =  caffe_net.blob_by_name("rendered_output");
-    CHECK_NOTNULL(image_data_blob_ptr.get());
-    CHECK_NOTNULL(rendered_image_data_blob_ptr.get());
+
+    auto input_image_blob_ptr =  caffe_net.blob_by_name("data");
+    auto segm_image_blob_ptr =  caffe_net.blob_by_name("gt_segm_image");
+    auto rendered_image_blob_ptr =  caffe_net.blob_by_name("rendered_output");
+    CHECK_NOTNULL(input_image_blob_ptr.get());
+    CHECK_NOTNULL(segm_image_blob_ptr.get());
+    CHECK_NOTNULL(rendered_image_blob_ptr.get());
 
     using Tensor4f = Eigen::Tensor<const float , 4, Eigen::RowMajor>;
-    Eigen::TensorMap<Tensor4f>image_blob(image_data_blob_ptr->cpu_data(), batch_size, 3, data_blob_shape[2], data_blob_shape[3]);
+    Eigen::TensorMap<Tensor4f>input_image_blob(input_image_blob_ptr->cpu_data(), batch_size, 3, data_blob_shape[2], data_blob_shape[3]);
+    Eigen::TensorMap<Tensor4f>segm_image_blob(segm_image_blob_ptr->cpu_data(), batch_size, 1, segm_image_blob_shape[2], segm_image_blob_shape[3]);
 
     bool exit_loop = false;
     for (int idx = start_idx; idx < end_idx; ++idx) {
@@ -142,8 +181,14 @@ int main(int argc, char **argv) {
 
       {
         const std::string image_path = (dataset.rootdir / anno.image_file.value()).string();
-        cv::Mat cv_image = cv::imread(image_path, cv::IMREAD_COLOR);
+        cv::Mat cv_image = cv::imread(image_path, cv::IMREAD_ANYDEPTH | cv::IMREAD_ANYCOLOR);
         cv::imshow("InputImage", cv_image);
+      }
+
+      {
+        const std::string image_path = (dataset.rootdir / anno.segm_file.value()).string();
+        cv::Mat cv_image = cv::imread(image_path, cv::IMREAD_ANYDEPTH | cv::IMREAD_ANYCOLOR);
+        cv::imshow("SegmImage", getColoredImageFromLabels(cv_image, smpl24_cmap));
       }
 
       if (gt_shape_param_blob_ptr) {
@@ -177,25 +222,34 @@ int main(int argc, char **argv) {
       }
 
       {
-        const int H = rendered_image_data_blob_ptr->height();
-        const int W = rendered_image_data_blob_ptr->width();
+        using Tensor3u = Eigen::Tensor<unsigned char , 3, Eigen::RowMajor>;
+        Tensor3u image = segm_image_blob.chip(rel_idx, 0).cast<unsigned char>();
+        CHECK_EQ(image.dimension(0), 1);
+        cv::Mat cv_image(image.dimension(1), image.dimension(2), CV_8UC1, image.data());
+        cv::imshow("BlobSegmImage", getColoredImageFromLabels(cv_image, smpl24_cmap));
+
+      }
+
+      {
+        const int H = rendered_image_blob_ptr->height();
+        const int W = rendered_image_blob_ptr->width();
 
         using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-        Eigen::Map<const Image> image(rendered_image_data_blob_ptr->cpu_data() + rendered_image_data_blob_ptr->offset(rel_idx, 0), H, W);
+        Eigen::Map<const Image> image(rendered_image_blob_ptr->cpu_data() + rendered_image_blob_ptr->offset(rel_idx, 0), H, W);
 
         using Image8UC1 = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-        Image8UC1 image_8UC1 = (image.array() * 10.0f).template cast<unsigned char>();
+        Image8UC1 image_8UC1 = image.template cast<unsigned char>();
         image_8UC1.colwise().reverseInPlace();
 
         cv::Mat cv_image(image_8UC1.rows(), image_8UC1.cols(), CV_8UC1, (void*)image_8UC1.data());
-        cv::imshow("RenderedImage", cv_image);
+        cv::imshow("RenderedImage", getColoredImageFromLabels(cv_image, smpl24_cmap));
       }
 
       {
         using Tensor3f = Eigen::Tensor<float , 3, Eigen::RowMajor>;
         using Tensor3u = Eigen::Tensor<unsigned char , 3, Eigen::RowMajor>;
 
-        Tensor3f image = image_blob.chip(rel_idx, 0);
+        Tensor3f image = input_image_blob.chip(rel_idx, 0);
 
         const Eigen::Vector3f& mean_bgr = data_layer_ptr->mean_bgr();
         image.chip(0, 0) = image.chip(0, 0) + mean_bgr[0];

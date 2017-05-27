@@ -98,6 +98,7 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
     auto it = std::find(top_names_.begin(), top_names_.end(), "input_image");
     if (it != top_names_.end()) {
       top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 3, image_size.y(), image_size.x()}});
+      input_image_loader_.setImageSize(image_size.x(), image_size.y());
     }
     else {
       LOG(WARNING) << "input_image blob not set";
@@ -107,6 +108,7 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
     auto it = std::find(top_names_.begin(), top_names_.end(), "segm_image");
     if (it != top_names_.end()) {
       top[std::distance(top_names_.begin(), it)]->Reshape( { {batch_size_, 1, 240, 320}});
+      segm_image_loader_.setImageSize(320, 240);
     }
     else {
       LOG(WARNING) << "segm_image blob not set";
@@ -144,17 +146,17 @@ void ArticulatedObjectsDataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& 
       LOG(WARNING) << "model_pose blob not set";
     }
   }
-
-  input_image_loader_.setImageSize(image_size.x(), image_size.y());
 }
 
 template <typename Dtype>
 void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset) {
   LOG(INFO) << "---- Adding data from " << dataset.name << "------";
   std::vector<std::string> image_files;
+  std::vector<std::string> segm_files;
   Eigen::AlignedStdVector<Eigen::Vector4i> visible_boxes;
 
   image_files.reserve(dataset.annotations.size());
+  segm_files.reserve(dataset.annotations.size());
   visible_boxes.reserve(dataset.annotations.size());
 
   for (std::size_t i = 0; i< dataset.annotations.size(); ++i) {
@@ -163,6 +165,7 @@ void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset)
 
     visible_boxes.push_back(bbx.cast<int>());
     image_files.push_back((dataset.rootdir / anno.image_file.value()).string());
+    segm_files.push_back((dataset.rootdir / anno.segm_file.value()).string());
 
     VectorX shape_param = anno.shapeParam().cast<Dtype>();
     CHECK_EQ(shape_param.size(), shape_param_size_);
@@ -177,6 +180,7 @@ void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset)
   }
   CHECK_EQ(image_files.size(), visible_boxes.size());
   input_image_loader_.preloadImages(image_files, visible_boxes);
+  segm_image_loader_.preloadImages(segm_files);
 }
 
 template <typename Dtype>
@@ -230,6 +234,20 @@ void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>&
         blob_image.chip(0, 0) = blob_image.chip(0, 0) - mean_bgr_[0];
         blob_image.chip(1, 0) = blob_image.chip(1, 0) - mean_bgr_[1];
         blob_image.chip(2, 0) = blob_image.chip(2, 0) - mean_bgr_[2];
+      }
+    }
+  }
+
+  {
+    auto it = std::find(top_names_.begin(), top_names_.end(), "segm_image");
+    if (it != top_names_.end()) {
+      const auto index = std::distance(top_names_.begin(), it);
+      Dtype* top_data = top[index]->mutable_cpu_data();
+      using ImageType = Eigen::Tensor<Dtype, 3, Eigen::RowMajor>;
+#pragma omp parallel for
+      for (int i = 0; i< batch_size_; ++i) {
+        Eigen::TensorMap<ImageType> blob_image(top_data + top[index]->offset(i), 1, segm_image_loader_.height(), segm_image_loader_.width());
+        blob_image = segm_image_loader_.images()[batch_data_ids[i]].cast<Dtype>();
       }
     }
   }

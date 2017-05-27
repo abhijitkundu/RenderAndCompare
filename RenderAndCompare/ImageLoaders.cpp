@@ -15,29 +15,26 @@
 
 namespace RaC {
 
-template<class Scalar_>
-BatchImageLoader<Scalar_>::BatchImageLoader(int width, int height, int channels)
+template<class S, int C>
+BatchImageLoader<S, C>::BatchImageLoader(int width, int height)
     : width_(width),
-      height_(height),
-      channels_(channels) {
+      height_(height) {
 }
 
-template<class Scalar_>
-void BatchImageLoader<Scalar_>::setImageSize(int width, int height, int channels) {
+template<class S, int C>
+void BatchImageLoader<S, C>::setImageSize(int width, int height) {
   width_ = width;
   height_ = height;
-  channels_ = channels;
 }
 
-template<class Scalar_>
-void BatchImageLoader<Scalar_>::preloadImages(const std::vector<std::string>& image_files) {
+template<class S, int C>
+void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image_files) {
   std::cout << "BatchImageLoader: Preloading " << image_files.size() << " images. Ops: Resize,Shuffle" << std::endl;
   assert(width_ > 0);
   assert(height_ > 0);
-  assert(channels_ == 3 || channels_ == 1);
 
   const std::size_t prev_size = images_.size();
-  images_.insert(images_.end(), image_files.size(), ImageType(channels_, height_, width_));
+  images_.insert(images_.end(), image_files.size(), ImageType(NumOfChannels, height_, width_));
 
   boost::progress_display show_progress(image_files.size());
 #pragma omp parallel for
@@ -47,8 +44,8 @@ void BatchImageLoader<Scalar_>::preloadImages(const std::vector<std::string>& im
       std::cout << "Failed to load image from " << image_files[i] << std::endl;
       throw std::runtime_error("Image loading failed");
     }
-    if (cv_image.channels() != channels_) {
-      std::cout << "Got " << cv_image.channels() << " channels (Expected: " << channels_ << ") from "  << image_files[i] << std::endl;
+    if (cv_image.channels() != NumOfChannels) {
+      std::cout << "Got " << cv_image.channels() << " channels (Expected: " << NumOfChannels << ") from "  << image_files[i] << std::endl;
       throw std::runtime_error("Image loading failed");
     }
     if (cv_image.depth() != cv::DataType<Scalar>::depth) {
@@ -58,27 +55,27 @@ void BatchImageLoader<Scalar_>::preloadImages(const std::vector<std::string>& im
 
     cv::resize(cv_image, cv_image, cv::Size(width_, height_));
     const Eigen::array<ptrdiff_t, 3> shuffles({{2, 0, 1}});
-    images_[prev_size + i] = Eigen::TensorMap<ImageType>((Scalar*) cv_image.data, height_, width_, channels_).shuffle(shuffles);
-    assert(images_[prev_size + i].dimension(0) == channels_);
+    images_[prev_size + i] = Eigen::TensorMap<ImageType>((Scalar*) cv_image.data, height_, width_, NumOfChannels).shuffle(shuffles);
+    assert(images_[prev_size + i].dimension(0) == NumOfChannels);
     ++show_progress;
   }
 
-  std::cout << "\nBatchImageLoader: Current number of images =  " << images_.size() << std::endl;
+  std::cout << "\nBatchImageLoader: Current number of images =  " << images_.size()
+            << " (" << double(sizeInBytes())/1e9 << " GB)" << std::endl;
 }
 
-template<class Scalar_>
-void BatchImageLoader<Scalar_>::preloadImages(const std::vector<std::string>& image_files,
-                                     const Eigen::AlignedStdVector<Eigen::Vector4i>& croppings) {
+template<class S, int C>
+void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image_files,
+                                           const Eigen::AlignedStdVector<Eigen::Vector4i>& croppings) {
   std::cout << "BatchImageLoader: Preloading " << image_files.size() << " images. Ops: Crop,Resize,Shuffle" << std::endl;
   assert(width_ > 0);
   assert(height_ > 0);
-  assert(channels_ == 3);
 
   if (image_files.size() != croppings.size())
     throw std::runtime_error("BatchImageLoader::cropAndPreloadImages(): image_files.size() != croppings.size()");
 
   const std::size_t prev_size = images_.size();
-  images_.insert(images_.end(), image_files.size(), ImageType(channels_, height_, width_));
+  images_.insert(images_.end(), image_files.size(), ImageType(NumOfChannels, height_, width_));
 
   boost::progress_display show_progress(image_files.size());
 #pragma omp parallel for
@@ -88,8 +85,8 @@ void BatchImageLoader<Scalar_>::preloadImages(const std::vector<std::string>& im
       std::cout << "Failed to load image from " << image_files[i] << std::endl;
       throw std::runtime_error("Image loading failed");
     }
-    if (cv_image.channels() != channels_) {
-      std::cout << "Got " << cv_image.channels() << " channels (Expected: " << channels_ << ") from "  << image_files[i] << std::endl;
+    if (cv_image.channels() != NumOfChannels) {
+      std::cout << "Got " << cv_image.channels() << " channels (Expected: " << NumOfChannels << ") from "  << image_files[i] << std::endl;
       throw std::runtime_error("Image loading failed");
     }
     if (cv_image.depth() != cv::DataType<Scalar>::depth) {
@@ -103,18 +100,20 @@ void BatchImageLoader<Scalar_>::preloadImages(const std::vector<std::string>& im
     // Image is HWC
     cv::resize(cv_image(roi), cv_image, cv::Size(width_, height_));
     const Eigen::array<ptrdiff_t, 3> shuffles({{2, 0, 1}});
-    images_[prev_size + i] = Eigen::TensorMap<ImageType>((Scalar*) cv_image.data, height_, width_, channels_).shuffle(shuffles);
-    assert(images_[prev_size + i].dimension(0) == channels_);
+    images_[prev_size + i] = Eigen::TensorMap<ImageType>((Scalar*) cv_image.data, height_, width_, NumOfChannels).shuffle(shuffles);
+    assert(images_[prev_size + i].dimension(0) == NumOfChannels);
     ++show_progress;
   }
 
-  std::cout << "\nBatchImageLoader: Current number of images =  " << images_.size() << std::endl;
+  std::cout << "\nBatchImageLoader: Current number of images =  " << images_.size()
+            << " (" << double(sizeInBytes())/1e9 << " GB)" << std::endl;
 }
 
 
 // Instantiate BatchImageLoader
-template class BatchImageLoader<uint8_t>;
-template class BatchImageLoader<uint16_t>;
+template class BatchImageLoader<uint8_t, 3>;
+template class BatchImageLoader<uint8_t, 1>;
+template class BatchImageLoader<uint16_t, 1>;
 
 }  // namespace RaC
 

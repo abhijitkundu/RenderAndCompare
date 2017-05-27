@@ -54,7 +54,8 @@ class ArticulatedObjectsDataLayer : public Layer<Dtype> {
 
  protected:
 
-  RaC::BatchImageLoader<uint8_t> input_image_loader_;
+  RaC::BatchImageLoader<uint8_t, 3> input_image_loader_;
+  RaC::BatchImageLoader<uint8_t, 1> segm_image_loader_;
   Eigen::AlignedStdVector<VectorX> shape_params_;
   Eigen::AlignedStdVector<VectorX> pose_params_;
   Eigen::AlignedStdVector<Matrix4> camera_extrinsics_;

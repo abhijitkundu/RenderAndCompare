@@ -52,7 +52,7 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   viewer_->makeCurrent();
 
   LOG(INFO)<< "Adding SMPL data to renderer";
-  renderer_->setSMPLData("smpl_neutral_lbs_10_207_0.h5");
+  renderer_->setSMPLData("smpl_neutral_lbs_10_207_0.h5", "vertex_segm24_col24_14.h5");
 
   LOG(INFO)<< "Done Setting up SMPLRenderLayer";
 }
@@ -95,7 +95,7 @@ void SMPLRenderLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, con
 
     using Image = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
     Eigen::Map<Image> image(image_top_data + top[0]->offset(i, 0), height, width);
-    viewer_->grabDepthBuffer((float*) image.data());
+    viewer_->grabLabelBuffer((float*) image.data());
    }
    viewer_->doneCurrent();
 }
