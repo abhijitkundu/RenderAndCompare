@@ -180,7 +180,7 @@ void ArticulatedObjectsDataLayer<Dtype>::addDataset(const RaC::Dataset& dataset)
   }
   CHECK_EQ(image_files.size(), visible_boxes.size());
   input_image_loader_.preloadImages(image_files, visible_boxes);
-  segm_image_loader_.preloadImages(segm_files);
+  segm_image_loader_.preloadImages(segm_files, true);
 }
 
 template <typename Dtype>

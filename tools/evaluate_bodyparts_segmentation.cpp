@@ -156,6 +156,11 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  std::cout << "[";
+  for (const auto& key_and_val : lalbelmap_24_to_14) {
+    std::cout << key_and_val.second << ", ";
+  }
+  std::cout << "\b\b]";
 
 
   std::cout << "Evaluating on " << image_names.size() << " Images" << std::endl;

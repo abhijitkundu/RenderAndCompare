@@ -28,7 +28,7 @@ void BatchImageLoader<S, C>::setImageSize(int width, int height) {
 }
 
 template<class S, int C>
-void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image_files) {
+void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image_files, bool do_vertical_flip) {
   std::cout << "BatchImageLoader: Preloading " << image_files.size() << " images. Ops: Resize,Shuffle" << std::endl;
   assert(width_ > 0);
   assert(height_ > 0);
@@ -54,6 +54,11 @@ void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image
     }
 
     cv::resize(cv_image, cv_image, cv::Size(width_, height_));
+
+    if (do_vertical_flip) {
+      cv::flip(cv_image, cv_image, 0);
+    }
+
     const Eigen::array<ptrdiff_t, 3> shuffles({{2, 0, 1}});
     images_[prev_size + i] = Eigen::TensorMap<ImageType>((Scalar*) cv_image.data, height_, width_, NumOfChannels).shuffle(shuffles);
     assert(images_[prev_size + i].dimension(0) == NumOfChannels);

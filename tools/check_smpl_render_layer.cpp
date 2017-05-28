@@ -9,6 +9,7 @@
 #include "RenderAndCompare/Dataset.h"
 #include "RenderAndCompare/ImageUtils.h"
 #include "RenderAndCompare/ArticulatedObjectsDataLayer.h"
+#include "RenderAndCompare/SegmAccuracyLayer.h"
 
 #include "caffe/caffe.hpp"
 #include <gflags/gflags.h>
@@ -22,6 +23,7 @@
 namespace caffe {
 REGISTER_LAYER_CLASS(ArticulatedObjectsData);
 REGISTER_LAYER_CLASS(SMPLRender);
+REGISTER_LAYER_CLASS(SegmAccuracy);
 }  // namespace caffe
 
 using caffe::Caffe;
@@ -160,6 +162,24 @@ int main(int argc, char **argv) {
 
     caffe_net.Forward();
 
+    {
+      auto segm_pixel_acc_blob_ptr =  caffe_net.blob_by_name("segm_pixel_acc");
+      auto segm_class_acc_blob_ptr =  caffe_net.blob_by_name("segm_class_acc");
+      auto segm_class_iou_blob_ptr =  caffe_net.blob_by_name("segm_class_iou");
+
+      if (segm_pixel_acc_blob_ptr && segm_class_acc_blob_ptr && segm_class_iou_blob_ptr) {
+
+        float mean_pixel_acc = segm_pixel_acc_blob_ptr->cpu_data()[0];
+        float mean_class_acc = segm_class_acc_blob_ptr->cpu_data()[0];
+        float mean_class_iou = segm_class_iou_blob_ptr->cpu_data()[0];
+
+        LOG(INFO) << "class_iou= " << mean_class_iou << " class_acc= " << mean_class_acc << " pixel_acc= " << mean_pixel_acc;
+      }
+      else {
+        LOG(INFO) << "No Segmentation Accuracy Data";
+      }
+    }
+
     auto gt_shape_param_blob_ptr =  caffe_net.blob_by_name("gt_shape_param");
     auto gt_pose_param_blob_ptr =  caffe_net.blob_by_name("gt_pose_param");
 
@@ -226,8 +246,8 @@ int main(int argc, char **argv) {
         Tensor3u image = segm_image_blob.chip(rel_idx, 0).cast<unsigned char>();
         CHECK_EQ(image.dimension(0), 1);
         cv::Mat cv_image(image.dimension(1), image.dimension(2), CV_8UC1, image.data());
+        cv::flip(cv_image, cv_image, 0); // Can be done with Eigen tensor reverse also
         cv::imshow("BlobSegmImage", getColoredImageFromLabels(cv_image, smpl24_cmap));
-
       }
 
       {
