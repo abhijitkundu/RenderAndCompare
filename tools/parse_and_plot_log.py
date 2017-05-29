@@ -154,7 +154,7 @@ def draw_plot(data_frame, axes):
     all_column_names = list(data_frame.columns.values)
     outputs = [e for e in all_column_names if e not in ('NumIters', 'TotalLoss', 'LearningRate')]
     loss_outputs = [output for output in outputs if "loss" in output]
-    acc_outputs = [output for output in outputs if "acc" in output]
+    acc_outputs = [output for output in outputs if any(x in output for x in ["acc", "iou"])]
 
     # Plot loss outputs
     axes[0].clear()

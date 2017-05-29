@@ -5,17 +5,22 @@
  * @author Abhijit Kundu
  */
 
-#include "RenderAndCompare/Dataset.h"
+#include "RenderAndCompare/SMPLRenderLayer.h"
 #include "RenderAndCompare/ArticulatedObjectsDataLayer.h"
+#include "RenderAndCompare/SegmAccuracyLayer.h"
+#include "RenderAndCompare/Dataset.h"
 
 #include "caffe/caffe.hpp"
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
 #include <boost/program_options.hpp>
+#include <QGuiApplication>
 
 namespace caffe {
 REGISTER_LAYER_CLASS(ArticulatedObjectsData);
+REGISTER_LAYER_CLASS(SMPLRender);
+REGISTER_LAYER_CLASS(SegmAccuracy);
 }  // namespace caffe
 
 
@@ -71,13 +76,14 @@ void train(const fs::path& solver_proto,
 }
 
 int main(int argc, char **argv) {
+  QGuiApplication app(argc, argv);
+
   po::options_description generic_options("Generic Options");
     generic_options.add_options()("help,h", "Help screen");
 
   po::options_description config_options("Config");
     config_options.add_options()
         ("datasets,d",  po::value<std::vector<fs::path>>(), "Path to dataset files (JSON)")
-//        ("network_prototxt,n",  po::value<fs::path>()->required(), "Path to network model file (prototxt)")
         ("solver_prototxt,s",  po::value<fs::path>()->required(), "Path to Solver param file (prototxt)")
         ("initialization,i",  po::value<fs::path>()->required(), "Path to initialization weights/solverstate (prototxt)")
         ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids")
