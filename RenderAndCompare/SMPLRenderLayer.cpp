@@ -6,11 +6,9 @@
  */
 
 #include "SMPLRenderLayer.h"
-#include "H5EigenDense.h"
-#include "H5EigenTensor.h"
-
 #include "CuteGL/Core/Config.h"
-#include <CuteGL/Core/PoseUtils.h>
+#include "CuteGL/Core/PoseUtils.h"
+#include <glog/stl_logging.h>
 
 namespace caffe {
 
@@ -24,8 +22,23 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK_GE(bottom.size(), 4);
 
   const int num_frames = bottom[0]->shape(0);
-  for (const auto& blob : bottom) {
-    CHECK_EQ(blob->shape(0), num_frames);
+  LOG(INFO)<< "Number of frames = " << num_frames;
+
+  {
+    std::vector<int> blob_shape = {num_frames, 10};
+    CHECK_EQ(bottom[0]->shape(), blob_shape) << "bottom[0] is expected to be shape params with shape (num_frames, 10)";
+  }
+  {
+    std::vector<int> blob_shape = {num_frames, 69};
+    CHECK_EQ(bottom[1]->shape(), blob_shape) << "bottom[1] is expected to be pose params with shape (num_frames, 69)";
+  }
+  {
+    std::vector<int> blob_shape = {num_frames, 4, 4};
+    CHECK_EQ(bottom[2]->shape(), blob_shape) << "bottom[2] is expected to be camera extrinsics with shape (num_frames, 4, 4)";
+  }
+  {
+    std::vector<int> blob_shape = {num_frames, 4, 4};
+    CHECK_EQ(bottom[3]->shape(), blob_shape) << "bottom[2] is expected to be model poses with shape (num_frames, 4, 4)";
   }
 
   const Eigen::Array2i image_size(320, 240);
@@ -44,7 +57,7 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   viewer_->camera().intrinsics() = getGLPerspectiveProjection(K, image_size.x(), image_size.y(), 0.01f, 100.0f);
 
-  LOG(INFO)<< "image_size= " << image_size;
+  LOG(INFO)<< "image_size= " << image_size.x() <<" x " << image_size.y();
   LOG(INFO)<< "K=\n" << K;
 
   LOG(INFO)<< "Creating offscreen render surface";

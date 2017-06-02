@@ -6,10 +6,11 @@
  */
 
 #include "RenderAndCompare/SMPLRenderLayer.h"
-#include "RenderAndCompare/Dataset.h"
-#include "RenderAndCompare/ImageUtils.h"
+#include "RenderAndCompare/SMPLRenderWithLossLayer.h"
 #include "RenderAndCompare/ArticulatedObjectsDataLayer.h"
 #include "RenderAndCompare/SegmAccuracyLayer.h"
+#include "RenderAndCompare/Dataset.h"
+#include "RenderAndCompare/ImageUtils.h"
 
 #include "caffe/caffe.hpp"
 #include <gflags/gflags.h>
@@ -21,8 +22,9 @@
 #include <QApplication>
 
 namespace caffe {
-REGISTER_LAYER_CLASS(ArticulatedObjectsData);
 REGISTER_LAYER_CLASS(SMPLRender);
+REGISTER_LAYER_CLASS(SMPLRenderWithLoss);
+REGISTER_LAYER_CLASS(ArticulatedObjectsData);
 REGISTER_LAYER_CLASS(SegmAccuracy);
 }  // namespace caffe
 
@@ -185,10 +187,14 @@ int main(int argc, char **argv) {
 
     auto input_image_blob_ptr =  caffe_net.blob_by_name("data");
     auto segm_image_blob_ptr =  caffe_net.blob_by_name("gt_segm_image");
-    auto rendered_image_blob_ptr =  caffe_net.blob_by_name("rendered_output");
+    auto rendered_image_blob_ptr =  caffe_net.blob_by_name("rendered_image");
+
     CHECK_NOTNULL(input_image_blob_ptr.get());
     CHECK_NOTNULL(segm_image_blob_ptr.get());
-    CHECK_NOTNULL(rendered_image_blob_ptr.get());
+
+    if (!gt_shape_param_blob_ptr) LOG(INFO)<< "No shape Data";
+    if (!gt_pose_param_blob_ptr)  LOG(INFO)<< "No pose Data";
+    if (!rendered_image_blob_ptr) LOG(INFO)<< "No RenderedImage Data";
 
     using Tensor4f = Eigen::Tensor<const float , 4, Eigen::RowMajor>;
     Eigen::TensorMap<Tensor4f>input_image_blob(input_image_blob_ptr->cpu_data(), batch_size, 3, data_blob_shape[2], data_blob_shape[3]);
@@ -222,8 +228,6 @@ int main(int argc, char **argv) {
 
         Eigen::Map<const Eigen::VectorXf> blob_shape_param(gt_shape_param_blob_ptr->cpu_data() + rel_idx * shape_param_size, shape_param_size);
         CHECK(anno_shape_param.cast<float>().isApprox(blob_shape_param));
-      } else {
-        LOG(INFO)<< "No shape Data";
       }
 
       if (gt_pose_param_blob_ptr) {
@@ -237,8 +241,6 @@ int main(int argc, char **argv) {
 
         Eigen::Map<const Eigen::VectorXf> blob_pose_param(gt_pose_param_blob_ptr->cpu_data() + rel_idx * pose_param_size, pose_param_size);
         CHECK(anno_pose_param.cast<float>().isApprox(blob_pose_param));
-      } else {
-        LOG(INFO)<< "No pose Data";
       }
 
       {
@@ -250,7 +252,7 @@ int main(int argc, char **argv) {
         cv::imshow("BlobSegmImage", getColoredImageFromLabels(cv_image, smpl24_cmap));
       }
 
-      {
+      if (rendered_image_blob_ptr) {
         const int H = rendered_image_blob_ptr->height();
         const int W = rendered_image_blob_ptr->width();
 
