@@ -29,6 +29,9 @@ cmake_build/
 .Python
 env/
 
+#Custom files
+___*
+
 #temp files
 *.*~
 
