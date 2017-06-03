@@ -24,7 +24,9 @@ namespace caffe {
 template<typename Dtype>
 class SMPLRenderWithLossLayer : public LossLayer<Dtype> {
  public:
-  using Tensor4 = Eigen::Tensor<Dtype, 4, Eigen::RowMajor>;
+  using Matrix4 = Eigen::Matrix<Dtype, 4, 4, Eigen::RowMajor>;
+  using VectorX = Eigen::Matrix<Dtype, Eigen::Dynamic, 1>;
+  using Image = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
   SMPLRenderWithLossLayer();
 
@@ -42,20 +44,29 @@ class SMPLRenderWithLossLayer : public LossLayer<Dtype> {
   virtual inline int ExactNumBottomBlobs() const {return 5;}
   virtual inline int ExactNumTopBlobs() const {return 1;}
 
+  /// We can force backward for only shape_param and pose_param layers
+  virtual inline bool AllowForceBackward(const int bottom_index) const {
+    return (bottom_index == 0) || (bottom_index == 1);
+  }
+
 protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
 
-  /// @brief Not implemented (non-differentiable function)
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-                            const vector<Blob<Dtype>*>& bottom) {
-    NOT_IMPLEMENTED;
-  }
+                            const vector<Blob<Dtype>*>& bottom);
 
+  template <class DS, class DP, class DC, class DM, class DI>
+  Dtype renderAndCompare(const Eigen::MatrixBase<DS>& shape_param,
+                         const Eigen::MatrixBase<DP>& pose_param,
+                         const Eigen::MatrixBase<DC>& camera_extrinsic,
+                         const Eigen::MatrixBase<DM>& model_pose,
+                         const Eigen::MatrixBase<DI>& gt_image);
 
   std::unique_ptr<CuteGL::SMPLRenderer> renderer_;
   std::unique_ptr<CuteGL::OffScreenRenderViewer> viewer_;
 
-  Tensor4 rendered_images_;
+  VectorX losses_;
+  Image rendered_image_;
 };
 
 }  // end namespace caffe
