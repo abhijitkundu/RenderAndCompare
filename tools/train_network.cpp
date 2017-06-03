@@ -6,6 +6,7 @@
  */
 
 #include "RenderAndCompare/SMPLRenderLayer.h"
+#include "RenderAndCompare/SMPLRenderWithLossLayer.h"
 #include "RenderAndCompare/ArticulatedObjectsDataLayer.h"
 #include "RenderAndCompare/SegmAccuracyLayer.h"
 #include "RenderAndCompare/Dataset.h"
@@ -18,8 +19,9 @@
 #include <QGuiApplication>
 
 namespace caffe {
-REGISTER_LAYER_CLASS(ArticulatedObjectsData);
 REGISTER_LAYER_CLASS(SMPLRender);
+REGISTER_LAYER_CLASS(SMPLRenderWithLoss);
+REGISTER_LAYER_CLASS(ArticulatedObjectsData);
 REGISTER_LAYER_CLASS(SegmAccuracy);
 }  // namespace caffe
 

@@ -212,11 +212,6 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
   const Eigen::Index num_frames = losses_.size();
   const Dtype gradient_scale = top[0]->cpu_diff()[0] / num_frames;
 
-  // TODO Remove:
-  CHECK_EQ(top[0]->cpu_diff()[0], 1.0);
-  CHECK_EQ(bottom[0]->shape(0), num_frames);
-  CHECK_EQ(bottom[1]->shape(0), num_frames);
-
   // backpropagate to shape params
   if (propagate_down[0]) {
     Dtype* shape_param_diff_ptr = bottom[0]->mutable_cpu_diff();

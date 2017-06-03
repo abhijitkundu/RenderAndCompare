@@ -1,4 +1,4 @@
-name: "resnet50_shape10L1_pose69L1_IoU"
+name: "resnet50_shape10L1_pose69L1_IoU_stage2"
 
 layer {
   name: "data_layer"
@@ -3571,10 +3571,10 @@ layer {
   bottom: "pool5"
   top: "pred_shape_param"
   param {
-    lr_mult: 2
+    lr_mult: 1
   }
   param {
-    lr_mult: 4
+    lr_mult: 2
   }
   inner_product_param {
     num_output: 10
@@ -3610,10 +3610,10 @@ layer {
   bottom: "pool5"
   top: "pred_pose_param"
   param {
-    lr_mult: 2
+    lr_mult: 1
   }
   param {
-    lr_mult: 4
+    lr_mult: 2
   }
   inner_product_param {
     num_output: 69
@@ -3643,13 +3643,18 @@ layer {
 #-------------- Render ----------------#
 
 layer {
-  name: "smpl_render_layer"
-  type: "SMPLRender"
+  name: "smpl_render_with_loss_layer"
+  type: "SMPLRenderWithLoss"
   bottom: "pred_shape_param"
   bottom: "pred_pose_param"
   bottom: "gt_camera_extrinsic"
   bottom: "gt_model_pose"
+  bottom: "gt_segm_image"
+  # propagate_down: true
+  # propagate_down: false
+  top: "loss_segm"
   top: "rendered_image"
+  loss_weight: 20
 }
 
 layer {
