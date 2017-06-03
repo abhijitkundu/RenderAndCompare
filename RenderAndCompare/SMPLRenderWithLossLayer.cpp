@@ -20,9 +20,13 @@ void SMPLRenderWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bott
   using namespace CuteGL;
 
   LossLayer<Dtype>::LayerSetUp(bottom, top);
+  if (top.size() == 2 && this->layer_param_.loss_weight_size() == 1) {
+    this->layer_param_.add_loss_weight(Dtype(0));
+  }
 
 
-  CHECK_EQ(top.size(), 1);
+  CHECK_LE(top.size(), 2);
+  CHECK_GT(top.size(), 0);
   CHECK_GE(bottom.size(), 5) << "Need 5 bottom layers: shape_param pose_param camera_extrinsic model_pose gt_segm_image";
 
   const int num_frames = bottom[0]->shape(0);
@@ -86,6 +90,11 @@ void SMPLRenderWithLossLayer<Dtype>::Reshape(const vector<Blob<Dtype> *>& bottom
   // bottom reshapes are done in LayerSetUp
   vector<int> loss_shape(0);  // Loss layers output a scalar; 0 axes.
   top[0]->Reshape(loss_shape);
+
+  // Rendered image output
+  if (top.size() > 1) {
+    top[1]->ReshapeLike(*bottom[4]);
+  }
 }
 
 template<typename Dtype>
@@ -165,6 +174,11 @@ void SMPLRenderWithLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype> *>& bo
     const Dtype* model_pose_data_ptr = bottom[3]->cpu_data();
     const Dtype* gt_segm_image_data_ptr = bottom[4]->cpu_data();
 
+    Dtype* rendered_image_data_ptr = nullptr;
+    if (top.size() > 1) {
+      rendered_image_data_ptr = top[1]->mutable_cpu_data();
+    }
+
     viewer_->makeCurrent();
     for (Eigen::Index i = 0; i < num_frames; ++i) {
       Eigen::Map<const VectorX>shape_param(shape_param_data_ptr + bottom[0]->offset(i), bottom[0]->shape(1));
@@ -174,6 +188,10 @@ void SMPLRenderWithLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype> *>& bo
       Eigen::Map<const Image>gt_segm_image(gt_segm_image_data_ptr + bottom[4]->offset(i), rendered_image_.rows(), rendered_image_.cols());
 
       losses_[i] = renderAndCompare(shape_param, pose_param, camera_extrinsic, model_pose, gt_segm_image);
+
+      if (rendered_image_data_ptr) {
+        Eigen::Map<Image>(rendered_image_data_ptr + top[1]->offset(i), rendered_image_.rows(), rendered_image_.cols()) = rendered_image_;
+      }
     }
     viewer_->doneCurrent();
   }

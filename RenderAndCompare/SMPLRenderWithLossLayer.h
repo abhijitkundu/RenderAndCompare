@@ -42,7 +42,10 @@ class SMPLRenderWithLossLayer : public LossLayer<Dtype> {
     return "SMPLRenderWithLoss";
   }
   virtual inline int ExactNumBottomBlobs() const {return 5;}
-  virtual inline int ExactNumTopBlobs() const {return 1;}
+
+  virtual inline int ExactNumTopBlobs() const { return -1; }
+  virtual inline int MinTopBlobs() const { return 1; }
+  virtual inline int MaxTopBlobs() const { return 2; }
 
   /// We can force backward for only shape_param and pose_param layers
   virtual inline bool AllowForceBackward(const int bottom_index) const {
