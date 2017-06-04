@@ -43,7 +43,9 @@ class SMPLRenderLayer : public Layer<Dtype> {
   /// @brief Not implemented (non-differentiable function)
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
                             const vector<Blob<Dtype>*>& bottom) {
-    NOT_IMPLEMENTED;
+    for (std::size_t i = 0; i < propagate_down.size(); ++i) {
+      if (propagate_down[i]) { NOT_IMPLEMENTED; }
+    }
   }
 
   std::unique_ptr<CuteGL::SMPLRenderer> renderer_;
