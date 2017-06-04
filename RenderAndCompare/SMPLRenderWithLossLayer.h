@@ -58,11 +58,19 @@ protected:
   virtual void Backward_cpu(const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
                             const vector<Blob<Dtype>*>& bottom);
 
+  template <class DI>
+  Dtype computeIoU(const Eigen::MatrixBase<DI>& gt_image);
+
   template <class DS, class DP, class DC, class DM, class DI>
   Dtype renderAndCompare(const Eigen::MatrixBase<DS>& shape_param,
                          const Eigen::MatrixBase<DP>& pose_param,
                          const Eigen::MatrixBase<DC>& camera_extrinsic,
                          const Eigen::MatrixBase<DM>& model_pose,
+                         const Eigen::MatrixBase<DI>& gt_image);
+
+  template <class DS, class DP, class DI>
+  Dtype renderAndCompare(const Eigen::MatrixBase<DS>& shape_param,
+                         const Eigen::MatrixBase<DP>& pose_param,
                          const Eigen::MatrixBase<DI>& gt_image);
 
   std::unique_ptr<CuteGL::SMPLRenderer> renderer_;

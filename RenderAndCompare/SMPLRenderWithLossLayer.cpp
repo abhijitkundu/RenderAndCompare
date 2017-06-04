@@ -98,6 +98,45 @@ void SMPLRenderWithLossLayer<Dtype>::Reshape(const vector<Blob<Dtype> *>& bottom
 }
 
 template<typename Dtype>
+template <class DI>
+Dtype SMPLRenderWithLossLayer<Dtype>::computeIoU(const Eigen::MatrixBase<DI>& gt_image) {
+  // TODO: Move this to member data?
+  const int num_of_labels = 25;
+  Eigen::VectorXi total_pixels_class(num_of_labels);
+  Eigen::VectorXi ok_pixels_class(num_of_labels);
+  Eigen::VectorXi label_pixels(num_of_labels);
+
+  total_pixels_class.setZero();
+  ok_pixels_class.setZero();
+  label_pixels.setZero();
+
+  for (Eigen::Index index = 0; index < rendered_image_.size(); ++index) {
+    const int pred_label = static_cast<int>(rendered_image_(index));
+    const int gt_label = static_cast<int>(gt_image(index));
+
+    ++total_pixels_class[gt_label];
+    ++label_pixels[pred_label];
+
+    if (gt_label == pred_label) {
+      ++ok_pixels_class[gt_label];
+    }
+  }
+
+  Dtype mean_iou = 0;
+  int valid_labels = 0;
+  for (Eigen::Index i = 0; i < num_of_labels; ++i) {
+    int union_pixels = total_pixels_class[i] + label_pixels[i] - ok_pixels_class[i];
+    if (union_pixels > 0)  {
+      Dtype class_iou = Dtype(ok_pixels_class[i]) / union_pixels;
+      mean_iou += class_iou;
+      ++valid_labels;
+    }
+  }
+  mean_iou /= valid_labels;
+  return mean_iou;
+}
+
+template<typename Dtype>
 template <class DS, class DP, class DC, class DM, class DI>
 Dtype SMPLRenderWithLossLayer<Dtype>::renderAndCompare(const Eigen::MatrixBase<DS>& shape_param,
                                                        const Eigen::MatrixBase<DP>& pose_param,
@@ -120,43 +159,43 @@ Dtype SMPLRenderWithLossLayer<Dtype>::renderAndCompare(const Eigen::MatrixBase<D
   viewer_->render();
   viewer_->grabLabelBuffer((float*) rendered_image_.data());
 
-  Dtype loss;
-  {
-    // TODO: Move this to member data?
-    const int num_of_labels = 25;
-    Eigen::VectorXi total_pixels_class(num_of_labels);
-    Eigen::VectorXi ok_pixels_class(num_of_labels);
-    Eigen::VectorXi label_pixels(num_of_labels);
+  Dtype loss = (Dtype(1.0) - computeIoU(gt_image));
+  return loss;
+}
 
-    total_pixels_class.setZero();
-    ok_pixels_class.setZero();
-    label_pixels.setZero();
+template<typename Dtype>
+template <class DS, class DP, class DI>
+Dtype SMPLRenderWithLossLayer<Dtype>::renderAndCompare(const Eigen::MatrixBase<DS>& shape_param,
+                                                       const Eigen::MatrixBase<DP>& pose_param,
+                                                       const Eigen::MatrixBase<DI>& gt_image) {
+  EIGEN_STATIC_ASSERT_VECTOR_ONLY(DS);
+  EIGEN_STATIC_ASSERT_VECTOR_ONLY(DP);
 
-    for (Eigen::Index index = 0; index < rendered_image_.size(); ++index) {
-      const int pred_label = static_cast<int>(rendered_image_(index));
-      const int gt_label = static_cast<int>(gt_image(index));
+  bool update_shape = false;
+  bool update_pose = false;
 
-      ++total_pixels_class[gt_label];
-      ++label_pixels[pred_label];
-
-      if (gt_label == pred_label) {
-        ++ok_pixels_class[gt_label];
-      }
-    }
-
-    Dtype mean_iou = 0;
-    int valid_labels = 0;
-    for (Eigen::Index i = 0; i < num_of_labels; ++i) {
-      int union_pixels = total_pixels_class[i] + label_pixels[i] - ok_pixels_class[i];
-      if (union_pixels > 0)  {
-        Dtype class_iou = Dtype(ok_pixels_class[i]) / union_pixels;
-        mean_iou += class_iou;
-        ++valid_labels;
-      }
-    }
-    mean_iou /= valid_labels;
-    loss = (Dtype(1.0) - mean_iou);
+  if (renderer_->smplDrawer().shape() != shape_param.template cast<float>()) {
+    renderer_->smplDrawer().shape() = shape_param.template cast<float>();
+    update_shape = true;
   }
+
+  if (renderer_->smplDrawer().pose().tail(69) != pose_param.template cast<float>()) {
+    renderer_->smplDrawer().pose().tail(69) = pose_param.template cast<float>();
+    update_pose = true;
+  }
+  if (update_shape && update_pose)
+    renderer_->smplDrawer().updateShapeAndPose();
+  else if (!update_shape && update_pose)
+    renderer_->smplDrawer().updatePose();
+  else if (update_shape && !update_pose)
+    renderer_->smplDrawer().updateShape();
+  else
+    LOG(FATAL) << "No update required";
+
+  viewer_->render();
+  viewer_->grabLabelBuffer((float*) rendered_image_.data());
+
+  Dtype loss = (Dtype(1.0) - computeIoU(gt_image));
   return loss;
 }
 
@@ -233,6 +272,9 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
 
       Eigen::Map<VectorX>gradient(shape_param_diff_ptr + bottom[0]->offset(i), bottom[0]->shape(1));
 
+      viewer_->camera().extrinsics() = camera_extrinsic.template cast<float>();
+      renderer_->modelPose() = model_pose.template cast<float>();
+
       for (Eigen::Index j = 0; j < gradient.size(); ++j) {
         const Dtype min_step_size = 1e-4;
         const Dtype relative_step_size = 1e-1;
@@ -245,10 +287,10 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
         VectorX parameters_plus_h = shape_param;
         parameters_plus_h[j] += h;
 
-        const Dtype f_plus = renderAndCompare(parameters_plus_h, pose_param, camera_extrinsic, model_pose, gt_segm_image);
+        const Dtype f_plus = renderAndCompare(parameters_plus_h, pose_param, gt_segm_image);
 
         parameters_plus_h[j] -= two_h;
-        const Dtype f_minus = renderAndCompare(parameters_plus_h, pose_param, camera_extrinsic, model_pose, gt_segm_image);
+        const Dtype f_minus = renderAndCompare(parameters_plus_h, pose_param, gt_segm_image);
 
         gradient[j] = (f_plus - f_minus) / two_h;
       }
@@ -282,6 +324,9 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
 
       Eigen::Map<VectorX>gradient(pose_param_diff_ptr + bottom[1]->offset(i), bottom[1]->shape(1));
 
+      viewer_->camera().extrinsics() = camera_extrinsic.template cast<float>();
+      renderer_->modelPose() = model_pose.template cast<float>();
+
       for (Eigen::Index j = 0; j < gradient.size(); ++j) {
         const Dtype min_step_size = 1e-4;
         const Dtype relative_step_size = 1e-1;
@@ -294,10 +339,10 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
         VectorX parameters_plus_h = pose_param;
         parameters_plus_h[j] += h;
 
-        const Dtype f_plus = renderAndCompare(shape_param, parameters_plus_h, camera_extrinsic, model_pose, gt_segm_image);
+        const Dtype f_plus = renderAndCompare(shape_param, parameters_plus_h, gt_segm_image);
 
         parameters_plus_h[j] -= two_h;
-        const Dtype f_minus = renderAndCompare(shape_param, parameters_plus_h, camera_extrinsic, model_pose, gt_segm_image);
+        const Dtype f_minus = renderAndCompare(shape_param, parameters_plus_h, gt_segm_image);
 
         gradient[j] = (f_plus - f_minus) / two_h;
       }
