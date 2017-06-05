@@ -31,7 +31,7 @@ if(UNIX)
 endif()
 
 ## Enable C++ standard (falls to next avialble)
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_CXX_STANDARD_REQUIRED 11)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)

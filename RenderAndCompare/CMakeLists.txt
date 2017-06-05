@@ -1,9 +1,10 @@
 file(GLOB _HDRS *.h *.hpp)
-file(GLOB _SRCS *.cpp)
+file(GLOB _SRCS *.cpp *.cu)
 
 ########################### Add Target ################################
 
-add_library(RenderAndCompare ${_SRCS} ${_HDRS})
+cuda_include_directories("${EIGEN_INCLUDE_DIRS}")
+cuda_add_library(RenderAndCompare ${_SRCS} ${_HDRS})
 target_link_libraries(RenderAndCompare
   CuteGL::Surface
   ${Caffe_LIBRARIES}
@@ -19,6 +20,7 @@ target_include_directories(RenderAndCompare
     ${Boost_INCLUDE_DIRS}
     ${HDF5_INCLUDE_DIRS}
     ${Caffe_INCLUDE_DIRS}
+    ${CUDA_INCLUDE_DIRS}
  )
 
 target_include_directories(RenderAndCompare

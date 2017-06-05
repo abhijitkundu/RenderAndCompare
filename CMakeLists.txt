@@ -63,6 +63,28 @@ find_package(HDF5 1.8.12
     CXX
   )
 
+find_package(CUDA REQUIRED)
+cuda_include_directories("${CMAKE_SOURCE_DIR}" "${CUDA_TOOLKIT_ROOT_DIR}/include")
+# Make sure to compile without the -pedantic, -Wundef, -Wnon-virtual-dtor
+# and -fno-check-new flags since they trigger thousands of compilation warnings
+# in the CUDA runtime
+# Also remove -ansi that is incompatible with std=c++11.
+string(REPLACE "-pedantic" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REPLACE "-Wundef" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REPLACE "-Wnon-virtual-dtor" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REPLACE "-fno-check-new" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REPLACE "-ansi" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+include(CudaHelper) # Add custom CUDA helper functions
+select_nvcc_arch_flags(CUDA_NVCC_FLAGS)
+
+list(APPEND CUDA_NVCC_FLAGS "-std=c++11")
+list(APPEND CUDA_NVCC_FLAGS "--expt-relaxed-constexpr")
+list(APPEND CUDA_NVCC_FLAGS "-Xcudafe \"--display_error_number\"")
+    
+message(STATUS "Found Cuda. Using CUDA_NVCC_FLAGS=${CUDA_NVCC_FLAGS}")
+
+
 message(STATUS "=============================================================")
 message(STATUS "========== Adding RenderAndCompare Library ==================")
 
@@ -87,6 +109,7 @@ message(STATUS "Eigen Version:      ${EIGEN_VERSION}")
 message(STATUS "Caffe:              ${Caffe_DIR} CUDA:${Caffe_HAVE_CUDA} CUDNN:${Caffe_HAVE_CUDNN}")
 message(STATUS "OpenCV Version:     ${OpenCV_VERSION}")
 message(STATUS "HDF5 Version:       ${HDF5_VERSION}")
+message(STATUS "CUDA Version:       ${CUDA_VERSION}")
 message(STATUS "Boost Version:      ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
 if (WITH_JSON)
 message(STATUS "Json:               YES (${JSON_INCLUDE_DIR})")
