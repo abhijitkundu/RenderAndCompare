@@ -12,6 +12,8 @@
 
 #include <Eigen/Core>
 #include <Eigen/CXX11/Tensor>
+#include <chrono>
+#include <iostream>
 
 namespace RaC {
 
@@ -56,6 +58,31 @@ float computeIoU(const Eigen::MatrixBase<DG>& gt_image, const Eigen::MatrixBase<
   mean_iou /= valid_labels;
   return mean_iou;
 }
+
+void computeHistogramWithCuda(const uint8_t* const image, int width, int height, int *hist, int num_labels);
+
+template <class Derived>
+Eigen::VectorXi computeHistogramWithCPU(const Eigen::MatrixBase<Derived>& image) {
+  std::chrono::time_point<std::chrono::system_clock> start, end;
+  start = std::chrono::system_clock::now();
+
+  Eigen::VectorXi hist(25);
+  hist.setZero();
+
+  for (int y = 0; y < image.rows(); ++y)
+    for (int x = 0; x < image.cols(); ++x) {
+      int label = static_cast<int>(image(y, x));
+      ++hist[label];
+    }
+
+  end = std::chrono::system_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+
+  return hist;
+}
+
+float computeIoUwithCUDA(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images);
 
 }  // namespace RaC
 

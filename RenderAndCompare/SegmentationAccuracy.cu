@@ -6,11 +6,111 @@
  */
 
 #include "SegmentationAccuracy.h"
+#include "CudaHelper.h"
 
-#include <cuda_runtime.h>
+#define CUDA_DEBUG
 
+#ifdef CUDA_DEBUG
+#define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
+inline void cudaAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess)
+   {
+      fprintf(stderr, "CUDA Error: %s at %s:%d\n",
+        cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+#else
+#define cudaCheckError(ans) ans
+#endif
 
 namespace RaC {
+
+float computeIoUwithCUDA(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                         const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images) {
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  float mean_iou = 0;
+
+
+  gpu_timer.Stop();
+  float elapsed_millis = gpu_timer.ElapsedMillis();
+  std::cout << "GPU Time = " << elapsed_millis << " ms\n";
+
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
+
+  return mean_iou;
+}
+
+template <typename ImageScalar, typename HistScalar>
+__global__
+void histogramDumb(const ImageScalar* const image, int width, int height, HistScalar *hist) {
+  // pixel coordinates
+  int x = blockIdx.x * blockDim.x + threadIdx.x;
+  int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+  // grid dimensions
+  int nx = blockDim.x * gridDim.x;
+  int ny = blockDim.y * gridDim.y;
+
+  for (int col = x; col < width; col += nx) {
+    for (int row = y; row < height; row += ny) {
+      int label = static_cast<int>(image[row * width + col]);
+      atomicAdd(&hist[label] , 1 );
+    }
+  }
+}
+
+template <class Scalar>
+void computeHistogramWithCudaDumb(const Scalar* const image, int width, int height, int *hist, int num_labels) {
+  using ImageScalar = Scalar;
+  using HistScalar = int;
+
+  ImageScalar* d_image;
+  const std::size_t image_bytes = width * height * sizeof(ImageScalar);
+  cudaCheckError(cudaMalloc(&d_image, image_bytes));
+  cudaCheckError(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  HistScalar *d_hist;
+  cudaMalloc(&d_hist, num_labels * sizeof(HistScalar));
+
+  dim3 block(16, 16);
+  dim3 grid((width + 16 - 1) / 16 , (height + 16 - 1) / 16 ) ;
+
+  histogramDumb<<<grid, block>>>(d_image, width, height, d_hist);
+
+  gpu_timer.Stop();
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
+
+  cudaCheckError(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
+
+  cudaCheckError(cudaFree((void*)d_image));
+  cudaCheckError(cudaFree((void*)d_hist));
+}
+
+void computeHistogramWithCuda(const uint8_t* const image, int width, int height, int *hist, int num_labels) {
+  computeHistogramWithCudaDumb(image, width, height, hist, num_labels);
+}
 
 namespace histogram_smem_atomics
 {
@@ -127,42 +227,6 @@ namespace histogram_smem_atomics
     }
 
 }   // namespace histogram_smem_atomics
-
-struct GpuTimer
-{
-    cudaEvent_t start;
-    cudaEvent_t stop;
-
-    GpuTimer()
-    {
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-    }
-
-    ~GpuTimer()
-    {
-        cudaEventDestroy(start);
-        cudaEventDestroy(stop);
-    }
-
-    void Start()
-    {
-        cudaEventRecord(start, 0);
-    }
-
-    void Stop()
-    {
-        cudaEventRecord(stop, 0);
-    }
-
-    float ElapsedMillis()
-    {
-        float elapsed;
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&elapsed, start, stop);
-        return elapsed;
-    }
-};
 
 template <
     int         ACTIVE_CHANNELS,
