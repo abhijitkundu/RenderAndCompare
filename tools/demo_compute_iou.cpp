@@ -199,6 +199,32 @@ int main(int argc, char **argv) {
     const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
     std::cout << "hist = " << hist.format(fmt) << "\n";
   }
+  std::cout << "------------------------------------------------------------------\n";
+  std::cout << "------------------------------------------------------------------\n";
+
+  const Eigen::Index image_id = 4;
+
+  {
+    std::cout << "---computeSegHistsCPU---------------------------------------------" << std::endl;
+    using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    Eigen::Map<Image8UC1> gt_image(&gt_images(image_id, 0, 0, 0), 240, 320);
+    Eigen::Map<Image8UC1> pred_image(&pred_images(image_id, 0, 0, 0), 240, 320);
+    computeSegHistsCPU(gt_image, pred_image);
+  }
+
+  {
+    std::cout << "---compute_seg_histograms_sep---------------------------------------------" << std::endl;
+    compute_seg_histograms_sep(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+  }
+
+  {
+    std::cout << "---compute_seg_histograms---------------------------------------------" << std::endl;
+    compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+  }
+
+
+  std::cout << "------------------------------------------------------------------\n";
+  std::cout << "------------------------------------------------------------------\n";
 
   {
     std::cout << "------------------------------------------------" << std::endl;

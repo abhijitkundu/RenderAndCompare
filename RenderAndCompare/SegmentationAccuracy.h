@@ -60,6 +60,56 @@ float computeIoU(const Eigen::MatrixBase<DG>& gt_image, const Eigen::MatrixBase<
   return mean_iou;
 }
 
+template<typename DG, typename DP >
+void computeSegHistsCPU(const Eigen::MatrixBase<DG>& gt_image, const Eigen::MatrixBase<DP>& pred_image) {
+  const int num_of_labels = 25;
+  Eigen::VectorXi total_pixels_class(num_of_labels);
+  Eigen::VectorXi ok_pixels_class(num_of_labels);
+  Eigen::VectorXi label_pixels(num_of_labels);
+
+  std::chrono::time_point<std::chrono::system_clock> start, end;
+  start = std::chrono::system_clock::now();
+
+  total_pixels_class.setZero();
+  ok_pixels_class.setZero();
+  label_pixels.setZero();
+
+  if (pred_image.size() != gt_image.size())
+    throw std::runtime_error("pred_image.size() != gt_image.size()");
+
+  for (Eigen::Index index = 0; index < gt_image.size(); ++index) {
+    const int pred_label = static_cast<int>(pred_image(index));
+    const int gt_label = static_cast<int>(gt_image(index));
+
+    ++total_pixels_class[gt_label];
+    ++label_pixels[pred_label];
+
+    if (gt_label == pred_label) {
+      ++ok_pixels_class[gt_label];
+    }
+  }
+
+  end = std::chrono::system_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "CPU Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+
+  const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+  std::cout << "total_pixels_class = " << total_pixels_class.format(fmt) << "\n";
+  std::cout << "ok_pixels_class = " << ok_pixels_class.format(fmt) << "\n";
+  std::cout << "label_pixels = " << label_pixels.format(fmt) << "\n";
+}
+
+
+
+void compute_seg_histograms_sep(const uint8_t* const gt_image,
+                                const uint8_t* const pred_image,
+                                int width, int height);
+
+void compute_seg_histograms(const uint8_t* const gt_image,
+                                const uint8_t* const pred_image,
+                                int width, int height);
+
+
 void computeHistogramWithAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithSharedBins(const uint8_t* const image, int width, int height, int *hist, int num_labels);
