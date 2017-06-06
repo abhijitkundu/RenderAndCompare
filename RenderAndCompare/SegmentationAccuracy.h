@@ -14,6 +14,7 @@
 #include <Eigen/CXX11/Tensor>
 #include <chrono>
 #include <iostream>
+#include "RenderAndCompare/CudaHelper.h"
 
 namespace RaC {
 
@@ -59,7 +60,11 @@ float computeIoU(const Eigen::MatrixBase<DG>& gt_image, const Eigen::MatrixBase<
   return mean_iou;
 }
 
-void computeHistogramWithCuda(const uint8_t* const image, int width, int height, int *hist, int num_labels);
+void computeHistogramWithAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
+void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
+void computeHistogramWithSharedBins(const uint8_t* const image, int width, int height, int *hist, int num_labels);
+void computeHistogramWithPrivateBins(const uint8_t* const image, int width, int height, int *hist, int num_labels);
+
 
 template <class Derived>
 Eigen::VectorXi computeHistogramWithCPU(const Eigen::MatrixBase<Derived>& image) {

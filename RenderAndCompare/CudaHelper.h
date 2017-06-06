@@ -44,4 +44,21 @@ struct GpuTimer {
 
 }  // namespace RaC
 
+#define CUDA_DEBUG
+
+#ifdef CUDA_DEBUG
+#define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
+inline void cudaAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess)
+   {
+      fprintf(stderr, "CUDA Error: %s at %s:%d\n",
+        cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+#else
+#define cudaCheckError(ans) ans
+#endif
+
 #endif // end RENDERANDCOMPARE_CUDAHELPER_H_
