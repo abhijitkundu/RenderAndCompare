@@ -78,6 +78,7 @@ string(REPLACE "-ansi" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 include(CudaHelper) # Add custom CUDA helper functions
 select_nvcc_arch_flags(CUDA_NVCC_FLAGS)
 
+list(APPEND CUDA_NVCC_FLAGS "--default-stream per-thread")
 list(APPEND CUDA_NVCC_FLAGS "-std=c++11")
 list(APPEND CUDA_NVCC_FLAGS "--expt-relaxed-constexpr")
 list(APPEND CUDA_NVCC_FLAGS "-Xcudafe \"--display_error_number\"")

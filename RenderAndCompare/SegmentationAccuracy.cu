@@ -6,115 +6,28 @@
  */
 
 #include "SegmentationAccuracy.h"
+#include <math_constants.h>
+#include <thrust/device_vector.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/sort.h>
+#include <thrust/binary_search.h>
+#include <thrust/adjacent_difference.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/system/cuda/experimental/pinned_allocator.h>
 
 namespace RaC {
 
-
-template<int NumBins, typename ImageScalar, typename HistScalar>
-__global__ void compute_seg_histograms_scalar(const ImageScalar* const gt_image,
-                                              const ImageScalar* const pred_image,
-                                              std::size_t size,
-                                              HistScalar *total_pixels_class,
-                                              HistScalar *ok_pixels_class,
-                                              HistScalar *label_pixels) {
-
-  // Initialize shared mem
-  __shared__ HistScalar sm_total_pixels_class[NumBins];
-  __shared__ HistScalar sm_ok_pixels_class[NumBins];
-  __shared__ HistScalar sm_label_pixels[NumBins];
-  sm_total_pixels_class[threadIdx.x] = 0;
-  sm_ok_pixels_class[threadIdx.x] = 0;
-  sm_label_pixels[threadIdx.x] = 0;
-  __syncthreads();
-
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int offset = blockDim.x * gridDim.x;
-  while (i < size) {
-    int gt_label = static_cast<int>(gt_image[i]);
-    int pred_label = static_cast<int>(pred_image[i]);
-
-    atomicAdd(&sm_total_pixels_class[gt_label], 1);
-    atomicAdd(&sm_label_pixels[pred_label], 1);
-    if (gt_label == pred_label)
-      atomicAdd(&sm_ok_pixels_class[gt_label], 1);
-
-    i += offset;
-  }
-  __syncthreads();
-
-  atomicAdd(&(total_pixels_class[threadIdx.x]), sm_total_pixels_class[threadIdx.x]);
-  atomicAdd(&(ok_pixels_class[threadIdx.x]), sm_ok_pixels_class[threadIdx.x]);
-  atomicAdd(&(label_pixels[threadIdx.x]), sm_label_pixels[threadIdx.x]);
-}
-
-
-void compute_seg_histograms_sep(const uint8_t* const gt_image,
-                                const uint8_t* const pred_image,
-                                int width, int height) {
-  using ImageScalar = uint8_t;
-  using HistScalar = int;
-
-  ImageScalar* d_gt_image;
-  ImageScalar* d_pred_image;
-  const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
-  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
-
-  static const int NumBins = 25;
-  const std::size_t hist_bytes = NumBins * sizeof(HistScalar);
-
-  HistScalar *d_total_pixels_class;
-  HistScalar *d_ok_pixels_class;
-  HistScalar *d_label_pixels;
-  cudaCheckError(cudaMalloc(&d_total_pixels_class, hist_bytes));
-  cudaCheckError(cudaMalloc(&d_ok_pixels_class, hist_bytes));
-  cudaCheckError(cudaMalloc(&d_label_pixels, hist_bytes));
-
-
-  GpuTimer gpu_timer;
-  gpu_timer.Start();
-
-  cudaCheckError(cudaMemset(d_total_pixels_class, 0, hist_bytes));
-  cudaCheckError(cudaMemset(d_ok_pixels_class, 0, hist_bytes));
-  cudaCheckError(cudaMemset(d_label_pixels, 0, hist_bytes));
-
-
-  compute_seg_histograms_scalar<NumBins><<<28*8, NumBins>>>(d_gt_image, d_pred_image , width * height, d_total_pixels_class, d_ok_pixels_class, d_label_pixels);
-
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
-
-  Eigen::VectorXi total_pixels_class(NumBins);
-  Eigen::VectorXi ok_pixels_class(NumBins);
-  Eigen::VectorXi label_pixels(NumBins);
-
-  cudaCheckError(cudaMemcpy(total_pixels_class.data(), d_total_pixels_class, hist_bytes, cudaMemcpyDeviceToHost));
-  cudaCheckError(cudaMemcpy(ok_pixels_class.data(), d_ok_pixels_class, hist_bytes, cudaMemcpyDeviceToHost));
-  cudaCheckError(cudaMemcpy(label_pixels.data(), d_label_pixels, hist_bytes, cudaMemcpyDeviceToHost));
-
-  const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-  std::cout << "total_pixels_class = " << total_pixels_class.format(fmt) << "\n";
-  std::cout << "ok_pixels_class = " << ok_pixels_class.format(fmt) << "\n";
-  std::cout << "label_pixels = " << label_pixels.format(fmt) << "\n";
-
-  cudaCheckError(cudaFree((void*)d_gt_image));
-  cudaCheckError(cudaFree((void*)d_pred_image));
-  cudaCheckError(cudaFree((void*)d_total_pixels_class));
-  cudaCheckError(cudaFree((void*)d_ok_pixels_class));
-  cudaCheckError(cudaFree((void*)d_label_pixels));
-}
-
-template<int NumBins, typename ImageScalar>
+template<int NumBins, class ImageScalar, class HistVector = uint3>
 __global__ void compute_seg_histograms_vector(const ImageScalar* const gt_image,
                                               const ImageScalar* const pred_image,
                                               std::size_t size,
-                                              uint3 *hist) {
+                                              HistVector *hist) {
 
   // Initialize shared mem
-  __shared__ uint3 sm_hist[NumBins];
-  sm_hist[threadIdx.x] = make_uint3(0, 0, 0);
+  __shared__ HistVector sm_hist[NumBins];
+  sm_hist[threadIdx.x].x = 0;
+  sm_hist[threadIdx.x].y = 0;
+  sm_hist[threadIdx.x].z = 0;
   __syncthreads();
 
   int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -132,23 +45,96 @@ __global__ void compute_seg_histograms_vector(const ImageScalar* const gt_image,
   }
   __syncthreads();
 
-  uint3& smh = sm_hist[threadIdx.x];
-  uint3& hist_bin = hist[threadIdx.x];
 
-  atomicAdd(&(hist_bin.x), smh.x);
-  atomicAdd(&(hist_bin.y), smh.y);
-  atomicAdd(&(hist_bin.z), smh.z);
-
-//  atomicAdd(&(hist[threadIdx.x].x), sm_hist[threadIdx.x].x);
-//  atomicAdd(&(hist[threadIdx.x].y), sm_hist[threadIdx.x].y);
-//  atomicAdd(&(hist[threadIdx.x].z), sm_hist[threadIdx.x].z);
+  atomicAdd(&(hist[threadIdx.x].x), sm_hist[threadIdx.x].x);
+  atomicAdd(&(hist[threadIdx.x].y), sm_hist[threadIdx.x].y);
+  atomicAdd(&(hist[threadIdx.x].z), sm_hist[threadIdx.x].z);
 }
+
+template<int NumBins, class ImageScalar, class HistVector = uint3>
+__global__ void compute_seg_histograms_vector_private(const ImageScalar* const gt_image,
+                                                      const ImageScalar* const pred_image,
+                                                      std::size_t size,
+                                                      HistVector *hist) {
+
+  // Initialize shared mem
+  __shared__ HistVector sm_hist[NumBins];
+  sm_hist[threadIdx.x].x = 0;
+  sm_hist[threadIdx.x].y = 0;
+  sm_hist[threadIdx.x].z = 0;
+  __syncthreads();
+
+  // Initialize private mem
+  HistVector pmem[NumBins];
+#pragma unroll
+  for (int i = 0; i < NumBins; ++i) {
+    pmem[i].x = 0;
+    pmem[i].y = 0;
+    pmem[i].z = 0;
+  }
+
+
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int offset = blockDim.x * gridDim.x;
+  while (i < size) {
+    int gt_label = static_cast<int>(gt_image[i]);
+    int pred_label = static_cast<int>(pred_image[i]);
+
+    ++pmem[gt_label].x;
+    ++pmem[pred_label].z;
+    if (gt_label == pred_label)
+      ++pmem[gt_label].y;
+
+    i += offset;
+  }
+
+
+#pragma unroll
+  for (int i = 0; i < NumBins; ++i) {
+    atomicAdd(&(sm_hist[i].x), pmem[i].x);
+    atomicAdd(&(sm_hist[i].y), pmem[i].y);
+    atomicAdd(&(sm_hist[i].z), pmem[i].z);
+  }
+
+  __syncthreads();
+
+
+  atomicAdd(&(hist[threadIdx.x].x), sm_hist[threadIdx.x].x);
+  atomicAdd(&(hist[threadIdx.x].y), sm_hist[threadIdx.x].y);
+  atomicAdd(&(hist[threadIdx.x].z), sm_hist[threadIdx.x].z);
+}
+
+// Functor for computing class iou
+struct class_iou {
+  template <typename T>
+  __host__ __device__
+  float2 operator()(const T& a) const {
+    float2 class_iou;
+    int union_pixels = a.x + a.z - a.y;
+    if (union_pixels > 0) {
+      class_iou.x = float(a.y) / union_pixels;
+      class_iou.y = 1;
+    }
+    else {
+      class_iou.x = 0;
+      class_iou.y = 0;
+    }
+    return class_iou;
+  }
+};
+
+struct add_float2 {
+  __host__ __device__
+  float2 operator()(const float2& a, const float2& b) const {
+    return make_float2(a.x + b.x, a.y + b.y);
+  }
+};
 
 void compute_seg_histograms(const uint8_t* const gt_image,
                             const uint8_t* const pred_image,
                             int width, int height) {
   using ImageScalar = uint8_t;
-  using HistVector = uint3;
+  using HistVector = int3;
 
   ImageScalar* d_gt_image;
   ImageScalar* d_pred_image;
@@ -159,55 +145,41 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumBins = 25;
-  const std::size_t hist_bytes = NumBins * sizeof(uint3);
-
-  HistVector * d_hist;
-  cudaCheckError(cudaMalloc(&d_hist, hist_bytes));
+  thrust::device_vector<HistVector> d_hist(NumBins);
+  thrust::device_vector<float2> d_mean_ious(1);
 
   GpuTimer gpu_timer;
   gpu_timer.Start();
 
-  cudaCheckError(cudaMemset(d_hist, 0, hist_bytes));
+  // Initialize histogram to zeroes
+  thrust::fill(d_hist.begin(), d_hist.end(), make_int3(0, 0, 0));
 
-  compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_image, d_pred_image , width * height, d_hist);
+  compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_image, d_pred_image , width * height, d_hist.data().get());
+
+//  d_mean_ious[0] = thrust::transform_reduce(d_hist.begin(), d_hist.end(), class_iou(), make_float2(0, 0), add_float2());
+//  float2 mean_iou = thrust::transform_reduce(d_hist.begin(), d_hist.end(), class_iou(), make_float2(0, 0), add_float2());
+
+  thrust::host_vector<HistVector> h_hist = d_hist;
+  float2 mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
+
 
   gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
-
-  Eigen::VectorXi total_pixels_class(NumBins);
-  Eigen::VectorXi ok_pixels_class(NumBins);
-  Eigen::VectorXi label_pixels(NumBins);
-
-
-  HistVector hist[NumBins];
-  cudaCheckError(cudaMemcpy(hist, d_hist, hist_bytes, cudaMemcpyDeviceToHost));
-
-  std::cout << "total_pixels_class = [";
-  for (int i= 0; i< NumBins; ++i) {
-    std::cout << hist[i].x << ", ";
-  }
-  std::cout << "\b\b]\n";
-
-  std::cout << "ok_pixels_class = [";
-  for (int i= 0; i< NumBins; ++i) {
-    std::cout << hist[i].y << ", ";
-  }
-  std::cout << "\b\b]\n";
-
-  std::cout << "label_pixels = [";
-  for (int i= 0; i< NumBins; ++i) {
-    std::cout << hist[i].z << ", ";
-  }
-  std::cout << "\b\b]\n";
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+//  float2 mean_iou = d_mean_ious[0];
+  std::cout << "mean_iou = " << mean_iou.x /  mean_iou.y << "\n";
 
   cudaCheckError(cudaFree((void*)d_gt_image));
   cudaCheckError(cudaFree((void*)d_pred_image));
-  cudaCheckError(cudaFree((void*)d_hist));
 }
 
 
-float computeIoUwithCUDA(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
-                         const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images) {
+
+void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                            const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
+                            const int trials) {
+  using ImageScalar = uint8_t;
+  using HistVector = int3;
+
   if (gt_images.size() != pred_images.size())
      throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
   const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
@@ -218,24 +190,181 @@ float computeIoUwithCUDA(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_im
 
   cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
   cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-
   cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
   cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
 
-  GpuTimer gpu_timer;
-  gpu_timer.Start();
+  for (int trial = 0; trial < trials; ++trial) {
 
-  float mean_iou = 0;
+    static const int NumBins = 25;
 
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
 
-  gpu_timer.Stop();
-  float elapsed_millis = gpu_timer.ElapsedMillis();
-  std::cout << "GPU Time = " << elapsed_millis << " ms\n";
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+    thrust::device_vector<HistVector> d_hist(NumBins);
+    thrust::host_vector<HistVector> h_hist(NumBins);
+
+    float mean_iou = 0;
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      // Initialize histogram to zeroes
+      thrust::fill(d_hist.begin(), d_hist.end(), make_int3(0, 0, 0));
+
+      const Eigen::Index offset = image_size * i;
+      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist.data().get());
+
+      h_hist = d_hist;
+      float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
+      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
+    }
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
 
   cudaCheckError(cudaFree((void*)d_gt_images));
   cudaCheckError(cudaFree((void*)d_pred_images));
+}
 
-  return mean_iou;
+void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                            const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
+                            const int trials) {
+  using ImageScalar = uint8_t;
+  using HistVector = int3;
+
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  for (int trial = 0; trial < trials; ++trial) {
+
+    static const int NumBins = 25;
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
+
+    HistVector* d_hist;
+    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
+    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
+    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
+
+    thrust::host_vector<HistVector, thrust::cuda::experimental::pinned_allocator<HistVector> > h_hist(images_per_blob * NumBins);
+
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+
+
+    float mean_iou = 0;
+  #pragma omp parallel for reduction(+:mean_iou)
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
+
+      const Eigen::Index offset = image_size * i;
+      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
+
+      auto h_hist_it = h_hist.begin() + NumBins * i;
+      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist_it);
+      float2 f2_mean_iou = thrust::transform_reduce(h_hist_it, h_hist_it + NumBins, class_iou(), make_float2(0, 0), add_float2());
+      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
+    }
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
+
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
+}
+
+void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                                const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
+                                const int trials) {
+  using ImageScalar = uint8_t;
+  using HistVector = int3;
+
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  for (int trial = 0; trial < trials; ++trial) {
+
+    static const int NumBins = 25;
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
+
+    HistVector* d_hist;
+    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
+    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
+    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
+
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+    float mean_iou = 0;
+
+    const int num_streams = 16;
+    cudaStream_t streams[num_streams];
+
+    omp_set_dynamic(0);     // Explicitly disable dynamic teams
+  #pragma omp parallel for reduction(+:mean_iou) num_threads(num_streams)
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      const auto threadId = omp_get_thread_num();
+      cudaStreamCreate(&streams[threadId]);
+
+      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
+
+      const Eigen::Index offset = image_size * i;
+      compute_seg_histograms_vector<NumBins><<<28*8, NumBins, 0, streams[threadId]>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
+
+      thrust::host_vector<HistVector> h_hist(NumBins);
+      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist.begin());
+      float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
+      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
+    }
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
+
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
 }
 
 template <typename ImageScalar, typename HistScalar>
@@ -497,6 +626,39 @@ void computeHistogramWithPrivateBins(const uint8_t* const image, int width, int 
 
   cudaCheckError(cudaFree((void*)d_image));
   cudaCheckError(cudaFree((void*)d_hist));
+}
+
+void computeHistogramWithThrust(const uint8_t* const image, int width, int height, int *hist, int num_bins) {
+  using ImageScalar = uint8_t;
+  using HistScalar = int;
+
+  thrust::device_vector<ImageScalar> d_image(width * height);
+  cudaCheckError(cudaMemcpy(d_image.data().get(), image, width * height * sizeof(ImageScalar), cudaMemcpyHostToDevice));
+
+  thrust::device_vector<HistScalar> histogram(num_bins);
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  // sort data to bring equal elements together
+  thrust::sort(d_image.begin(), d_image.end());
+
+//  // number of histogram bins is equal to the maximum value plus one
+//  HistScalar num_bins = d_image.back() + 1;
+
+  // compute cumulative histogram by finding the end of each bin of values
+  thrust::counting_iterator<HistScalar> search_begin(0);
+  thrust::upper_bound(d_image.begin(), d_image.end(),
+                      search_begin, search_begin + num_bins,
+                      histogram.begin());
+
+  // compute the histogram by taking differences of the cumulative histogram
+  thrust::adjacent_difference(histogram.begin(), histogram.end(), histogram.begin());
+
+  gpu_timer.Stop();
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
+
+  cudaCheckError(cudaMemcpy(hist, histogram.data().get(), num_bins * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 }
 
 }  // namespace RaC

@@ -15,15 +15,13 @@ float computeIoU(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, co
   const Eigen::Index images_per_blob = gt_images.dimension(0);
 
   float mean_iou = 0;
-  int count = 0;
   for (Eigen::Index i = 0; i < images_per_blob; ++i) {
     using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
     Eigen::Map<const Image8UC1> gt_image(&gt_images(i, 0, 0, 0), 240, 320);
     Eigen::Map<const Image8UC1> pred_image(&pred_images(i, 0, 0, 0), 240, 320);
     mean_iou += computeIoU(gt_image, pred_image);
-    ++count;
   }
-  mean_iou /= count;
+  mean_iou /= images_per_blob;
   return mean_iou;
 }
 

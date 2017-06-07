@@ -89,31 +89,36 @@ void computeSegHistsCPU(const Eigen::MatrixBase<DG>& gt_image, const Eigen::Matr
     }
   }
 
+  float mean_iou = 0;
+  int valid_labels = 0;
+  for (Eigen::Index i = 0; i < num_of_labels; ++i) {
+    int union_pixels = total_pixels_class[i] + label_pixels[i] - ok_pixels_class[i];
+    if (union_pixels > 0)  {
+      float class_iou = float(ok_pixels_class[i]) / union_pixels;
+      mean_iou += class_iou;
+      ++valid_labels;
+    }
+  }
+  mean_iou /= valid_labels;
+
   end = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds = end-start;
-  std::cout << "CPU Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+  std::cout << "CPU Time = " << elapsed_seconds.count() * 1000 << " ms.  ";
 
-  const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-  std::cout << "total_pixels_class = " << total_pixels_class.format(fmt) << "\n";
-  std::cout << "ok_pixels_class = " << ok_pixels_class.format(fmt) << "\n";
-  std::cout << "label_pixels = " << label_pixels.format(fmt) << "\n";
+  std::cout << "mean_iou = " << mean_iou << "\n";
 }
 
-
-
-void compute_seg_histograms_sep(const uint8_t* const gt_image,
-                                const uint8_t* const pred_image,
-                                int width, int height);
-
 void compute_seg_histograms(const uint8_t* const gt_image,
-                                const uint8_t* const pred_image,
-                                int width, int height);
+                            const uint8_t* const pred_image,
+                            int width,
+                            int height);
 
 
 void computeHistogramWithAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithSharedBins(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithPrivateBins(const uint8_t* const image, int width, int height, int *hist, int num_labels);
+void computeHistogramWithThrust(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 
 
 template <class Derived>
@@ -137,7 +142,11 @@ Eigen::VectorXi computeHistogramWithCPU(const Eigen::MatrixBase<Derived>& image)
   return hist;
 }
 
-float computeIoUwithCUDA(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images);
+void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials = 3);
+void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials = 3);
+void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials = 3);
+
+
 
 }  // namespace RaC
 

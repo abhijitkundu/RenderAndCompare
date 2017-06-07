@@ -101,151 +101,198 @@ int main(int argc, char **argv) {
 
   cudaCheckError(cudaSetDevice(0));
 
-  {
-    std::cout << "------------------------------------------------" << std::endl;
-    std::chrono::time_point<std::chrono::system_clock> start, end;
-    start = std::chrono::system_clock::now();
-    float mean_iou = 0;
-    int count = 0;
-    for (int i = 0; i < images_per_blob; ++i) {
-      using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-      Eigen::Map<Image8UC1> gt_image(&gt_images(i, 0, 0, 0), 240, 320);
-      Eigen::Map<Image8UC1> pred_image(&pred_images(i, 0, 0, 0), 240, 320);
-      mean_iou += computeIoU(gt_image, pred_image);
-      ++ count;
-    }
-    mean_iou /= count;
-    end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "Mean IoU= " << mean_iou << std::endl;
-    std::cout << "Time = " << elapsed_seconds.count() * 1000 << " ms\n";
-  }
-
-  {
-    std::cout << "------------------------------------------------" << std::endl;
-    std::chrono::time_point<std::chrono::system_clock> start, end;
-    start = std::chrono::system_clock::now();
-    float mean_iou = computeIoU(gt_images, pred_images);
-    end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "Mean IoU= " << mean_iou << std::endl;
-    std::cout << "Time = " << elapsed_seconds.count() * 1000 << " ms\n";
-  }
-
 //  {
-//    std::cout << "------------------------------------------------" << std::endl;
-//    std::chrono::time_point<std::chrono::system_clock> start, end;
-//    start = std::chrono::system_clock::now();
-//    float mean_iou = computeIoUwithCUDA(gt_images, pred_images);
-//    end = std::chrono::system_clock::now();
-//    std::chrono::duration<double> elapsed_seconds = end-start;
-//    std::cout << "Mean IoU= " << mean_iou << std::endl;
-//    std::cout << "Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+//    std::cout << "\n\n-------------------- Batch Images average IoU ----------------------\n";
+//
+//    {
+//      std::cout << "------------------------------------------------" << std::endl;
+//      std::chrono::time_point<std::chrono::system_clock> start, end;
+//      start = std::chrono::system_clock::now();
+//      float mean_iou = 0;
+//      int count = 0;
+//      for (int i = 0; i < images_per_blob; ++i) {
+//        using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+//        Eigen::Map<Image8UC1> gt_image(&gt_images(i, 0, 0, 0), 240, 320);
+//        Eigen::Map<Image8UC1> pred_image(&pred_images(i, 0, 0, 0), 240, 320);
+//        mean_iou += computeIoU(gt_image, pred_image);
+//        ++ count;
+//      }
+//      mean_iou /= count;
+//      end = std::chrono::system_clock::now();
+//      std::chrono::duration<double> elapsed_seconds = end-start;
+//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms.  ";
+//      std::cout << "Mean IoU= " << mean_iou << std::endl;
+//
+//    }
+//
+//    {
+//      std::cout << "\n------------------------------------------------" << std::endl;
+//      std::chrono::time_point<std::chrono::system_clock> start, end;
+//      start = std::chrono::system_clock::now();
+//      float mean_iou = computeIoU(gt_images, pred_images);
+//      end = std::chrono::system_clock::now();
+//      std::chrono::duration<double> elapsed_seconds = end-start;
+//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms.  ";
+//      std::cout << "Mean IoU= " << mean_iou << std::endl;
+//
+//    }
+//
+//    {
+//      std::cout << "\ncomputeIoUwithCUDAseq------------------------------------------------" << std::endl;
+//      std::cout << "\n------------------------------------------------" << std::endl;
+//      std::chrono::time_point<std::chrono::system_clock> start, end;
+//      start = std::chrono::system_clock::now();
+//      computeIoUwithCUDAseq(gt_images, pred_images);
+//      end = std::chrono::system_clock::now();
+//      std::chrono::duration<double> elapsed_seconds = end-start;
+//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+//
+//    }
+//
+//    {
+//      std::cout << "\ncomputeIoUwithCUDApar------------------------------------------------" << std::endl;
+//
+//      std::cout << "\n------------------------------------------------" << std::endl;
+//      std::chrono::time_point<std::chrono::system_clock> start, end;
+//      start = std::chrono::system_clock::now();
+//      computeIoUwithCUDApar(gt_images, pred_images);
+//      end = std::chrono::system_clock::now();
+//      std::chrono::duration<double> elapsed_seconds = end - start;
+//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+//    }
+//
+//    {
+//      std::cout << "\ncomputeIoUwithCUDAstreams------------------------------------------------" << std::endl;
+//      for (int i = 0; i < 4; ++i)
+//      {
+//        std::cout << "\n------------------------------------------------" << std::endl;
+//        std::chrono::time_point<std::chrono::system_clock> start, end;
+//        start = std::chrono::system_clock::now();
+//        computeIoUwithCUDAstreams(gt_images, pred_images);
+//        end = std::chrono::system_clock::now();
+//        std::chrono::duration<double> elapsed_seconds = end-start;
+//        std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+//      }
+//    }
 //  }
 
 
+//  {
+//    std::cout << "\n\n-------------------- Single Image IoU ----------------------\n";
+//
+//    const Eigen::Index image_id = 4;
+//
+//    {
+//      std::cout << "computeSegHistsCPU---------------------------------------------" << std::endl;
+//      using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+//      Eigen::Map<Image8UC1> gt_image(&gt_images(image_id, 0, 0, 0), 240, 320);
+//      Eigen::Map<Image8UC1> pred_image(&pred_images(image_id, 0, 0, 0), 240, 320);
+//      computeSegHistsCPU(gt_image, pred_image);
+//      computeSegHistsCPU(gt_image, pred_image);
+//      computeSegHistsCPU(gt_image, pred_image);
+//      computeSegHistsCPU(gt_image, pred_image);
+//    }
+//
+//    {
+//      std::cout << "compute_seg_histograms---------------------------------------------" << std::endl;
+//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+//    }
+//  }
+//
   {
-    std::cout << "---computeHistogramWithCPU---------------------------------------------" << std::endl;
-    using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    Eigen::Map<Image8UC1> gt_image(&gt_images(0, 0, 0, 0), 240, 320);
-    Eigen::VectorXi hist = computeHistogramWithCPU(gt_image);
-    hist = computeHistogramWithCPU(gt_image);
-    hist = computeHistogramWithCPU(gt_image);
-    hist = computeHistogramWithCPU(gt_image);
-    const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-    std::cout << "hist = " << hist.format(fmt) << "\n";
-  }
+    std::cout << "\n\n-------------------- Histogram ----------------------\n";
 
-  {
-    std::cout << "---computeHistogramWithAtomics---------------------------------------------" << std::endl;
-    Eigen::VectorXi hist(25);
-    computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-    std::cout << "hist = " << hist.format(fmt) << "\n";
-  }
-
-  {
-    std::cout << "---computeHistogramWithSharedAtomics---------------------------------------------" << std::endl;
-    Eigen::VectorXi hist(25);
-    computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-    std::cout << "hist = " << hist.format(fmt) << "\n";
-  }
-
-  {
-    std::cout << "---computeHistogramWithSharedBins---------------------------------------------" << std::endl;
-    Eigen::VectorXi hist(25);
-    computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-    std::cout << "hist = " << hist.format(fmt) << "\n";
-  }
-
-  {
-    std::cout << "---computeHistogramWithPrivateBins---------------------------------------------" << std::endl;
-    Eigen::VectorXi hist(25);
-    computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
-    const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-    std::cout << "hist = " << hist.format(fmt) << "\n";
-  }
-  std::cout << "------------------------------------------------------------------\n";
-  std::cout << "------------------------------------------------------------------\n";
-
-  const Eigen::Index image_id = 4;
-
-  {
-    std::cout << "---computeSegHistsCPU---------------------------------------------" << std::endl;
-    using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    Eigen::Map<Image8UC1> gt_image(&gt_images(image_id, 0, 0, 0), 240, 320);
-    Eigen::Map<Image8UC1> pred_image(&pred_images(image_id, 0, 0, 0), 240, 320);
-    computeSegHistsCPU(gt_image, pred_image);
-  }
-
-  {
-    std::cout << "---compute_seg_histograms_sep---------------------------------------------" << std::endl;
-    compute_seg_histograms_sep(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
-  }
-
-  {
-    std::cout << "---compute_seg_histograms---------------------------------------------" << std::endl;
-    compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
-  }
-
-
-  std::cout << "------------------------------------------------------------------\n";
-  std::cout << "------------------------------------------------------------------\n";
-
-  {
-    std::cout << "------------------------------------------------" << std::endl;
-    gt_images = gt_images * uint8_t(10);
-    pred_images = pred_images * uint8_t(10);
-    for (int i = 0; i < images_per_blob; ++i) {
+    {
+      std::cout << "computeHistogramWithCPU---------------------------------------------" << std::endl;
       using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-      Eigen::Map<Image8UC1> gt_image(&gt_images(i, 0, 0, 0), 240, 320);
-      Eigen::Map<Image8UC1> pred_image(&pred_images(i, 0, 0, 0), 240, 320);
+      Eigen::Map<Image8UC1> gt_image(&gt_images(0, 0, 0, 0), 240, 320);
+      Eigen::VectorXi hist = computeHistogramWithCPU(gt_image);
+      hist = computeHistogramWithCPU(gt_image);
+      hist = computeHistogramWithCPU(gt_image);
+      hist = computeHistogramWithCPU(gt_image);
+      const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+      std::cout << "hist = " << hist.format(fmt) << "\n";
+    }
 
-      {
-        cv::Mat cv_image(240, 320, CV_8UC1, gt_image.data());
-        cv::imshow("gt_image", cv_image);
-      }
-      {
-        cv::Mat cv_image(240, 320, CV_8UC1, pred_image.data());
-        cv::imshow("pred_image", cv_image);
-      }
-      cv::waitKey(1);
+    {
+      std::cout << "computeHistogramWithAtomics---------------------------------------------" << std::endl;
+      Eigen::VectorXi hist(25);
+      computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+      std::cout << "hist = " << hist.format(fmt) << "\n";
+    }
+
+    {
+      std::cout << "computeHistogramWithSharedAtomics---------------------------------------------" << std::endl;
+      Eigen::VectorXi hist(25);
+      computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithSharedAtomics(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+      std::cout << "hist = " << hist.format(fmt) << "\n";
+    }
+
+    {
+      std::cout << "computeHistogramWithSharedBins---------------------------------------------" << std::endl;
+      Eigen::VectorXi hist(25);
+      computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithSharedBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+      std::cout << "hist = " << hist.format(fmt) << "\n";
+    }
+
+    {
+      std::cout << "---computeHistogramWithPrivateBins---------------------------------------------" << std::endl;
+      Eigen::VectorXi hist(25);
+      computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithPrivateBins(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+      std::cout << "hist = " << hist.format(fmt) << "\n";
+    }
+
+    {
+      std::cout << "---computeHistogramWithThrust---------------------------------------------" << std::endl;
+      Eigen::VectorXi hist(25);
+      computeHistogramWithThrust(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithThrust(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithThrust(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      computeHistogramWithThrust(&gt_images(0, 0, 0, 0), 320, 240, hist.data(), 25);
+      const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+      std::cout << "hist = " << hist.format(fmt) << "\n";
     }
   }
+//
+//  {
+//    std::cout << "------------------------------------------------" << std::endl;
+//    gt_images = gt_images * uint8_t(10);
+//    pred_images = pred_images * uint8_t(10);
+//    for (int i = 0; i < images_per_blob; ++i) {
+//      using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+//      Eigen::Map<Image8UC1> gt_image(&gt_images(i, 0, 0, 0), 240, 320);
+//      Eigen::Map<Image8UC1> pred_image(&pred_images(i, 0, 0, 0), 240, 320);
+//
+//      {
+//        cv::Mat cv_image(240, 320, CV_8UC1, gt_image.data());
+//        cv::imshow("gt_image", cv_image);
+//      }
+//      {
+//        cv::Mat cv_image(240, 320, CV_8UC1, pred_image.data());
+//        cv::imshow("pred_image", cv_image);
+//      }
+//      cv::waitKey(1);
+//    }
+//  }
 
 }
 

@@ -44,7 +44,7 @@ struct GpuTimer {
 
 }  // namespace RaC
 
-#define CUDA_DEBUG
+//#define CUDA_DEBUG
 
 #ifdef CUDA_DEBUG
 #define cudaCheckError(ans) { cudaAssert((ans), __FILE__, __LINE__); }
