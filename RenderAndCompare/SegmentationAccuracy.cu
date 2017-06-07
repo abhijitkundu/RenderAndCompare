@@ -461,10 +461,19 @@ __global__ void get_diagonal(const Scalar* const matrix, int length, Scalar *dia
     diag[threadIdx.x] = matrix[threadIdx.x * length + threadIdx.x];
 }
 
+template <typename Scalar>
 __inline__ __device__
-int warpReduceSum(int val) {
-  for (int offset = warpSize/2; offset > 0; offset /= 2)
+Scalar warpReduceSum(Scalar val) {
+  for (unsigned int offset = warpSize/2; offset > 0; offset /= 2)
     val += __shfl_down(val, offset);
+  return val;
+}
+
+template <typename Scalar>
+__inline__ __device__
+Scalar warpAllReduceSum(Scalar val) {
+  for (unsigned int mask = warpSize/2; mask > 0; mask /= 2)
+    val += __shfl_xor(val, mask);
   return val;
 }
 
@@ -483,6 +492,57 @@ __global__ void sum_reduce(const int* const matrix, int length, int* rowwise_sum
   if (threadIdx.x==0 && threadIdx.y < length) {
     rowwise_sum[threadIdx.y] = row_sum;
     colwise_sum[threadIdx.y] = col_sum;
+  }
+}
+
+
+
+template <int NumBins>
+__global__ void warp_iou_kernel(const int* const matrix, float* mean_iou) {
+  int row_sum = 0;
+  int col_sum = 0;
+
+  __shared__ int tp[32];
+  __shared__ int rs[32];
+  __shared__ int cs[32];
+
+  if ((threadIdx.x < NumBins) && (threadIdx.y < NumBins)) {
+    row_sum = matrix[threadIdx.y * NumBins + threadIdx.x];
+    col_sum = matrix[threadIdx.x * NumBins + threadIdx.y];
+
+    if (threadIdx.x == threadIdx.y)
+      tp[threadIdx.x] = col_sum;
+  }
+  __syncthreads();              // Wait for all partial reductions
+
+  row_sum = warpReduceSum(row_sum);
+  col_sum = warpReduceSum(col_sum);
+
+  if (threadIdx.x==0) {
+    rs[threadIdx.y] = row_sum;
+    cs[threadIdx.y] = col_sum;
+  }
+  __syncthreads();              // Wait for all partial reductions
+
+  if (threadIdx.y == 0) {
+    float c_iou = 0;
+    int c_valid = 0;
+
+    if (threadIdx.x < NumBins) {
+      int c_intersection = tp[threadIdx.x];
+      int c_union = rs[threadIdx.x] + cs[threadIdx.x] - c_intersection;
+
+      if (c_union > 0) {
+        c_iou = float(c_intersection) / c_union;
+        c_valid = 1;
+      }
+    }
+
+    c_iou = warpReduceSum(c_iou);
+    c_valid = warpReduceSum(c_valid);
+
+    if (threadIdx.x==0)
+      mean_iou[0] = c_iou / c_valid;
   }
 }
 
@@ -534,12 +594,6 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   Eigen::TensorMap<Tensor1> d_intersection_hist(d_intersection_hist_ptr, NumBins);
   Eigen::TensorMap<Tensor1> d_union_hist(d_union_hist_ptr, NumBins);
 
-
-  Eigen::Matrix<CMScalar, NumBins, NumBins, Eigen::RowMajor> h_conf_mat;
-  thrust::device_vector<CMScalar>d_rowwise_sum(NumBins);
-  thrust::device_vector<CMScalar>d_colwise_sum(NumBins);
-
-
   Tensor1 h_intersection_hist(NumBins);
   Tensor1 h_union_hist(NumBins);
 
@@ -554,14 +608,6 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
 
   confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
   get_diagonal<<<1, NumBins>>>(d_conf_mat_ptr, NumBins, d_intersection_hist_ptr);
-
-
-  {
-    dim3 blockdim(32, 32);
-    sum_reduce<<<1, blockdim>>>(d_conf_mat_ptr, NumBins, d_rowwise_sum.data().get(), d_colwise_sum.data().get());
-  }
-
-  cudaCheckError(cudaMemcpy(h_conf_mat.data(), d_conf_mat_ptr, h_conf_mat.size() * sizeof(CMScalar), cudaMemcpyDeviceToHost));
 
   d_union_hist.device(gpu_device) = d_conf_mat.sum(red_axis) + d_conf_mat.sum(green_axis) - d_intersection_hist;
 
@@ -586,15 +632,53 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
   std::cout << "mean_iou = " << mean_iou << "\n";
 
-  print_vector("d_rowwise_sum ", d_rowwise_sum);
-  print_vector("d_colwise_sum ", d_colwise_sum);
-  const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
-  std::cout << "rowwise().sum() = " << h_conf_mat.rowwise().sum().format(fmt) << "\n";
-  std::cout << "colwise().sum() = " << h_conf_mat.colwise().sum().format(fmt) << "\n";
-
   gpu_device.deallocate(d_conf_mat_ptr);
   gpu_device.deallocate(d_intersection_hist_ptr);
   gpu_device.deallocate(d_union_hist_ptr);
+  cudaCheckError(cudaFree((void*)d_gt_image));
+  cudaCheckError(cudaFree((void*)d_pred_image));
+}
+
+void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
+  using ImageScalar = uint8_t;
+  using CMScalar = int;
+
+  ImageScalar* d_gt_image;
+  ImageScalar* d_pred_image;
+  const std::size_t image_bytes = width * height * sizeof(ImageScalar);
+  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
+  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+
+  static const int NumBins = 25;
+
+
+  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  CMScalar* d_conf_mat_ptr;
+  cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
+  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+
+  thrust::device_vector<float>mean_ious(1);
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  {
+    dim3 gridDim(16, 4);
+    dim3 blockDim(NumBins, NumBins);
+    confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
+  }
+  {
+    dim3 blockdim(32, 32);
+    warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
+  }
+
+  gpu_timer.Stop();
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  print_vector("mean_iou =  ", mean_ious);
+
+  cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
   cudaCheckError(cudaFree((void*)d_gt_image));
   cudaCheckError(cudaFree((void*)d_pred_image));
 }

@@ -120,6 +120,11 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
                               const uint8_t* const pred_image,
                               int width, int height);
 
+void compute_cmat_warped_iou(const uint8_t*
+                             const gt_image,
+                             const uint8_t* const pred_image,
+                             int width, int height);
+
 
 void computeHistogramWithAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);

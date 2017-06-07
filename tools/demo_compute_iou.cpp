@@ -101,80 +101,80 @@ int main(int argc, char **argv) {
 
   cudaCheckError(cudaSetDevice(0));
 
-//  {
-//    std::cout << "\n\n-------------------- Batch Images average IoU ----------------------\n";
-//
-//    {
-//      std::cout << "------------------------------------------------" << std::endl;
-//      std::chrono::time_point<std::chrono::system_clock> start, end;
-//      start = std::chrono::system_clock::now();
-//      float mean_iou = 0;
-//      int count = 0;
-//      for (int i = 0; i < images_per_blob; ++i) {
-//        using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-//        Eigen::Map<Image8UC1> gt_image(&gt_images(i, 0, 0, 0), 240, 320);
-//        Eigen::Map<Image8UC1> pred_image(&pred_images(i, 0, 0, 0), 240, 320);
-//        mean_iou += computeIoU(gt_image, pred_image);
-//        ++ count;
-//      }
-//      mean_iou /= count;
-//      end = std::chrono::system_clock::now();
-//      std::chrono::duration<double> elapsed_seconds = end-start;
-//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms.  ";
-//      std::cout << "Mean IoU= " << mean_iou << std::endl;
-//
-//    }
-//
-//    {
-//      std::cout << "\n------------------------------------------------" << std::endl;
-//      std::chrono::time_point<std::chrono::system_clock> start, end;
-//      start = std::chrono::system_clock::now();
-//      float mean_iou = computeIoU(gt_images, pred_images);
-//      end = std::chrono::system_clock::now();
-//      std::chrono::duration<double> elapsed_seconds = end-start;
-//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms.  ";
-//      std::cout << "Mean IoU= " << mean_iou << std::endl;
-//
-//    }
-//
-//    {
-//      std::cout << "\ncomputeIoUwithCUDAseq------------------------------------------------" << std::endl;
-//      std::cout << "\n------------------------------------------------" << std::endl;
-//      std::chrono::time_point<std::chrono::system_clock> start, end;
-//      start = std::chrono::system_clock::now();
-//      computeIoUwithCUDAseq(gt_images, pred_images);
-//      end = std::chrono::system_clock::now();
-//      std::chrono::duration<double> elapsed_seconds = end-start;
-//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
-//
-//    }
-//
-//    {
-//      std::cout << "\ncomputeIoUwithCUDApar------------------------------------------------" << std::endl;
-//
-//      std::cout << "\n------------------------------------------------" << std::endl;
-//      std::chrono::time_point<std::chrono::system_clock> start, end;
-//      start = std::chrono::system_clock::now();
-//      computeIoUwithCUDApar(gt_images, pred_images);
-//      end = std::chrono::system_clock::now();
-//      std::chrono::duration<double> elapsed_seconds = end - start;
-//      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
-//    }
-//
-//    {
-//      std::cout << "\ncomputeIoUwithCUDAstreams------------------------------------------------" << std::endl;
-//      for (int i = 0; i < 4; ++i)
-//      {
-//        std::cout << "\n------------------------------------------------" << std::endl;
-//        std::chrono::time_point<std::chrono::system_clock> start, end;
-//        start = std::chrono::system_clock::now();
-//        computeIoUwithCUDAstreams(gt_images, pred_images);
-//        end = std::chrono::system_clock::now();
-//        std::chrono::duration<double> elapsed_seconds = end-start;
-//        std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
-//      }
-//    }
-//  }
+  {
+    std::cout << "\n\n-------------------- Batch Images average IoU ----------------------\n";
+
+    {
+      std::cout << "------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      float mean_iou = 0;
+      int count = 0;
+      for (int i = 0; i < images_per_blob; ++i) {
+        using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+        Eigen::Map<Image8UC1> gt_image(&gt_images(i, 0, 0, 0), 240, 320);
+        Eigen::Map<Image8UC1> pred_image(&pred_images(i, 0, 0, 0), 240, 320);
+        mean_iou += computeIoU(gt_image, pred_image);
+        ++ count;
+      }
+      mean_iou /= count;
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end-start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms.  ";
+      std::cout << "Mean IoU= " << mean_iou << std::endl;
+
+    }
+
+    {
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      float mean_iou = computeIoU(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end-start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms.  ";
+      std::cout << "Mean IoU= " << mean_iou << std::endl;
+
+    }
+
+    {
+      std::cout << "\ncomputeIoUwithCUDAseq------------------------------------------------" << std::endl;
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      computeIoUwithCUDAseq(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end-start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+
+    }
+
+    {
+      std::cout << "\ncomputeIoUwithCUDApar------------------------------------------------" << std::endl;
+
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      computeIoUwithCUDApar(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end - start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+    }
+
+    {
+      std::cout << "\ncomputeIoUwithCUDAstreams------------------------------------------------" << std::endl;
+      for (int i = 0; i < 4; ++i)
+      {
+        std::cout << "\n------------------------------------------------" << std::endl;
+        std::chrono::time_point<std::chrono::system_clock> start, end;
+        start = std::chrono::system_clock::now();
+        computeIoUwithCUDAstreams(gt_images, pred_images);
+        end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+      }
+    }
+  }
 
 
   {
@@ -215,6 +215,14 @@ int main(int argc, char **argv) {
       compute_confusion_tensor(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
       compute_confusion_tensor(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
       compute_confusion_tensor(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+    }
+
+    {
+      std::cout << "compute_cmat_warped_iou---------------------------------------------" << std::endl;
+      compute_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
     }
   }
 
