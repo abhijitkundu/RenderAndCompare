@@ -177,31 +177,47 @@ int main(int argc, char **argv) {
 //  }
 
 
-//  {
-//    std::cout << "\n\n-------------------- Single Image IoU ----------------------\n";
-//
-//    const Eigen::Index image_id = 4;
-//
-//    {
-//      std::cout << "computeSegHistsCPU---------------------------------------------" << std::endl;
-//      using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-//      Eigen::Map<Image8UC1> gt_image(&gt_images(image_id, 0, 0, 0), 240, 320);
-//      Eigen::Map<Image8UC1> pred_image(&pred_images(image_id, 0, 0, 0), 240, 320);
-//      computeSegHistsCPU(gt_image, pred_image);
-//      computeSegHistsCPU(gt_image, pred_image);
-//      computeSegHistsCPU(gt_image, pred_image);
-//      computeSegHistsCPU(gt_image, pred_image);
-//    }
-//
-//    {
-//      std::cout << "compute_seg_histograms---------------------------------------------" << std::endl;
-//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
-//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
-//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
-//      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
-//    }
-//  }
-//
+  {
+    std::cout << "\n\n-------------------- Single Image IoU ----------------------\n";
+
+    const Eigen::Index image_id = 4;
+
+    {
+      std::cout << "computeSegHistsCPU---------------------------------------------" << std::endl;
+      using Image8UC1 = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+      Eigen::Map<Image8UC1> gt_image(&gt_images(image_id, 0, 0, 0), 240, 320);
+      Eigen::Map<Image8UC1> pred_image(&pred_images(image_id, 0, 0, 0), 240, 320);
+      computeSegHistsCPU(gt_image, pred_image);
+      computeSegHistsCPU(gt_image, pred_image);
+      computeSegHistsCPU(gt_image, pred_image);
+      computeSegHistsCPU(gt_image, pred_image);
+    }
+
+    {
+      std::cout << "compute_seg_histograms---------------------------------------------" << std::endl;
+      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_seg_histograms(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+    }
+
+    {
+      std::cout << "compute_confusion_matrix---------------------------------------------" << std::endl;
+      compute_confusion_matrix(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_confusion_matrix(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_confusion_matrix(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_confusion_matrix(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+    }
+
+    {
+      std::cout << "compute_confusion_tensor---------------------------------------------" << std::endl;
+      compute_confusion_tensor(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_confusion_tensor(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_confusion_tensor(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_confusion_tensor(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+    }
+  }
+
   {
     std::cout << "\n\n-------------------- Histogram ----------------------\n";
 

@@ -110,8 +110,15 @@ void computeSegHistsCPU(const Eigen::MatrixBase<DG>& gt_image, const Eigen::Matr
 
 void compute_seg_histograms(const uint8_t* const gt_image,
                             const uint8_t* const pred_image,
-                            int width,
-                            int height);
+                            int width, int height);
+
+void compute_confusion_matrix(const uint8_t* const gt_image,
+                              const uint8_t* const pred_image,
+                              int width, int height);
+
+void compute_confusion_tensor(const uint8_t* const gt_image,
+                              const uint8_t* const pred_image,
+                              int width, int height);
 
 
 void computeHistogramWithAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);

@@ -5,6 +5,8 @@
  * @author Abhijit Kundu
  */
 
+#define EIGEN_USE_GPU
+
 #include "SegmentationAccuracy.h"
 #include <math_constants.h>
 #include <thrust/device_vector.h>
@@ -366,6 +368,238 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
   cudaCheckError(cudaFree((void*)d_gt_images));
   cudaCheckError(cudaFree((void*)d_pred_images));
 }
+
+template <int NumBins, typename ImageScalar, typename CMScalar>
+__global__ void confusion_matrix_shared_bins(const ImageScalar* const gt_image,
+                                             const ImageScalar* const pred_image,
+                                             int width, int height,
+                                             CMScalar* d_conf_mat) {
+  // Initialize shared mem
+  __shared__ CMScalar smem[NumBins][NumBins];
+  smem[threadIdx.x][threadIdx.y] = 0;
+  __syncthreads();
+
+  // pixel coordinates
+  int x = blockIdx.x * blockDim.x + threadIdx.x;
+  int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+  // grid dimensions
+  int nx = blockDim.x * gridDim.x;
+  int ny = blockDim.y * gridDim.y;
+
+  for (int col = x; col < width; col += nx)
+    for (int row = y; row < height; row += ny) {
+      int pixel_index = row * width + col;
+      int gt_label = static_cast<int>(gt_image[pixel_index]);
+      int pred_label = static_cast<int>(pred_image[pixel_index]);
+      atomicAdd(&smem[gt_label][pred_label] , 1 );
+    }
+  __syncthreads();
+
+  atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * blockDim.x]), smem[threadIdx.x][threadIdx.y]);
+}
+
+void compute_confusion_matrix(const uint8_t* const gt_image,
+                              const uint8_t* const pred_image,
+                              int width, int height) {
+  using ImageScalar = uint8_t;
+  using CMScalar = int;
+
+  ImageScalar* d_gt_image;
+  ImageScalar* d_pred_image;
+  const std::size_t image_bytes = width * height * sizeof(ImageScalar);
+  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
+  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+
+  static const int NumBins = 25;
+
+  CMScalar* d_conf_mat;
+  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  cudaCheckError(cudaMalloc((void**)(&d_conf_mat), conf_mat_bytes));
+  cudaCheckError(cudaMemset(d_conf_mat, 0, conf_mat_bytes));
+  Eigen::Matrix<CMScalar, NumBins, NumBins, Eigen::RowMajor> h_conf_mat;
+
+  using Vector = Eigen::Matrix<CMScalar, NumBins, 1>;
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  dim3 gridDim(16, 4);
+  dim3 blockDim(NumBins, NumBins);
+
+  confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat);
+
+  cudaCheckError(cudaMemcpy(h_conf_mat.data(), d_conf_mat, h_conf_mat.size() * sizeof(CMScalar), cudaMemcpyDeviceToHost));
+
+  Vector intersection_hist = h_conf_mat.diagonal();
+  Vector union_hist = h_conf_mat.rowwise().sum() + h_conf_mat.colwise().sum().transpose() - intersection_hist;
+
+  float mean_iou = 0;
+  int valid_labels = 0;
+  for (Eigen::Index i = 0; i < NumBins; ++i) {
+    if (union_hist[i] > 0) {
+      mean_iou += float(intersection_hist[i]) / union_hist[i];
+      ++valid_labels;
+    }
+  }
+  mean_iou /= valid_labels;
+
+
+  gpu_timer.Stop();
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  std::cout << "mean_iou = " << mean_iou << "\n";
+
+  cudaCheckError(cudaFree((void*)d_gt_image));
+  cudaCheckError(cudaFree((void*)d_pred_image));
+}
+
+
+template <typename Scalar>
+__global__ void get_diagonal(const Scalar* const matrix, int length, Scalar *diag) {
+    diag[threadIdx.x] = matrix[threadIdx.x * length + threadIdx.x];
+}
+
+__inline__ __device__
+int warpReduceSum(int val) {
+  for (int offset = warpSize/2; offset > 0; offset /= 2)
+    val += __shfl_down(val, offset);
+  return val;
+}
+
+__global__ void sum_reduce(const int* const matrix, int length, int* rowwise_sum, int* colwise_sum) {
+  int row_sum = 0;
+  int col_sum = 0;
+
+  if ((threadIdx.x < length) && (threadIdx.y < length)) {
+    row_sum = matrix[threadIdx.y * length + threadIdx.x];
+    col_sum = matrix[threadIdx.x * length + threadIdx.y];
+  }
+
+  row_sum = warpReduceSum(row_sum);
+  col_sum = warpReduceSum(col_sum);
+
+  if (threadIdx.x==0 && threadIdx.y < length) {
+    rowwise_sum[threadIdx.y] = row_sum;
+    colwise_sum[threadIdx.y] = col_sum;
+  }
+}
+
+
+// simple routine to print contents of a vector
+template <typename Vector>
+void print_vector(const std::string& name, const Vector& v)
+{
+  typedef typename Vector::value_type T;
+  std::cout << name << " = [";
+  thrust::copy(v.begin(), v.end(), std::ostream_iterator<T>(std::cout, ", "));
+  std::cout << "\b\b]" << std::endl;
+}
+
+void compute_confusion_tensor(const uint8_t* const gt_image,
+                              const uint8_t* const pred_image,
+                              int width, int height) {
+
+  Eigen::CudaStreamDevice stream;
+  Eigen::GpuDevice gpu_device(&stream);
+
+  using ImageScalar = uint8_t;
+  using CMScalar = int;
+
+  ImageScalar* d_gt_image;
+  ImageScalar* d_pred_image;
+  const std::size_t image_bytes = width * height * sizeof(ImageScalar);
+  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
+  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+
+  static const int NumBins = 25;
+
+
+  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  CMScalar* d_conf_mat_ptr = static_cast<CMScalar*>(gpu_device.allocate(conf_mat_bytes));
+  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+
+  const std::size_t hist_bytes = NumBins * sizeof(CMScalar);
+  CMScalar* d_intersection_hist_ptr = static_cast<CMScalar*>(gpu_device.allocate(hist_bytes));
+  CMScalar* d_union_hist_ptr = static_cast<CMScalar*>(gpu_device.allocate(hist_bytes));
+
+  using Tensor2 = Eigen::Tensor<CMScalar, 2, Eigen::RowMajor>;
+  using Tensor1 = Eigen::Tensor<CMScalar, 1, Eigen::RowMajor>;
+
+  Eigen::TensorMap<Tensor2> d_conf_mat(d_conf_mat_ptr, NumBins, NumBins);
+
+  Eigen::TensorMap<Tensor1> d_intersection_hist(d_intersection_hist_ptr, NumBins);
+  Eigen::TensorMap<Tensor1> d_union_hist(d_union_hist_ptr, NumBins);
+
+
+  Eigen::Matrix<CMScalar, NumBins, NumBins, Eigen::RowMajor> h_conf_mat;
+  thrust::device_vector<CMScalar>d_rowwise_sum(NumBins);
+  thrust::device_vector<CMScalar>d_colwise_sum(NumBins);
+
+
+  Tensor1 h_intersection_hist(NumBins);
+  Tensor1 h_union_hist(NumBins);
+
+  const Eigen::array<int, 1> red_axis({0});
+  const Eigen::array<int, 1> green_axis({1});
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  dim3 gridDim(16, 4);
+  dim3 blockDim(NumBins, NumBins);
+
+  confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
+  get_diagonal<<<1, NumBins>>>(d_conf_mat_ptr, NumBins, d_intersection_hist_ptr);
+
+
+  {
+    dim3 blockdim(32, 32);
+    sum_reduce<<<1, blockdim>>>(d_conf_mat_ptr, NumBins, d_rowwise_sum.data().get(), d_colwise_sum.data().get());
+  }
+
+  cudaCheckError(cudaMemcpy(h_conf_mat.data(), d_conf_mat_ptr, h_conf_mat.size() * sizeof(CMScalar), cudaMemcpyDeviceToHost));
+
+  d_union_hist.device(gpu_device) = d_conf_mat.sum(red_axis) + d_conf_mat.sum(green_axis) - d_intersection_hist;
+
+//  assert(cudaMemcpyAsync(h_intersection_hist.data(), d_intersection_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost, gpu_device.stream()) == cudaSuccess);
+//  assert(cudaMemcpyAsync(h_union_hist.data(), d_union_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost, gpu_device.stream()) == cudaSuccess);
+//  assert(cudaStreamSynchronize(gpu_device.stream()) == cudaSuccess);
+
+  cudaCheckError(cudaMemcpy(h_intersection_hist.data(), d_intersection_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost));
+  cudaCheckError(cudaMemcpy(h_union_hist.data(), d_union_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost));
+
+  float mean_iou = 0;
+  int valid_labels = 0;
+  for (Eigen::Index i = 0; i < NumBins; ++i) {
+    if (h_union_hist[i] > 0) {
+      mean_iou += float(h_intersection_hist[i]) / h_union_hist[i];
+      ++valid_labels;
+    }
+  }
+  mean_iou /= valid_labels;
+
+  gpu_timer.Stop();
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  std::cout << "mean_iou = " << mean_iou << "\n";
+
+  print_vector("d_rowwise_sum ", d_rowwise_sum);
+  print_vector("d_colwise_sum ", d_colwise_sum);
+  const Eigen::IOFormat fmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", "[", "]");
+  std::cout << "rowwise().sum() = " << h_conf_mat.rowwise().sum().format(fmt) << "\n";
+  std::cout << "colwise().sum() = " << h_conf_mat.colwise().sum().format(fmt) << "\n";
+
+  gpu_device.deallocate(d_conf_mat_ptr);
+  gpu_device.deallocate(d_intersection_hist_ptr);
+  gpu_device.deallocate(d_union_hist_ptr);
+  cudaCheckError(cudaFree((void*)d_gt_image));
+  cudaCheckError(cudaFree((void*)d_pred_image));
+}
+
+
 
 template <typename ImageScalar, typename HistScalar>
 __global__ void histogram_atomics(const ImageScalar* const image, int width, int height, HistScalar *hist) {
