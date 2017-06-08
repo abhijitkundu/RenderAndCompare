@@ -35,14 +35,14 @@ Scalar warpAllReduceSum(Scalar val) {
   return val;
 }
 
-template<int NumBins, class ImageScalar, class HistVector = uint3>
+template<int NumLabels, class ImageScalar, class HistVector = uint3>
 __global__ void compute_seg_histograms_vector(const ImageScalar* const gt_image,
                                               const ImageScalar* const pred_image,
                                               std::size_t size,
                                               HistVector *hist) {
 
   // Initialize shared mem
-  __shared__ HistVector sm_hist[NumBins];
+  __shared__ HistVector sm_hist[NumLabels];
   sm_hist[threadIdx.x].x = 0;
   sm_hist[threadIdx.x].y = 0;
   sm_hist[threadIdx.x].z = 0;
@@ -69,23 +69,23 @@ __global__ void compute_seg_histograms_vector(const ImageScalar* const gt_image,
   atomicAdd(&(hist[threadIdx.x].z), sm_hist[threadIdx.x].z);
 }
 
-template<int NumBins, class ImageScalar, class HistVector = uint3>
+template<int NumLabels, class ImageScalar, class HistVector = uint3>
 __global__ void compute_seg_histograms_vector_private(const ImageScalar* const gt_image,
                                                       const ImageScalar* const pred_image,
                                                       std::size_t size,
                                                       HistVector *hist) {
 
   // Initialize shared mem
-  __shared__ HistVector sm_hist[NumBins];
+  __shared__ HistVector sm_hist[NumLabels];
   sm_hist[threadIdx.x].x = 0;
   sm_hist[threadIdx.x].y = 0;
   sm_hist[threadIdx.x].z = 0;
   __syncthreads();
 
   // Initialize private mem
-  HistVector pmem[NumBins];
+  HistVector pmem[NumLabels];
 #pragma unroll
-  for (int i = 0; i < NumBins; ++i) {
+  for (int i = 0; i < NumLabels; ++i) {
     pmem[i].x = 0;
     pmem[i].y = 0;
     pmem[i].z = 0;
@@ -108,7 +108,7 @@ __global__ void compute_seg_histograms_vector_private(const ImageScalar* const g
 
 
 #pragma unroll
-  for (int i = 0; i < NumBins; ++i) {
+  for (int i = 0; i < NumLabels; ++i) {
     atomicAdd(&(sm_hist[i].x), pmem[i].x);
     atomicAdd(&(sm_hist[i].y), pmem[i].y);
     atomicAdd(&(sm_hist[i].z), pmem[i].z);
@@ -162,8 +162,8 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
-  static const int NumBins = 25;
-  thrust::device_vector<HistVector> d_hist(NumBins);
+  static const int NumLabels = 25;
+  thrust::device_vector<HistVector> d_hist(NumLabels);
   thrust::device_vector<float2> d_mean_ious(1);
 
   GpuTimer gpu_timer;
@@ -172,7 +172,7 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   // Initialize histogram to zeroes
   thrust::fill(d_hist.begin(), d_hist.end(), make_int3(0, 0, 0));
 
-  compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_image, d_pred_image , width * height, d_hist.data().get());
+  compute_seg_histograms_vector<NumLabels><<<28*8, NumLabels>>>(d_gt_image, d_pred_image , width * height, d_hist.data().get());
 
 //  d_mean_ious[0] = thrust::transform_reduce(d_hist.begin(), d_hist.end(), class_iou(), make_float2(0, 0), add_float2());
 //  float2 mean_iou = thrust::transform_reduce(d_hist.begin(), d_hist.end(), class_iou(), make_float2(0, 0), add_float2());
@@ -190,13 +190,13 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   cudaCheckError(cudaFree((void*)d_pred_image));
 }
 
-template <int NumBins, typename ImageScalar, typename CMScalar>
+template <int NumLabels, typename ImageScalar, typename CMScalar>
 __global__ void confusion_matrix_shared_bins(const ImageScalar* const gt_image,
                                              const ImageScalar* const pred_image,
                                              int width, int height,
                                              CMScalar* d_conf_mat) {
   // Initialize shared mem
-  __shared__ CMScalar smem[NumBins][NumBins];
+  __shared__ CMScalar smem[NumLabels][NumLabels];
   smem[threadIdx.y][threadIdx.x] = 0;
   __syncthreads();
 
@@ -220,14 +220,14 @@ __global__ void confusion_matrix_shared_bins(const ImageScalar* const gt_image,
   atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * blockDim.x]), smem[threadIdx.x][threadIdx.y]);
 }
 
-template<int NumBins, typename ImageScalar, typename CMScalar>
+template<int NumLabels, typename ImageScalar, typename CMScalar>
 __global__ void confusion_matrix_shared_strided_atomics(const ImageScalar* const gt_image,
                                                         const ImageScalar* const pred_image,
                                                         int width, int height,
                                                         CMScalar* d_conf_mat) {
   // Initialize shared mem
-  __shared__ CMScalar smem[NumBins][NumBins];
-  if ((threadIdx.y < NumBins) && (threadIdx.x < NumBins))
+  __shared__ CMScalar smem[NumLabels][NumLabels];
+  if ((threadIdx.y < NumLabels) && (threadIdx.x < NumLabels))
     smem[threadIdx.y][threadIdx.x] = 0;
   __syncthreads();
 
@@ -248,8 +248,8 @@ __global__ void confusion_matrix_shared_strided_atomics(const ImageScalar* const
     }
   __syncthreads();
 
-  if ((threadIdx.y < NumBins) && (threadIdx.x < NumBins))
-    atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * NumBins]), smem[threadIdx.y][threadIdx.x]);
+  if ((threadIdx.y < NumLabels) && (threadIdx.x < NumLabels))
+    atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * NumLabels]), smem[threadIdx.y][threadIdx.x]);
 }
 
 template<int NumLabels, typename ImageScalar, typename CMScalar>
@@ -292,23 +292,23 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
   cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
-  static const int NumBins = 25;
+  static const int NumLabels = 25;
 
   CMScalar* d_conf_mat;
-  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   cudaCheckError(cudaMalloc((void**)(&d_conf_mat), conf_mat_bytes));
   cudaCheckError(cudaMemset(d_conf_mat, 0, conf_mat_bytes));
-  Eigen::Matrix<CMScalar, NumBins, NumBins, Eigen::RowMajor> h_conf_mat;
+  Eigen::Matrix<CMScalar, NumLabels, NumLabels, Eigen::RowMajor> h_conf_mat;
 
-  using Vector = Eigen::Matrix<CMScalar, NumBins, 1>;
+  using Vector = Eigen::Matrix<CMScalar, NumLabels, 1>;
 
   GpuTimer gpu_timer;
   gpu_timer.Start();
 
   dim3 gridDim(16, 4);
-  dim3 blockDim(NumBins, NumBins);
+  dim3 blockDim(NumLabels, NumLabels);
 
-  confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat);
+  confusion_matrix_shared_bins<NumLabels><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat);
 
   cudaCheckError(cudaMemcpy(h_conf_mat.data(), d_conf_mat, h_conf_mat.size() * sizeof(CMScalar), cudaMemcpyDeviceToHost));
 
@@ -317,7 +317,7 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
 
   float mean_iou = 0;
   int valid_labels = 0;
-  for (Eigen::Index i = 0; i < NumBins; ++i) {
+  for (Eigen::Index i = 0; i < NumLabels; ++i) {
     if (union_hist[i] > 0) {
       mean_iou += float(intersection_hist[i]) / union_hist[i];
       ++valid_labels;
@@ -357,7 +357,7 @@ __global__ void sum_reduce(const int* const matrix, int length, int* rowwise_sum
   }
 }
 
-template <int NumBins>
+template <int NumLabels>
 __global__ void warp_iou_kernel(const int* const matrix, float* mean_iou) {
   int row_sum = 0;
   int col_sum = 0;
@@ -366,9 +366,9 @@ __global__ void warp_iou_kernel(const int* const matrix, float* mean_iou) {
   __shared__ int rs[32];
   __shared__ int cs[32];
 
-  if ((threadIdx.x < NumBins) && (threadIdx.y < NumBins)) {
-    row_sum = matrix[threadIdx.y * NumBins + threadIdx.x];
-    col_sum = matrix[threadIdx.x * NumBins + threadIdx.y];
+  if ((threadIdx.x < NumLabels) && (threadIdx.y < NumLabels)) {
+    row_sum = matrix[threadIdx.y * NumLabels + threadIdx.x];
+    col_sum = matrix[threadIdx.x * NumLabels + threadIdx.y];
 
     if (threadIdx.x == threadIdx.y)
       tp[threadIdx.x] = col_sum;
@@ -388,7 +388,7 @@ __global__ void warp_iou_kernel(const int* const matrix, float* mean_iou) {
     float c_iou = 0;
     int c_valid = 0;
 
-    if (threadIdx.x < NumBins) {
+    if (threadIdx.x < NumLabels) {
       int c_intersection = tp[threadIdx.x];
       int c_union = rs[threadIdx.x] + cs[threadIdx.x] - c_intersection;
 
@@ -434,27 +434,27 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
-  static const int NumBins = 25;
+  static const int NumLabels = 25;
 
 
-  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr = static_cast<CMScalar*>(gpu_device.allocate(conf_mat_bytes));
   cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
 
-  const std::size_t hist_bytes = NumBins * sizeof(CMScalar);
+  const std::size_t hist_bytes = NumLabels * sizeof(CMScalar);
   CMScalar* d_intersection_hist_ptr = static_cast<CMScalar*>(gpu_device.allocate(hist_bytes));
   CMScalar* d_union_hist_ptr = static_cast<CMScalar*>(gpu_device.allocate(hist_bytes));
 
   using Tensor2 = Eigen::Tensor<CMScalar, 2, Eigen::RowMajor>;
   using Tensor1 = Eigen::Tensor<CMScalar, 1, Eigen::RowMajor>;
 
-  Eigen::TensorMap<Tensor2> d_conf_mat(d_conf_mat_ptr, NumBins, NumBins);
+  Eigen::TensorMap<Tensor2> d_conf_mat(d_conf_mat_ptr, NumLabels, NumLabels);
 
-  Eigen::TensorMap<Tensor1> d_intersection_hist(d_intersection_hist_ptr, NumBins);
-  Eigen::TensorMap<Tensor1> d_union_hist(d_union_hist_ptr, NumBins);
+  Eigen::TensorMap<Tensor1> d_intersection_hist(d_intersection_hist_ptr, NumLabels);
+  Eigen::TensorMap<Tensor1> d_union_hist(d_union_hist_ptr, NumLabels);
 
-  Tensor1 h_intersection_hist(NumBins);
-  Tensor1 h_union_hist(NumBins);
+  Tensor1 h_intersection_hist(NumLabels);
+  Tensor1 h_union_hist(NumLabels);
 
   const Eigen::array<int, 1> red_axis({0});
   const Eigen::array<int, 1> green_axis({1});
@@ -463,10 +463,10 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   gpu_timer.Start();
 
   dim3 gridDim(16, 4);
-  dim3 blockDim(NumBins, NumBins);
+  dim3 blockDim(NumLabels, NumLabels);
 
-  confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
-  get_diagonal<<<1, NumBins>>>(d_conf_mat_ptr, NumBins, d_intersection_hist_ptr);
+  confusion_matrix_shared_bins<NumLabels><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
+  get_diagonal<<<1, NumLabels>>>(d_conf_mat_ptr, NumLabels, d_intersection_hist_ptr);
 
   d_union_hist.device(gpu_device) = d_conf_mat.sum(red_axis) + d_conf_mat.sum(green_axis) - d_intersection_hist;
 
@@ -479,7 +479,7 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
 
   float mean_iou = 0;
   int valid_labels = 0;
-  for (Eigen::Index i = 0; i < NumBins; ++i) {
+  for (Eigen::Index i = 0; i < NumLabels; ++i) {
     if (h_union_hist[i] > 0) {
       mean_iou += float(h_intersection_hist[i]) / h_union_hist[i];
       ++valid_labels;
@@ -510,10 +510,10 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
   cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
-  static const int NumBins = 25;
+  static const int NumLabels = 25;
 
 
-  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr;
   cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
   cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
@@ -524,13 +524,13 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
   gpu_timer.Start();
 
   {
-    dim3 blockDim(NumBins, NumBins);
-    dim3 gridDim((width + NumBins - 1) / NumBins, (height + NumBins - 1) / NumBins);
-    confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
+    dim3 blockDim(NumLabels, NumLabels);
+    dim3 gridDim((width + NumLabels - 1) / NumLabels, (height + NumLabels - 1) / NumLabels);
+    confusion_matrix_shared_bins<NumLabels><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
   }
   {
     dim3 blockdim(32, 32);
-    warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
+    warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
   }
 
   gpu_timer.Stop();
@@ -554,8 +554,8 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* c
   cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
-  static const int NumBins = 25;
-  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  static const int NumLabels = 25;
+  const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr;
   cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
   cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
@@ -569,11 +569,11 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* c
     int block_length = 25;
     dim3 blockDim(block_length, block_length);
     dim3 gridDim((width + block_length - 1) / block_length, (height + block_length - 1) / block_length);
-    confusion_matrix_shared_strided_atomics<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image ,width, height, d_conf_mat_ptr);
+    confusion_matrix_shared_strided_atomics<NumLabels><<<gridDim, blockDim>>>(d_gt_image, d_pred_image ,width, height, d_conf_mat_ptr);
   }
   {
     dim3 blockdim(32, 32);
-    warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
+    warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
   }
 
   gpu_timer.Stop();
@@ -597,8 +597,8 @@ void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t*
   cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
-  static const int NumBins = 25;
-  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  static const int NumLabels = 25;
+  const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr;
   cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
   cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
@@ -610,14 +610,14 @@ void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t*
 
   {
     int size  = width * height;
-    int blocksize = 1024; // Minimum: NumBins * NumBins
+    int blocksize = 1024; // Minimum: NumLabels * NumLabels
     int gridsize = (size + blocksize - 1) / blocksize;
-    assert(blocksize >= NumBins * NumBins);
-    confusion_matrix_shared_1d_strided_atomics<NumBins><<<gridsize, blocksize>>>(d_gt_image, d_pred_image ,size, d_conf_mat_ptr);
+    assert(blocksize >= NumLabels * NumLabels);
+    confusion_matrix_shared_1d_strided_atomics<NumLabels><<<gridsize, blocksize>>>(d_gt_image, d_pred_image ,size, d_conf_mat_ptr);
   }
   {
     dim3 blockdim(32, 32);
-    warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
+    warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
   }
 
   gpu_timer.Stop();
@@ -679,7 +679,7 @@ void computeHistogramWithAtomics(const uint8_t* const image, int width, int heig
   cudaCheckError(cudaFree((void*)d_hist));
 }
 
-template <int NumBins, int NumParts, typename ImageScalar, typename HistScalar>
+template <int NumLabels, int NumParts, typename ImageScalar, typename HistScalar>
 __global__ void histogram_smem_atomics(const ImageScalar* const image, int width, int height, HistScalar *out) {
   // pixel coordinates
   int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -700,8 +700,8 @@ __global__ void histogram_smem_atomics(const ImageScalar* const image, int width
   int g = blockIdx.x + blockIdx.y * gridDim.x;
 
   // initialize temporary hist array in shared memory
-  __shared__ HistScalar smem[NumBins + 1];
-  for (int i = t; i < NumBins + 1; i += nt)
+  __shared__ HistScalar smem[NumLabels + 1];
+  for (int i = t; i < NumLabels + 1; i += nt)
     smem[i] = 0;
   __syncthreads();
 
@@ -715,16 +715,16 @@ __global__ void histogram_smem_atomics(const ImageScalar* const image, int width
 
   // write partial histogram into the global memory
   out += g * NumParts;
-  for (int i = t; i < NumBins; i += nt) {
+  for (int i = t; i < NumLabels; i += nt) {
     out[i] = smem[i];
   }
 }
 
-template <int NumBins, int NumParts, typename HistScalar>
+template <int NumLabels, int NumParts, typename HistScalar>
 __global__ void histogram_smem_accum(const HistScalar *in, int n, HistScalar *out)
 {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < NumBins) {
+  if (i < NumLabels) {
     HistScalar total = 0;
     for (int j = 0; j < n; j++)
       total += in[i + NumParts * j];
@@ -744,7 +744,7 @@ void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, in
   HistScalar *d_hist;
   cudaMalloc(&d_hist, num_labels * sizeof(HistScalar));
 
-  static const int NumBins = 25;
+  static const int NumLabels = 25;
   static const int NumParts = 1024;
 
   dim3 block(32, 4);
@@ -756,30 +756,30 @@ void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, in
   cudaMalloc(&d_part_hist, total_blocks * NumParts * sizeof(HistScalar));
 
   dim3 block2(128);
-  dim3 grid2((NumBins + block.x - 1) / block.x);
+  dim3 grid2((NumLabels + block.x - 1) / block.x);
 
   GpuTimer gpu_timer;
   gpu_timer.Start();
 
-  histogram_smem_atomics<NumBins, NumParts><<<grid, block>>>(d_image, width, height, d_part_hist);
+  histogram_smem_atomics<NumLabels, NumParts><<<grid, block>>>(d_image, width, height, d_part_hist);
 
-  histogram_smem_accum<NumBins, NumParts><<<grid2, block2>>>(d_part_hist, total_blocks, d_hist);
+  histogram_smem_accum<NumLabels, NumParts><<<grid2, block2>>>(d_part_hist, total_blocks, d_hist);
 
   gpu_timer.Stop();
   std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
 
-  cudaCheckError(cudaMemcpy(hist, d_hist, NumBins * sizeof(HistScalar), cudaMemcpyDeviceToHost));
+  cudaCheckError(cudaMemcpy(hist, d_hist, NumLabels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
   cudaCheckError(cudaFree((void*)d_image));
   cudaCheckError(cudaFree((void*)d_hist));
   cudaCheckError(cudaFree((void*)d_part_hist));
 }
 
-template <int NumBins, typename ImageScalar, typename HistScalar>
+template <int NumLabels, typename ImageScalar, typename HistScalar>
 __global__ void histogram_shared_bins(const ImageScalar* const image, std::size_t size, HistScalar *hist) {
 
   // Initialize shared mem
-  __shared__ HistScalar smem[NumBins];
+  __shared__ HistScalar smem[NumLabels];
   smem[threadIdx.x] = 0;
   __syncthreads();
 
@@ -818,9 +818,9 @@ void computeHistogramWithSharedBins(const uint8_t* const image, int width, int h
 
   cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
 
-  static const int NumBins = 25;
+  static const int NumLabels = 25;
 
-  histogram_shared_bins<NumBins><<<numSMs*8, NumBins>>>(d_image, width * height, d_hist);
+  histogram_shared_bins<NumLabels><<<numSMs*8, NumLabels>>>(d_image, width * height, d_hist);
 
   gpu_timer.Stop();
   std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
@@ -831,13 +831,13 @@ void computeHistogramWithSharedBins(const uint8_t* const image, int width, int h
   cudaCheckError(cudaFree((void*)d_hist));
 }
 
-template <int NumBins, typename ImageScalar, typename HistScalar>
+template <int NumLabels, typename ImageScalar, typename HistScalar>
 __global__ void histogram_private_bins(const ImageScalar* const image, std::size_t size, HistScalar *hist) {
 
   // Initialize private mem
-  HistScalar smem[NumBins];
+  HistScalar smem[NumLabels];
 #pragma unroll
-  for (int i = 0; i < NumBins; ++i)
+  for (int i = 0; i < NumLabels; ++i)
     smem[i] = 0;
 
   const int offset = blockDim.x * gridDim.x;
@@ -847,7 +847,7 @@ __global__ void histogram_private_bins(const ImageScalar* const image, std::size
   }
 
 #pragma unroll
-  for (int i = 0; i < NumBins; ++i)
+  for (int i = 0; i < NumLabels; ++i)
     atomicAdd(&(hist[i]), smem[i]);
 }
 
@@ -874,9 +874,9 @@ void computeHistogramWithPrivateBins(const uint8_t* const image, int width, int 
   gpu_timer.Start();
 
   cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
-  static const int NumBins = 25;
+  static const int NumLabels = 25;
 
-  histogram_private_bins<NumBins><<<numSMs, 256>>>(d_image, width * height, d_hist);
+  histogram_private_bins<NumLabels><<<numSMs, 256>>>(d_image, width * height, d_hist);
 
   gpu_timer.Stop();
   std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
@@ -940,13 +940,13 @@ void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
   cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
 
   for (int trial = 0; trial < trials; ++trial) {
-    static const int NumBins = 25;
+    static const int NumLabels = 25;
     const Eigen::Index images_per_blob = gt_images.dimension(0);
     const Eigen::Index height = gt_images.dimension(2);
     const Eigen::Index width = gt_images.dimension(3);
     const Eigen::Index image_size = width * height;
 
-    thrust::device_vector<CMScalar>d_conf_mat(NumBins * NumBins);
+    thrust::device_vector<CMScalar>d_conf_mat(NumLabels * NumLabels);
     thrust::device_vector<float>mean_ious(images_per_blob);
 
     GpuTimer gpu_timer;
@@ -956,14 +956,14 @@ void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
       const Eigen::Index offset = image_size * i;
       {
         thrust::fill(d_conf_mat.begin(), d_conf_mat.end(), 0);
-        const int blocksize = 1024; // Minimum: NumBins * NumBins
+        const int blocksize = 1024; // Minimum: NumLabels * NumLabels
         const int gridsize = (image_size + blocksize - 1) / blocksize;
-        assert(blocksize >= NumBins * NumBins);
-        confusion_matrix_shared_1d_strided_atomics<NumBins><<<gridsize, blocksize>>>(d_gt_images + offset, d_pred_images + offset , image_size, d_conf_mat.data().get());
+        assert(blocksize >= NumLabels * NumLabels);
+        confusion_matrix_shared_1d_strided_atomics<NumLabels><<<gridsize, blocksize>>>(d_gt_images + offset, d_pred_images + offset , image_size, d_conf_mat.data().get());
       }
       {
         dim3 blockdim(32, 32);
-        warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat.data().get(), mean_ious.data().get() + i);
+        warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat.data().get(), mean_ious.data().get() + i);
       }
     }
     float mean_iou = thrust::reduce(mean_ious.begin(), mean_ious.end(), 0.0f, thrust::plus<float>());
@@ -1001,7 +1001,7 @@ void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
 
   for (int trial = 0; trial < trials; ++trial) {
 
-    static const int NumBins = 25;
+    static const int NumLabels = 25;
 
     const Eigen::Index images_per_blob = gt_images.dimension(0);
     const Eigen::Index height = gt_images.dimension(2);
@@ -1011,8 +1011,8 @@ void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
     GpuTimer gpu_timer;
     gpu_timer.Start();
 
-    thrust::device_vector<HistVector> d_hist(NumBins);
-    thrust::host_vector<HistVector> h_hist(NumBins);
+    thrust::device_vector<HistVector> d_hist(NumLabels);
+    thrust::host_vector<HistVector> h_hist(NumLabels);
 
     float mean_iou = 0;
     for (Eigen::Index i = 0; i < images_per_blob; ++i) {
@@ -1020,7 +1020,7 @@ void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
       thrust::fill(d_hist.begin(), d_hist.end(), make_int3(0, 0, 0));
 
       const Eigen::Index offset = image_size * i;
-      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist.data().get());
+      compute_seg_histograms_vector<NumLabels><<<28*8, NumLabels>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist.data().get());
 
       h_hist = d_hist;
       float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
@@ -1060,18 +1060,18 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
 
   for (int trial = 0; trial < trials; ++trial) {
 
-    static const int NumBins = 25;
+    static const int NumLabels = 25;
     const Eigen::Index images_per_blob = gt_images.dimension(0);
     const Eigen::Index height = gt_images.dimension(2);
     const Eigen::Index width = gt_images.dimension(3);
     const Eigen::Index image_size = width * height;
 
     HistVector* d_hist;
-    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
+    const std::size_t d_hist_bytes = images_per_blob * NumLabels * sizeof(HistVector);
     cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
     cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
 
-    thrust::host_vector<HistVector, thrust::cuda::experimental::pinned_allocator<HistVector> > h_hist(images_per_blob * NumBins);
+    thrust::host_vector<HistVector, thrust::cuda::experimental::pinned_allocator<HistVector> > h_hist(images_per_blob * NumLabels);
 
     GpuTimer gpu_timer;
     gpu_timer.Start();
@@ -1081,14 +1081,14 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
     float mean_iou = 0;
   #pragma omp parallel for reduction(+:mean_iou)
     for (Eigen::Index i = 0; i < images_per_blob; ++i) {
-      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
+      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumLabels * i);
 
       const Eigen::Index offset = image_size * i;
-      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
+      compute_seg_histograms_vector<NumLabels><<<28*8, NumLabels>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
 
-      auto h_hist_it = h_hist.begin() + NumBins * i;
-      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist_it);
-      float2 f2_mean_iou = thrust::transform_reduce(h_hist_it, h_hist_it + NumBins, class_iou(), make_float2(0, 0), add_float2());
+      auto h_hist_it = h_hist.begin() + NumLabels * i;
+      thrust::copy(d_hist_ptr, d_hist_ptr + NumLabels, h_hist_it);
+      float2 f2_mean_iou = thrust::transform_reduce(h_hist_it, h_hist_it + NumLabels, class_iou(), make_float2(0, 0), add_float2());
       mean_iou += f2_mean_iou.x / f2_mean_iou.y;
     }
     mean_iou /= images_per_blob;
@@ -1102,6 +1102,69 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
 
   cudaCheckError(cudaFree((void*)d_gt_images));
   cudaCheckError(cudaFree((void*)d_pred_images));
+}
+
+void computeIoUpar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                   const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials) {
+  using ImageScalar = uint8_t;
+  using CMScalar = int;
+
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  for (int trial = 0; trial < trials; ++trial) {
+    static const int NumLabels = 25;
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
+
+    thrust::device_vector<CMScalar>d_conf_mats(NumLabels * NumLabels * images_per_blob, 0);
+    thrust::device_vector<float>mean_ious(images_per_blob);
+
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+#pragma omp parallel for
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      CMScalar* d_conf_mat_ptr = d_conf_mats.data().get() + NumLabels * NumLabels * i;
+      {
+
+        const int blocksize = 1024; // Minimum: NumLabels * NumLabels
+        const int gridsize = (image_size + blocksize - 1) / blocksize;
+        assert(blocksize >= NumLabels * NumLabels);
+        const Eigen::Index image_data_offset = image_size * i;
+        confusion_matrix_shared_1d_strided_atomics<NumLabels><<<gridsize, blocksize>>>(d_gt_images + image_data_offset,
+            d_pred_images + image_data_offset ,
+            image_size, d_conf_mat_ptr);
+      }
+      {
+        dim3 blockdim(32, 32);
+        warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get() + i);
+      }
+    }
+    float mean_iou = thrust::reduce(mean_ious.begin(), mean_ious.end(), 0.0f, thrust::plus<float>());
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
+
 }
 
 void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
@@ -1125,14 +1188,14 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
 
   for (int trial = 0; trial < trials; ++trial) {
 
-    static const int NumBins = 25;
+    static const int NumLabels = 25;
     const Eigen::Index images_per_blob = gt_images.dimension(0);
     const Eigen::Index height = gt_images.dimension(2);
     const Eigen::Index width = gt_images.dimension(3);
     const Eigen::Index image_size = width * height;
 
     HistVector* d_hist;
-    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
+    const std::size_t d_hist_bytes = images_per_blob * NumLabels * sizeof(HistVector);
     cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
     cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
 
@@ -1150,13 +1213,13 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
       const auto threadId = omp_get_thread_num();
       cudaStreamCreate(&streams[threadId]);
 
-      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
+      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumLabels * i);
 
       const Eigen::Index offset = image_size * i;
-      compute_seg_histograms_vector<NumBins><<<28*8, NumBins, 0, streams[threadId]>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
+      compute_seg_histograms_vector<NumLabels><<<28*8, NumLabels, 0, streams[threadId]>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
 
-      thrust::host_vector<HistVector> h_hist(NumBins);
-      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist.begin());
+      thrust::host_vector<HistVector> h_hist(NumLabels);
+      thrust::copy(d_hist_ptr, d_hist_ptr + NumLabels, h_hist.begin());
       float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
       mean_iou += f2_mean_iou.x / f2_mean_iou.y;
     }

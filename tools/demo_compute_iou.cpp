@@ -174,6 +174,18 @@ int main(int argc, char **argv) {
     }
 
     {
+      std::cout << "\ncomputeIoUpar------------------------------------------------" << std::endl;
+
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      computeIoUpar(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end - start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+    }
+
+    {
       std::cout << "\ncomputeIoUwithCUDAstreams------------------------------------------------" << std::endl;
       for (int i = 0; i < 4; ++i)
       {
