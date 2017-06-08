@@ -19,6 +19,22 @@
 
 namespace RaC {
 
+template <typename Scalar>
+__inline__ __device__
+Scalar warpReduceSum(Scalar val) {
+  for (unsigned int offset = warpSize/2; offset > 0; offset /= 2)
+    val += __shfl_down(val, offset);
+  return val;
+}
+
+template <typename Scalar>
+__inline__ __device__
+Scalar warpAllReduceSum(Scalar val) {
+  for (unsigned int mask = warpSize/2; mask > 0; mask /= 2)
+    val += __shfl_xor(val, mask);
+  return val;
+}
+
 template<int NumBins, class ImageScalar, class HistVector = uint3>
 __global__ void compute_seg_histograms_vector(const ImageScalar* const gt_image,
                                               const ImageScalar* const pred_image,
@@ -376,7 +392,7 @@ __global__ void confusion_matrix_shared_bins(const ImageScalar* const gt_image,
                                              CMScalar* d_conf_mat) {
   // Initialize shared mem
   __shared__ CMScalar smem[NumBins][NumBins];
-  smem[threadIdx.x][threadIdx.y] = 0;
+  smem[threadIdx.y][threadIdx.x] = 0;
   __syncthreads();
 
   // pixel coordinates
@@ -397,6 +413,42 @@ __global__ void confusion_matrix_shared_bins(const ImageScalar* const gt_image,
   __syncthreads();
 
   atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * blockDim.x]), smem[threadIdx.x][threadIdx.y]);
+}
+
+template<int NumBins, int NumLanes, typename ImageScalar, typename CMScalar>
+__global__ void confusion_matrix_shared_bins_warp(const ImageScalar* const gt_image,
+                                                  const ImageScalar* const pred_image, int width, int height,
+                                                  CMScalar* d_conf_mat) {
+  int lane_id = threadIdx.x % NumLanes;
+
+  // Initialize shared mem
+  __shared__ CMScalar smem[NumBins][NumBins][NumLanes];
+  smem[threadIdx.y][threadIdx.x][lane_id] = 0;
+  __syncthreads();
+
+  // pixel coordinates
+  int x = blockIdx.x * blockDim.x + threadIdx.x;
+  int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+  // grid dimensions
+  int nx = blockDim.x * gridDim.x;
+  int ny = blockDim.y * gridDim.y;
+
+  for (int col = x; col < width; col += nx)
+    for (int row = y; row < height; row += ny) {
+      int pixel_index = row * width + col;
+      int gt_label = static_cast<int>(gt_image[pixel_index]);
+      int pred_label = static_cast<int>(pred_image[pixel_index]);
+      atomicAdd(&smem[gt_label][pred_label][lane_id], 1);
+    }
+  __syncthreads();
+
+  CMScalar val = smem[threadIdx.y][threadIdx.x][lane_id];
+  for (unsigned int offset = NumLanes/2; offset > 0; offset /= 2)
+      val += __shfl_down(val, offset);
+
+  if (lane_id == 0)
+    atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * blockDim.x]), val);
 }
 
 void compute_confusion_matrix(const uint8_t* const gt_image,
@@ -459,22 +511,6 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
 template <typename Scalar>
 __global__ void get_diagonal(const Scalar* const matrix, int length, Scalar *diag) {
     diag[threadIdx.x] = matrix[threadIdx.x * length + threadIdx.x];
-}
-
-template <typename Scalar>
-__inline__ __device__
-Scalar warpReduceSum(Scalar val) {
-  for (unsigned int offset = warpSize/2; offset > 0; offset /= 2)
-    val += __shfl_down(val, offset);
-  return val;
-}
-
-template <typename Scalar>
-__inline__ __device__
-Scalar warpAllReduceSum(Scalar val) {
-  for (unsigned int mask = warpSize/2; mask > 0; mask /= 2)
-    val += __shfl_xor(val, mask);
-  return val;
 }
 
 __global__ void sum_reduce(const int* const matrix, int length, int* rowwise_sum, int* colwise_sum) {
@@ -668,6 +704,51 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
     dim3 gridDim(16, 4);
     dim3 blockDim(NumBins, NumBins);
     confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
+  }
+  {
+    dim3 blockdim(32, 32);
+    warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
+  }
+
+  gpu_timer.Stop();
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  print_vector("mean_iou =  ", mean_ious);
+
+  cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
+  cudaCheckError(cudaFree((void*)d_gt_image));
+  cudaCheckError(cudaFree((void*)d_pred_image));
+}
+
+
+void compute_warped_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
+  using ImageScalar = uint8_t;
+  using CMScalar = int;
+
+  ImageScalar* d_gt_image;
+  ImageScalar* d_pred_image;
+  const std::size_t image_bytes = width * height * sizeof(ImageScalar);
+  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
+  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+
+  static const int NumBins = 25;
+
+
+  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  CMScalar* d_conf_mat_ptr;
+  cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
+  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+
+  thrust::device_vector<float>mean_ious(1);
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  {
+    dim3 gridDim(16, 8);
+    dim3 blockDim(NumBins, NumBins);
+    confusion_matrix_shared_bins_warp<NumBins, 8><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
   }
   {
     dim3 blockdim(32, 32);

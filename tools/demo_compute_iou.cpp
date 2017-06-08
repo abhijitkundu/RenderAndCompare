@@ -224,6 +224,14 @@ int main(int argc, char **argv) {
       compute_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
       compute_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
     }
+
+    {
+      std::cout << "compute_warped_cmat_warped_iou---------------------------------------------" << std::endl;
+      compute_warped_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_warped_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_warped_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_warped_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+    }
   }
 
   {
