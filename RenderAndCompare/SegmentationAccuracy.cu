@@ -190,8 +190,6 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   cudaCheckError(cudaFree((void*)d_pred_image));
 }
 
-
-
 void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
                             const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
                             const int trials) {
@@ -415,15 +413,15 @@ __global__ void confusion_matrix_shared_bins(const ImageScalar* const gt_image,
   atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * blockDim.x]), smem[threadIdx.x][threadIdx.y]);
 }
 
-template<int NumBins, int NumLanes, typename ImageScalar, typename CMScalar>
-__global__ void confusion_matrix_shared_bins_warp(const ImageScalar* const gt_image,
-                                                  const ImageScalar* const pred_image, int width, int height,
-                                                  CMScalar* d_conf_mat) {
-  int lane_id = threadIdx.x % NumLanes;
-
+template<int NumBins, typename ImageScalar, typename CMScalar>
+__global__ void confusion_matrix_shared_strided_atomics(const ImageScalar* const gt_image,
+                                                        const ImageScalar* const pred_image,
+                                                        int width, int height,
+                                                        CMScalar* d_conf_mat) {
   // Initialize shared mem
-  __shared__ CMScalar smem[NumBins][NumBins][NumLanes];
-  smem[threadIdx.y][threadIdx.x][lane_id] = 0;
+  __shared__ CMScalar smem[NumBins][NumBins];
+  if ((threadIdx.y < NumBins) && (threadIdx.x < NumBins))
+    smem[threadIdx.y][threadIdx.x] = 0;
   __syncthreads();
 
   // pixel coordinates
@@ -439,16 +437,12 @@ __global__ void confusion_matrix_shared_bins_warp(const ImageScalar* const gt_im
       int pixel_index = row * width + col;
       int gt_label = static_cast<int>(gt_image[pixel_index]);
       int pred_label = static_cast<int>(pred_image[pixel_index]);
-      atomicAdd(&smem[gt_label][pred_label][lane_id], 1);
+      atomicAdd(&smem[gt_label][pred_label] , 1 );
     }
   __syncthreads();
 
-  CMScalar val = smem[threadIdx.y][threadIdx.x][lane_id];
-  for (unsigned int offset = NumLanes/2; offset > 0; offset /= 2)
-      val += __shfl_down(val, offset);
-
-  if (lane_id == 0)
-    atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * blockDim.x]), val);
+  if ((threadIdx.y < NumBins) && (threadIdx.x < NumBins))
+    atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * NumBins]), smem[threadIdx.y][threadIdx.x]);
 }
 
 void compute_confusion_matrix(const uint8_t* const gt_image,
@@ -507,7 +501,6 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
   cudaCheckError(cudaFree((void*)d_pred_image));
 }
 
-
 template <typename Scalar>
 __global__ void get_diagonal(const Scalar* const matrix, int length, Scalar *diag) {
     diag[threadIdx.x] = matrix[threadIdx.x * length + threadIdx.x];
@@ -530,8 +523,6 @@ __global__ void sum_reduce(const int* const matrix, int length, int* rowwise_sum
     colwise_sum[threadIdx.y] = col_sum;
   }
 }
-
-
 
 template <int NumBins>
 __global__ void warp_iou_kernel(const int* const matrix, float* mean_iou) {
@@ -581,7 +572,6 @@ __global__ void warp_iou_kernel(const int* const matrix, float* mean_iou) {
       mean_iou[0] = c_iou / c_valid;
   }
 }
-
 
 // simple routine to print contents of a vector
 template <typename Vector>
@@ -701,8 +691,8 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
   gpu_timer.Start();
 
   {
-    dim3 gridDim(16, 4);
     dim3 blockDim(NumBins, NumBins);
+    dim3 gridDim((width + NumBins - 1) / NumBins, (height + NumBins - 1) / NumBins);
     confusion_matrix_shared_bins<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
   }
   {
@@ -719,8 +709,7 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
   cudaCheckError(cudaFree((void*)d_pred_image));
 }
 
-
-void compute_warped_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
+void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
   using ImageScalar = uint8_t;
   using CMScalar = int;
 
@@ -733,8 +722,6 @@ void compute_warped_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t
   cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumBins = 25;
-
-
   const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr;
   cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
@@ -746,9 +733,10 @@ void compute_warped_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t
   gpu_timer.Start();
 
   {
-    dim3 gridDim(16, 8);
-    dim3 blockDim(NumBins, NumBins);
-    confusion_matrix_shared_bins_warp<NumBins, 8><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat_ptr);
+    int block_length = 25;
+    dim3 blockDim(block_length, block_length);
+    dim3 gridDim((width + block_length - 1) / block_length, (height + block_length - 1) / block_length);
+    confusion_matrix_shared_strided_atomics<NumBins><<<gridDim, blockDim>>>(d_gt_image, d_pred_image ,width, height, d_conf_mat_ptr);
   }
   {
     dim3 blockdim(32, 32);
@@ -763,8 +751,6 @@ void compute_warped_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t
   cudaCheckError(cudaFree((void*)d_gt_image));
   cudaCheckError(cudaFree((void*)d_pred_image));
 }
-
-
 
 template <typename ImageScalar, typename HistScalar>
 __global__ void histogram_atomics(const ImageScalar* const image, int width, int height, HistScalar *hist) {
@@ -912,8 +898,6 @@ void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, in
   cudaCheckError(cudaFree((void*)d_part_hist));
 }
 
-
-
 template <int NumBins, typename ImageScalar, typename HistScalar>
 __global__ void histogram_shared_bins(const ImageScalar* const image, std::size_t size, HistScalar *hist) {
 
@@ -932,7 +916,6 @@ __global__ void histogram_shared_bins(const ImageScalar* const image, std::size_
   __syncthreads();
   atomicAdd(&(hist[threadIdx.x]), smem[threadIdx.x]);
 }
-
 
 void computeHistogramWithSharedBins(const uint8_t* const image, int width, int height, int *hist, int num_labels) {
   using ImageScalar = uint8_t;
