@@ -150,6 +150,18 @@ int main(int argc, char **argv) {
     }
 
     {
+      std::cout << "\ncomputeIoUseq------------------------------------------------" << std::endl;
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      computeIoUseq(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end-start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+
+    }
+
+    {
       std::cout << "\ncomputeIoUwithCUDApar------------------------------------------------" << std::endl;
 
       std::cout << "\n------------------------------------------------" << std::endl;
@@ -174,6 +186,7 @@ int main(int argc, char **argv) {
         std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
       }
     }
+
   }
 
 
@@ -231,6 +244,14 @@ int main(int argc, char **argv) {
       compute_ssa_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
       compute_ssa_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
       compute_ssa_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+    }
+
+    {
+      std::cout << "compute_ssa1d_cmat_warped_iou---------------------------------------------" << std::endl;
+      compute_ssa1d_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_ssa1d_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_ssa1d_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
+      compute_ssa1d_cmat_warped_iou(&gt_images(image_id, 0, 0, 0), &pred_images(image_id, 0, 0, 0), 320, 240);
     }
   }
 

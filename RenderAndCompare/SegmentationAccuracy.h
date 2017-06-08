@@ -130,6 +130,11 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image,
                                  int width, int height);
 
 
+void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image,
+                                   const uint8_t* const pred_image,
+                                   int width, int height);
+
+
 void computeHistogramWithAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, int height, int *hist, int num_labels);
 void computeHistogramWithSharedBins(const uint8_t* const image, int width, int height, int *hist, int num_labels);
@@ -161,6 +166,7 @@ Eigen::VectorXi computeHistogramWithCPU(const Eigen::MatrixBase<Derived>& image)
 void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials = 3);
 void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials = 3);
 void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials = 3);
+void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images, const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials = 3);
 
 
 

@@ -190,199 +190,6 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   cudaCheckError(cudaFree((void*)d_pred_image));
 }
 
-void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
-                            const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
-                            const int trials) {
-  using ImageScalar = uint8_t;
-  using HistVector = int3;
-
-  if (gt_images.size() != pred_images.size())
-     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
-  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
-  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
-
-  uint8_t* d_gt_images;
-  uint8_t* d_pred_images;
-
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
-
-  for (int trial = 0; trial < trials; ++trial) {
-
-    static const int NumBins = 25;
-
-    const Eigen::Index images_per_blob = gt_images.dimension(0);
-    const Eigen::Index height = gt_images.dimension(2);
-    const Eigen::Index width = gt_images.dimension(3);
-    const Eigen::Index image_size = width * height;
-
-    GpuTimer gpu_timer;
-    gpu_timer.Start();
-
-    thrust::device_vector<HistVector> d_hist(NumBins);
-    thrust::host_vector<HistVector> h_hist(NumBins);
-
-    float mean_iou = 0;
-    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
-      // Initialize histogram to zeroes
-      thrust::fill(d_hist.begin(), d_hist.end(), make_int3(0, 0, 0));
-
-      const Eigen::Index offset = image_size * i;
-      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist.data().get());
-
-      h_hist = d_hist;
-      float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
-      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
-    }
-    mean_iou /= images_per_blob;
-
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
-    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
-    std::cout << "mean_iou = " << mean_iou << "\n";
-
-  }
-
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
-}
-
-void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
-                            const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
-                            const int trials) {
-  using ImageScalar = uint8_t;
-  using HistVector = int3;
-
-  if (gt_images.size() != pred_images.size())
-     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
-  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
-  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
-
-  uint8_t* d_gt_images;
-  uint8_t* d_pred_images;
-
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
-
-  for (int trial = 0; trial < trials; ++trial) {
-
-    static const int NumBins = 25;
-    const Eigen::Index images_per_blob = gt_images.dimension(0);
-    const Eigen::Index height = gt_images.dimension(2);
-    const Eigen::Index width = gt_images.dimension(3);
-    const Eigen::Index image_size = width * height;
-
-    HistVector* d_hist;
-    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
-    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
-    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
-
-    thrust::host_vector<HistVector, thrust::cuda::experimental::pinned_allocator<HistVector> > h_hist(images_per_blob * NumBins);
-
-    GpuTimer gpu_timer;
-    gpu_timer.Start();
-
-
-
-    float mean_iou = 0;
-  #pragma omp parallel for reduction(+:mean_iou)
-    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
-      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
-
-      const Eigen::Index offset = image_size * i;
-      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
-
-      auto h_hist_it = h_hist.begin() + NumBins * i;
-      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist_it);
-      float2 f2_mean_iou = thrust::transform_reduce(h_hist_it, h_hist_it + NumBins, class_iou(), make_float2(0, 0), add_float2());
-      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
-    }
-    mean_iou /= images_per_blob;
-
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
-    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
-    std::cout << "mean_iou = " << mean_iou << "\n";
-
-  }
-
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
-}
-
-void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
-                                const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
-                                const int trials) {
-  using ImageScalar = uint8_t;
-  using HistVector = int3;
-
-  if (gt_images.size() != pred_images.size())
-     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
-  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
-  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
-
-  uint8_t* d_gt_images;
-  uint8_t* d_pred_images;
-
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
-
-  for (int trial = 0; trial < trials; ++trial) {
-
-    static const int NumBins = 25;
-    const Eigen::Index images_per_blob = gt_images.dimension(0);
-    const Eigen::Index height = gt_images.dimension(2);
-    const Eigen::Index width = gt_images.dimension(3);
-    const Eigen::Index image_size = width * height;
-
-    HistVector* d_hist;
-    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
-    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
-    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
-
-    GpuTimer gpu_timer;
-    gpu_timer.Start();
-
-    float mean_iou = 0;
-
-    const int num_streams = 16;
-    cudaStream_t streams[num_streams];
-
-    omp_set_dynamic(0);     // Explicitly disable dynamic teams
-  #pragma omp parallel for reduction(+:mean_iou) num_threads(num_streams)
-    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
-      const auto threadId = omp_get_thread_num();
-      cudaStreamCreate(&streams[threadId]);
-
-      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
-
-      const Eigen::Index offset = image_size * i;
-      compute_seg_histograms_vector<NumBins><<<28*8, NumBins, 0, streams[threadId]>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
-
-      thrust::host_vector<HistVector> h_hist(NumBins);
-      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist.begin());
-      float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
-      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
-    }
-    mean_iou /= images_per_blob;
-
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
-    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
-    std::cout << "mean_iou = " << mean_iou << "\n";
-
-  }
-
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
-}
-
 template <int NumBins, typename ImageScalar, typename CMScalar>
 __global__ void confusion_matrix_shared_bins(const ImageScalar* const gt_image,
                                              const ImageScalar* const pred_image,
@@ -443,6 +250,32 @@ __global__ void confusion_matrix_shared_strided_atomics(const ImageScalar* const
 
   if ((threadIdx.y < NumBins) && (threadIdx.x < NumBins))
     atomicAdd(&(d_conf_mat[threadIdx.x + threadIdx.y * NumBins]), smem[threadIdx.y][threadIdx.x]);
+}
+
+template<int NumLabels, typename ImageScalar, typename CMScalar>
+__global__ void confusion_matrix_shared_1d_strided_atomics(const ImageScalar* const gt_image,
+                                                           const ImageScalar* const pred_image,
+                                                           int size,
+                                                           CMScalar* d_conf_mat) {
+  static const int NumBins = NumLabels * NumLabels;
+  // Initialize shared mem
+  __shared__ CMScalar smem[NumBins];
+  if (threadIdx.x < NumBins)
+    smem[threadIdx.x] = 0;
+  __syncthreads();
+
+  // stride length
+  const int stride = blockDim.x * gridDim.x;
+
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < size; i += stride) {
+    int gt_label = static_cast<int>(gt_image[i]);
+    int pred_label = static_cast<int>(pred_image[i]);
+    atomicAdd(&smem[gt_label * NumLabels + pred_label] , 1 );
+  }
+  __syncthreads();
+
+  if (threadIdx.x < NumBins)
+    atomicAdd(&(d_conf_mat[threadIdx.x]), smem[threadIdx.x]);
 }
 
 void compute_confusion_matrix(const uint8_t* const gt_image,
@@ -752,6 +585,50 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* c
   cudaCheckError(cudaFree((void*)d_pred_image));
 }
 
+void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
+  using ImageScalar = uint8_t;
+  using CMScalar = int;
+
+  ImageScalar* d_gt_image;
+  ImageScalar* d_pred_image;
+  const std::size_t image_bytes = width * height * sizeof(ImageScalar);
+  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
+  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+
+  static const int NumBins = 25;
+  const std::size_t conf_mat_bytes = NumBins * NumBins * sizeof(CMScalar);
+  CMScalar* d_conf_mat_ptr;
+  cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
+  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+
+  thrust::device_vector<float>mean_ious(1);
+
+  GpuTimer gpu_timer;
+  gpu_timer.Start();
+
+  {
+    int size  = width * height;
+    int blocksize = 1024; // Minimum: NumBins * NumBins
+    int gridsize = (size + blocksize - 1) / blocksize;
+    assert(blocksize >= NumBins * NumBins);
+    confusion_matrix_shared_1d_strided_atomics<NumBins><<<gridsize, blocksize>>>(d_gt_image, d_pred_image ,size, d_conf_mat_ptr);
+  }
+  {
+    dim3 blockdim(32, 32);
+    warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
+  }
+
+  gpu_timer.Stop();
+  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  print_vector("mean_iou =  ", mean_ious);
+
+  cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
+  cudaCheckError(cudaFree((void*)d_gt_image));
+  cudaCheckError(cudaFree((void*)d_pred_image));
+}
+
 template <typename ImageScalar, typename HistScalar>
 __global__ void histogram_atomics(const ImageScalar* const image, int width, int height, HistScalar *hist) {
   // pixel coordinates
@@ -1042,6 +919,260 @@ void computeHistogramWithThrust(const uint8_t* const image, int width, int heigh
 
   cudaCheckError(cudaMemcpy(hist, histogram.data().get(), num_bins * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 }
+
+
+void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                   const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images, const int trials) {
+  using ImageScalar = uint8_t;
+  using CMScalar = int;
+
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  for (int trial = 0; trial < trials; ++trial) {
+    static const int NumBins = 25;
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
+
+    thrust::device_vector<CMScalar>d_conf_mat(NumBins * NumBins);
+    thrust::device_vector<float>mean_ious(images_per_blob);
+
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      const Eigen::Index offset = image_size * i;
+      {
+        thrust::fill(d_conf_mat.begin(), d_conf_mat.end(), 0);
+        const int blocksize = 1024; // Minimum: NumBins * NumBins
+        const int gridsize = (image_size + blocksize - 1) / blocksize;
+        assert(blocksize >= NumBins * NumBins);
+        confusion_matrix_shared_1d_strided_atomics<NumBins><<<gridsize, blocksize>>>(d_gt_images + offset, d_pred_images + offset , image_size, d_conf_mat.data().get());
+      }
+      {
+        dim3 blockdim(32, 32);
+        warp_iou_kernel<NumBins><<<1, blockdim>>>(d_conf_mat.data().get(), mean_ious.data().get() + i);
+      }
+    }
+    float mean_iou = thrust::reduce(mean_ious.begin(), mean_ious.end(), 0.0f, thrust::plus<float>());
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
+
+}
+
+void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                            const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
+                            const int trials) {
+  using ImageScalar = uint8_t;
+  using HistVector = int3;
+
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  for (int trial = 0; trial < trials; ++trial) {
+
+    static const int NumBins = 25;
+
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
+
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+    thrust::device_vector<HistVector> d_hist(NumBins);
+    thrust::host_vector<HistVector> h_hist(NumBins);
+
+    float mean_iou = 0;
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      // Initialize histogram to zeroes
+      thrust::fill(d_hist.begin(), d_hist.end(), make_int3(0, 0, 0));
+
+      const Eigen::Index offset = image_size * i;
+      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist.data().get());
+
+      h_hist = d_hist;
+      float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
+      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
+    }
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
+
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
+}
+
+void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                            const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
+                            const int trials) {
+  using ImageScalar = uint8_t;
+  using HistVector = int3;
+
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  for (int trial = 0; trial < trials; ++trial) {
+
+    static const int NumBins = 25;
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
+
+    HistVector* d_hist;
+    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
+    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
+    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
+
+    thrust::host_vector<HistVector, thrust::cuda::experimental::pinned_allocator<HistVector> > h_hist(images_per_blob * NumBins);
+
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+
+
+    float mean_iou = 0;
+  #pragma omp parallel for reduction(+:mean_iou)
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
+
+      const Eigen::Index offset = image_size * i;
+      compute_seg_histograms_vector<NumBins><<<28*8, NumBins>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
+
+      auto h_hist_it = h_hist.begin() + NumBins * i;
+      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist_it);
+      float2 f2_mean_iou = thrust::transform_reduce(h_hist_it, h_hist_it + NumBins, class_iou(), make_float2(0, 0), add_float2());
+      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
+    }
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
+
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
+}
+
+void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
+                                const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& pred_images,
+                                const int trials) {
+  using ImageScalar = uint8_t;
+  using HistVector = int3;
+
+  if (gt_images.size() != pred_images.size())
+     throw std::runtime_error("Dimension mismatch: gt_images.dimensions() ! = pred_images.dimensions()");
+  const std::size_t gt_images_bytes = gt_images.size()  * sizeof(uint8_t);
+  const std::size_t pred_images_bytes = pred_images.size()  * sizeof(uint8_t);
+
+  uint8_t* d_gt_images;
+  uint8_t* d_pred_images;
+
+  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+
+  for (int trial = 0; trial < trials; ++trial) {
+
+    static const int NumBins = 25;
+    const Eigen::Index images_per_blob = gt_images.dimension(0);
+    const Eigen::Index height = gt_images.dimension(2);
+    const Eigen::Index width = gt_images.dimension(3);
+    const Eigen::Index image_size = width * height;
+
+    HistVector* d_hist;
+    const std::size_t d_hist_bytes = images_per_blob * NumBins * sizeof(HistVector);
+    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
+    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
+
+    GpuTimer gpu_timer;
+    gpu_timer.Start();
+
+    float mean_iou = 0;
+
+    const int num_streams = 16;
+    cudaStream_t streams[num_streams];
+
+    omp_set_dynamic(0);     // Explicitly disable dynamic teams
+  #pragma omp parallel for reduction(+:mean_iou) num_threads(num_streams)
+    for (Eigen::Index i = 0; i < images_per_blob; ++i) {
+      const auto threadId = omp_get_thread_num();
+      cudaStreamCreate(&streams[threadId]);
+
+      thrust::device_ptr<HistVector> d_hist_ptr(d_hist + NumBins * i);
+
+      const Eigen::Index offset = image_size * i;
+      compute_seg_histograms_vector<NumBins><<<28*8, NumBins, 0, streams[threadId]>>>(d_gt_images + offset, d_pred_images + offset, image_size, d_hist_ptr.get());
+
+      thrust::host_vector<HistVector> h_hist(NumBins);
+      thrust::copy(d_hist_ptr, d_hist_ptr + NumBins, h_hist.begin());
+      float2 f2_mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
+      mean_iou += f2_mean_iou.x / f2_mean_iou.y;
+    }
+    mean_iou /= images_per_blob;
+
+    gpu_timer.Stop();
+    float elapsed_millis = gpu_timer.ElapsedMillis();
+    std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
+    std::cout << "mean_iou = " << mean_iou << "\n";
+
+  }
+
+  cudaCheckError(cudaFree((void*)d_gt_images));
+  cudaCheckError(cudaFree((void*)d_pred_images));
+}
+
 
 }  // namespace RaC
 
