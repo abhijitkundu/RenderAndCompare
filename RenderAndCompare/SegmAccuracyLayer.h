@@ -54,12 +54,8 @@ class SegmAccuracyLayer : public Layer<Dtype> {
   Eigen::VectorXi ignored_labels_;
   std::vector<SegmAccuracyParameter_AccuracyMetric> metrics_;
 
-  int total_pixels_;
-  int ok_pixels_;
-
-  Eigen::VectorXi total_pixels_class_;
-  Eigen::VectorXi ok_pixels_class_;
-  Eigen::VectorXi label_pixels_;
+  // confidence_matrix used by CPU
+  Eigen::MatrixXi confidence_matrix_;
 };
 
 }  // namespace caffe

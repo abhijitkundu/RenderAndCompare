@@ -3,11 +3,16 @@ file(GLOB _SRCS *.cpp *.cu)
 
 ########################### Add Target ################################
 
-cuda_include_directories("${EIGEN_INCLUDE_DIRS}")
+get_target_property(Caffe_INCLUDE_DIRS caffe INTERFACE_INCLUDE_DIRECTORIES)
+
+cuda_include_directories(
+  ${EIGEN_INCLUDE_DIRS}
+  ${Caffe_INCLUDE_DIRS}
+  )
 cuda_add_library(RenderAndCompare ${_SRCS} ${_HDRS})
 target_link_libraries(RenderAndCompare
   CuteGL::Surface
-  ${Caffe_LIBRARIES}
+  caffe
   ${Boost_LIBRARIES}
   ${HDF5_LIBRARIES}  
   ${OpenCV_LIBS}
@@ -19,7 +24,6 @@ target_include_directories(RenderAndCompare
     ${EIGEN_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${HDF5_INCLUDE_DIRS}
-    ${Caffe_INCLUDE_DIRS}
     ${CUDA_INCLUDE_DIRS}
  )
 

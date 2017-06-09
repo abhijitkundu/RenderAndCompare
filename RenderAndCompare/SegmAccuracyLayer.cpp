@@ -49,16 +49,9 @@ void SegmAccuracyLayer<Dtype>::LayerSetUp(
   LOG(INFO) << "label_map_.size() = " << label_map_.size();
   LOG(INFO) << "ignored_labels_.size() = " << ignored_labels_.size();
 
-  total_pixels_class_.resize(num_of_labels_);
-  ok_pixels_class_.resize(num_of_labels_);
-  label_pixels_.resize(num_of_labels_);
 
-  total_pixels_class_.setZero();
-  ok_pixels_class_.setZero();
-  label_pixels_.setZero();
-
-  total_pixels_ = 0;
-  ok_pixels_ = 0;
+  confidence_matrix_.resize(num_of_labels_, num_of_labels_);
+  confidence_matrix_.setZero();
 }
 
 template <typename Dtype>
@@ -89,15 +82,11 @@ void SegmAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
 
 
   if (reset_) {
-    total_pixels_class_.setZero();
-    ok_pixels_class_.setZero();
-    label_pixels_.setZero();
-
-    total_pixels_ = 0;
-    ok_pixels_ = 0;
+    confidence_matrix_.setZero();
   }
 
   const int num = bottom[0]->num();
+  assert(bottom[0]->channels() == 1);
   const int height = bottom[0]->height();
   const int width = bottom[0]->width();
 
@@ -128,46 +117,27 @@ void SegmAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
               << ". num: " << i  << ". row: " << h << ". col: " << w;
         }
 
-        ++total_pixels_;
-        ++total_pixels_class_[gt_label];
-
-        ++label_pixels_[pred_label];
-
-        if (gt_label == pred_label) {
-          ++ok_pixels_;
-          ++ok_pixels_class_[gt_label];
-        }
-
+        ++confidence_matrix_(gt_label, pred_label);
       }
     pred_labels_data  += bottom[0]->offset(1);
     gt_labels_data += bottom[1]->offset(1);
   }
 
-//  { // For Debug purposes
-//    using Vector = Eigen::Matrix<Dtype, Eigen::Dynamic, 1>;
-//    Vector class_ious = 100.0 * ok_pixels_class_.cast<Dtype>().array()
-//          / (total_pixels_class_ + label_pixels_ - ok_pixels_class_).cast<Dtype>().array();
-//    Dtype mean_class_iou = class_ious.mean();
-//
-//    Vector class_pixel_accs = 100.0 * ok_pixels_class_.cast<Dtype>().array() / label_pixels_.cast<Dtype>().array();
-//    Dtype mean_class_pixel_acc = class_pixel_accs.mean();
-//
-//    Dtype global_pixel_acc = Dtype(ok_pixels_ * 100.0) / total_pixels_;
-//
-//    LOG(INFO) << "class_iou= " << mean_class_iou << " class_pixel_acc= " << mean_class_pixel_acc << " global_pixel_acc= " << global_pixel_acc;
-//  }
+  const Eigen::ArrayXi true_positives = confidence_matrix_.diagonal();
+  const Eigen::ArrayXi gt_pixels = confidence_matrix_.rowwise().sum();
+  const Eigen::ArrayXi pred_pixels = confidence_matrix_.colwise().sum();
+
 
   for (std::size_t i =0; i < metrics_.size(); ++i) {
     switch (metrics_[i]) {
       case SegmAccuracyParameter_AccuracyMetric_PixelAccuracy:
-        top[i]->mutable_cpu_data()[0] = Dtype(ok_pixels_) / total_pixels_;
+        top[i]->mutable_cpu_data()[0] = Dtype(true_positives.sum()) / gt_pixels.sum();
         break;
       case SegmAccuracyParameter_AccuracyMetric_ClassAccuracy:
-        top[i]->mutable_cpu_data()[0] = (ok_pixels_class_.cast<Dtype>().array() / label_pixels_.cast<Dtype>().array()).mean();
+        top[i]->mutable_cpu_data()[0] = (true_positives.cast<Dtype>() / pred_pixels.cast<Dtype>()).mean();
         break;
       case SegmAccuracyParameter_AccuracyMetric_ClassIoU:
-        top[i]->mutable_cpu_data()[0] = (ok_pixels_class_.cast<Dtype>().array()
-            / (total_pixels_class_ + label_pixels_ - ok_pixels_class_).cast<Dtype>().array()).mean();
+        top[i]->mutable_cpu_data()[0] = (true_positives.cast<Dtype>() / (gt_pixels + pred_pixels - true_positives).cast<Dtype>()).mean();
         break;
       default:
           LOG(FATAL) << "Unknown Accuracy metric.";
