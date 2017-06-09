@@ -22,9 +22,11 @@ void SegmAccuracyLayer<Dtype>::LayerSetUp(
   num_of_labels_ = segm_accuracy_param.num_of_labels();
   reset_ = segm_accuracy_param.reset();
 
-  label_map_.resize(segm_accuracy_param.label_map_size());
-  for (int i = 0; i < segm_accuracy_param.label_map_size(); ++i) {
-    label_map_[i] = segm_accuracy_param.label_map(i);
+  label_map_.Reshape({segm_accuracy_param.label_map_size()});
+  {
+    int* label_map_data = label_map_.mutable_cpu_data();
+    for (int i = 0; i < segm_accuracy_param.label_map_size(); ++i)
+      label_map_data[i] = segm_accuracy_param.label_map(i);
   }
 
   ignored_labels_.resize(segm_accuracy_param.ignored_labels_size());
@@ -32,9 +34,10 @@ void SegmAccuracyLayer<Dtype>::LayerSetUp(
     ignored_labels_[i] = segm_accuracy_param.ignored_labels(i);
   }
 
-  if (label_map_.size())  {
-    CHECK_EQ(label_map_.minCoeff(), 0);
-    CHECK_EQ(label_map_.maxCoeff(), num_of_labels_ -  1);
+  if (label_map_.count())  {
+    Eigen::Map<const Eigen::VectorXi> label_map(label_map_.cpu_data(), label_map_.count());
+    CHECK_EQ(label_map.minCoeff(), 0);
+    CHECK_EQ(label_map.maxCoeff(), num_of_labels_ -  1);
   }
 
   CHECK_EQ(top.size(), segm_accuracy_param.metrics_size()) << "Number of tops should be same as number of metrics";
@@ -44,14 +47,15 @@ void SegmAccuracyLayer<Dtype>::LayerSetUp(
   }
   CHECK_EQ(top.size(), metrics_.size());
 
+  // Initialize confidence matrix
+  confidence_matrix_.Reshape({num_of_labels_, num_of_labels_});
+  caffe_set(confidence_matrix_.count(), 0, confidence_matrix_.mutable_cpu_data());
+
   LOG(INFO) << "num_of_labels = " << num_of_labels_;
   LOG(INFO) << "Reset every pass = " << std::boolalpha << reset_;
-  LOG(INFO) << "label_map_.size() = " << label_map_.size();
+  LOG(INFO) << "label_map_.shape() = " << label_map_.shape_string();
+  LOG(INFO) << "confidence_matrix_.shape() = " << confidence_matrix_.shape_string();
   LOG(INFO) << "ignored_labels_.size() = " << ignored_labels_.size();
-
-
-  confidence_matrix_.resize(num_of_labels_, num_of_labels_);
-  confidence_matrix_.setZero();
 }
 
 template <typename Dtype>
@@ -77,18 +81,21 @@ void SegmAccuracyLayer<Dtype>::Reshape(
 
 template <typename Dtype>
 void SegmAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  if (reset_) {
+    caffe_set(confidence_matrix_.count(), 0, confidence_matrix_.mutable_cpu_data());
+  }
+
   const Dtype* pred_labels_data = bottom[0]->cpu_data();
   const Dtype* gt_labels_data = bottom[1]->cpu_data();
-
-
-  if (reset_) {
-    confidence_matrix_.setZero();
-  }
+  const int* label_map_data = label_map_.cpu_data();
 
   const int num = bottom[0]->num();
   assert(bottom[0]->channels() == 1);
   const int height = bottom[0]->height();
   const int width = bottom[0]->width();
+
+  using RowMajorMatrixXi = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+  Eigen::Map<RowMajorMatrixXi> confidence_matrix(confidence_matrix_.mutable_cpu_data(), num_of_labels_, num_of_labels_);
 
   for (int i = 0; i < num; ++i) {
     for (int h = 0; h < height; ++h)
@@ -98,11 +105,13 @@ void SegmAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
         int pred_label;
         int gt_label;
 
-        if (label_map_.size()) {
-          pred_label = label_map_[static_cast<int>(pred_labels_data[index])];
-          gt_label = label_map_[static_cast<int>(gt_labels_data[index])];
+        if (label_map_.count()) {
+          // TODO assert bound check
+          pred_label = label_map_data[static_cast<int>(pred_labels_data[index])];
+          gt_label = label_map_data[static_cast<int>(gt_labels_data[index])];
         }
         else {
+          // TODO assert bound check
           pred_label = static_cast<int>(pred_labels_data[index]);
           gt_label = static_cast<int>(gt_labels_data[index]);
         }
@@ -117,15 +126,15 @@ void SegmAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
               << ". num: " << i  << ". row: " << h << ". col: " << w;
         }
 
-        ++confidence_matrix_(gt_label, pred_label);
+        ++confidence_matrix(gt_label, pred_label);
       }
     pred_labels_data  += bottom[0]->offset(1);
     gt_labels_data += bottom[1]->offset(1);
   }
 
-  const Eigen::ArrayXi true_positives = confidence_matrix_.diagonal();
-  const Eigen::ArrayXi gt_pixels = confidence_matrix_.rowwise().sum();
-  const Eigen::ArrayXi pred_pixels = confidence_matrix_.colwise().sum();
+  const Eigen::ArrayXi true_positives = confidence_matrix.diagonal();
+  const Eigen::ArrayXi gt_pixels = confidence_matrix.rowwise().sum();
+  const Eigen::ArrayXi pred_pixels = confidence_matrix.colwise().sum();
 
 
   for (std::size_t i =0; i < metrics_.size(); ++i) {

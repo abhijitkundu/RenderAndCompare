@@ -1,14 +1,14 @@
 #ifndef CAFFE_SEGM_ACCURACY_LAYER_H_
 #define CAFFE_SEGM_ACCURACY_LAYER_H_
 
-#include <vector>
-#include <Eigen/Core>
-
+#include <thrust/device_vector.h>
 #include "caffe/blob.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
 #include "caffe/layers/loss_layer.hpp"
+#include <Eigen/Core>
+#include <vector>
 
 namespace caffe {
 
@@ -34,6 +34,7 @@ class SegmAccuracyLayer : public Layer<Dtype> {
 
  protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+//  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
 
 
   /// @brief Not implemented -- SegmAccuracyLayer cannot be used as a loss.
@@ -50,12 +51,15 @@ class SegmAccuracyLayer : public Layer<Dtype> {
   int num_of_labels_;
   bool reset_;
 
-  Eigen::VectorXi label_map_;
+
   Eigen::VectorXi ignored_labels_;
   std::vector<SegmAccuracyParameter_AccuracyMetric> metrics_;
 
-  // confidence_matrix used by CPU
-  Eigen::MatrixXi confidence_matrix_;
+  // Label Map used
+  Blob<int> label_map_;
+
+  // TODO use unsigned int type
+  Blob<int> confidence_matrix_;
 };
 
 }  // namespace caffe
