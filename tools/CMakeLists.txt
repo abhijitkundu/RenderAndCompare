@@ -31,5 +31,5 @@ target_link_libraries(evaluate_bodyparts_segmentation RenderAndCompare)
 add_executable(check_smpl_render_layer check_smpl_render_layer.cpp)
 target_link_libraries(check_smpl_render_layer RenderAndCompare)
 
-cuda_add_executable(demo_compute_iou demo_compute_iou.cpp)
-target_link_libraries(demo_compute_iou RenderAndCompare)
+cuda_add_executable(benchmark_segmentation_accuracy benchmark_segmentation_accuracy.cpp)
+target_link_libraries(benchmark_segmentation_accuracy RenderAndCompare)

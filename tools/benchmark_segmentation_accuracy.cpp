@@ -1,6 +1,6 @@
 /**
- * @file demo_compute_iou.cpp
- * @brief demo_compute_iou
+ * @file benchmark_segmentation_accuracy.cpp
+ * @brief benchmark_segmentation_accuracy
  *
  * @author Abhijit Kundu
  */
