@@ -67,6 +67,14 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   LOG(INFO)<< "Adding SMPL data to renderer";
   renderer_->setSMPLData("smpl_neutral_lbs_10_207_0.h5", "vertex_segm24_col24_14.h5");
 
+  {
+    viewer_->fbo().bind();
+    GLuint rbo_id = viewer_->fbo().getRenderBufferObjectName(GL_COLOR_ATTACHMENT3);
+    viewer_->fbo().release();
+    cudaCheckError(cudaGraphicsGLRegisterImage(&cuda_gl_resource_, rbo_id, GL_RENDERBUFFER, cudaGraphicsRegisterFlagsReadOnly));
+  }
+
+
   LOG(INFO)<< "Done Setting up SMPLRenderLayer";
 }
 

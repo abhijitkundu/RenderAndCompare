@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.0)
-project(RenderAndCompare)
+project(RenderAndCompare CXX)
 
 ########################### Misc. Configs ##############################
 message(STATUS "=============================================================")
@@ -84,7 +84,6 @@ list(APPEND CUDA_NVCC_FLAGS "--expt-relaxed-constexpr")
 list(APPEND CUDA_NVCC_FLAGS "-Xcudafe \"--display_error_number\"")
     
 message(STATUS "Found Cuda. Using CUDA_NVCC_FLAGS=${CUDA_NVCC_FLAGS}")
-
 
 message(STATUS "=============================================================")
 message(STATUS "========== Adding RenderAndCompare Library ==================")

@@ -9,6 +9,7 @@
 #define RENDERANDCOMPARE_CUDAHELPER_H_
 
 #include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
 
 namespace RaC {
 
