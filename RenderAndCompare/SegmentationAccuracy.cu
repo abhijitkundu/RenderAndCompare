@@ -166,8 +166,9 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   thrust::device_vector<HistVector> d_hist(NumLabels);
   thrust::device_vector<float2> d_mean_ious(1);
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   // Initialize histogram to zeroes
   thrust::fill(d_hist.begin(), d_hist.end(), make_int3(0, 0, 0));
@@ -181,8 +182,8 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   float2 mean_iou = thrust::transform_reduce(h_hist.begin(), h_hist.end(), class_iou(), make_float2(0, 0), add_float2());
 
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
 //  float2 mean_iou = d_mean_ious[0];
   std::cout << "mean_iou = " << mean_iou.x /  mean_iou.y << "\n";
 
@@ -302,8 +303,9 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
 
   using Vector = Eigen::Matrix<CMScalar, NumLabels, 1>;
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   dim3 gridDim(16, 4);
   dim3 blockDim(NumLabels, NumLabels);
@@ -326,8 +328,8 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
   mean_iou /= valid_labels;
 
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   std::cout << "mean_iou = " << mean_iou << "\n";
 
   cudaCheckError(cudaFree((void*)d_gt_image));
@@ -459,8 +461,9 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   const Eigen::array<int, 1> red_axis({0});
   const Eigen::array<int, 1> green_axis({1});
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   dim3 gridDim(16, 4);
   dim3 blockDim(NumLabels, NumLabels);
@@ -487,8 +490,8 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   }
   mean_iou /= valid_labels;
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   std::cout << "mean_iou = " << mean_iou << "\n";
 
   gpu_device.deallocate(d_conf_mat_ptr);
@@ -520,8 +523,9 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
 
   thrust::device_vector<float>mean_ious(1);
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   {
     dim3 blockDim(NumLabels, NumLabels);
@@ -533,8 +537,8 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
     warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
   }
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   print_vector("mean_iou =  ", mean_ious);
 
   cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
@@ -562,8 +566,9 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* c
 
   thrust::device_vector<float>mean_ious(1);
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   {
     int block_length = 25;
@@ -576,8 +581,8 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* c
     warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
   }
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   print_vector("mean_iou =  ", mean_ious);
 
   cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
@@ -605,8 +610,9 @@ void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t*
 
   thrust::device_vector<float>mean_ious(1);
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   {
     int size  = width * height;
@@ -620,8 +626,8 @@ void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t*
     warp_iou_kernel<NumLabels><<<1, blockdim>>>(d_conf_mat_ptr, mean_ious.data().get());
   }
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms.  ";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   print_vector("mean_iou =  ", mean_ious);
 
   cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
@@ -659,9 +665,9 @@ void computeHistogramWithAtomics(const uint8_t* const image, int width, int heig
   HistScalar *d_hist;
   cudaCheckError(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
 
-
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
 
@@ -670,8 +676,8 @@ void computeHistogramWithAtomics(const uint8_t* const image, int width, int heig
 
   histogram_atomics<<<grid, block>>>(d_image, width, height, d_hist);
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
   cudaCheckError(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
@@ -758,15 +764,16 @@ void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, in
   dim3 block2(128);
   dim3 grid2((NumLabels + block.x - 1) / block.x);
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   histogram_smem_atomics<NumLabels, NumParts><<<grid, block>>>(d_image, width, height, d_part_hist);
 
   histogram_smem_accum<NumLabels, NumParts><<<grid2, block2>>>(d_part_hist, total_blocks, d_hist);
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
   cudaCheckError(cudaMemcpy(hist, d_hist, NumLabels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
@@ -813,8 +820,9 @@ void computeHistogramWithSharedBins(const uint8_t* const image, int width, int h
   HistScalar *d_hist;
   cudaCheckError(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
 
@@ -822,8 +830,8 @@ void computeHistogramWithSharedBins(const uint8_t* const image, int width, int h
 
   histogram_shared_bins<NumLabels><<<numSMs*8, NumLabels>>>(d_image, width * height, d_hist);
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
   cudaCheckError(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
@@ -870,16 +878,17 @@ void computeHistogramWithPrivateBins(const uint8_t* const image, int width, int 
   HistScalar *d_hist;
   cudaCheckError(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
   static const int NumLabels = 25;
 
   histogram_private_bins<NumLabels><<<numSMs, 256>>>(d_image, width * height, d_hist);
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
   cudaCheckError(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
@@ -896,8 +905,9 @@ void computeHistogramWithThrust(const uint8_t* const image, int width, int heigh
 
   thrust::device_vector<HistScalar> histogram(num_bins);
 
+  using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
-  gpu_timer.Start();
+  gpu_timer.start();
 
   // sort data to bring equal elements together
   thrust::sort(d_image.begin(), d_image.end());
@@ -914,8 +924,8 @@ void computeHistogramWithThrust(const uint8_t* const image, int width, int heigh
   // compute the histogram by taking differences of the cumulative histogram
   thrust::adjacent_difference(histogram.begin(), histogram.end(), histogram.begin());
 
-  gpu_timer.Stop();
-  std::cout << "GPU Time = " << gpu_timer.ElapsedMillis() << " ms\n";
+  gpu_timer.stop();
+  std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
   cudaCheckError(cudaMemcpy(hist, histogram.data().get(), num_bins * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 }
@@ -949,8 +959,9 @@ void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
     thrust::device_vector<CMScalar>d_conf_mat(NumLabels * NumLabels);
     thrust::device_vector<float>mean_ious(images_per_blob);
 
+    using CuteGL::GpuTimer;
     GpuTimer gpu_timer;
-    gpu_timer.Start();
+    gpu_timer.start();
 
     for (Eigen::Index i = 0; i < images_per_blob; ++i) {
       const Eigen::Index offset = image_size * i;
@@ -969,8 +980,8 @@ void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
     float mean_iou = thrust::reduce(mean_ious.begin(), mean_ious.end(), 0.0f, thrust::plus<float>());
     mean_iou /= images_per_blob;
 
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
+    gpu_timer.stop();
+    float elapsed_millis = gpu_timer.elapsed_in_ms();
     std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
     std::cout << "mean_iou = " << mean_iou << "\n";
 
@@ -1008,8 +1019,9 @@ void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
     const Eigen::Index width = gt_images.dimension(3);
     const Eigen::Index image_size = width * height;
 
+    using CuteGL::GpuTimer;
     GpuTimer gpu_timer;
-    gpu_timer.Start();
+    gpu_timer.start();
 
     thrust::device_vector<HistVector> d_hist(NumLabels);
     thrust::host_vector<HistVector> h_hist(NumLabels);
@@ -1028,8 +1040,8 @@ void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
     }
     mean_iou /= images_per_blob;
 
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
+    gpu_timer.stop();
+    float elapsed_millis = gpu_timer.elapsed_in_ms();
     std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
     std::cout << "mean_iou = " << mean_iou << "\n";
 
@@ -1073,8 +1085,9 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
 
     thrust::host_vector<HistVector, thrust::cuda::experimental::pinned_allocator<HistVector> > h_hist(images_per_blob * NumLabels);
 
+    using CuteGL::GpuTimer;
     GpuTimer gpu_timer;
-    gpu_timer.Start();
+    gpu_timer.start();
 
 
 
@@ -1093,8 +1106,8 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
     }
     mean_iou /= images_per_blob;
 
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
+    gpu_timer.stop();
+    float elapsed_millis = gpu_timer.elapsed_in_ms();
     std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
     std::cout << "mean_iou = " << mean_iou << "\n";
 
@@ -1132,8 +1145,9 @@ void computeIoUpar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
     thrust::device_vector<CMScalar>d_conf_mats(NumLabels * NumLabels * images_per_blob, 0);
     thrust::device_vector<float>mean_ious(images_per_blob);
 
+    using CuteGL::GpuTimer;
     GpuTimer gpu_timer;
-    gpu_timer.Start();
+    gpu_timer.start();
 
 #pragma omp parallel for
     for (Eigen::Index i = 0; i < images_per_blob; ++i) {
@@ -1156,8 +1170,8 @@ void computeIoUpar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
     float mean_iou = thrust::reduce(mean_ious.begin(), mean_ious.end(), 0.0f, thrust::plus<float>());
     mean_iou /= images_per_blob;
 
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
+    gpu_timer.stop();
+    float elapsed_millis = gpu_timer.elapsed_in_ms();
     std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
     std::cout << "mean_iou = " << mean_iou << "\n";
 
@@ -1199,8 +1213,9 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
     cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
     cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
 
+    using CuteGL::GpuTimer;
     GpuTimer gpu_timer;
-    gpu_timer.Start();
+    gpu_timer.start();
 
     float mean_iou = 0;
 
@@ -1225,8 +1240,8 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
     }
     mean_iou /= images_per_blob;
 
-    gpu_timer.Stop();
-    float elapsed_millis = gpu_timer.ElapsedMillis();
+    gpu_timer.stop();
+    float elapsed_millis = gpu_timer.elapsed_in_ms();
     std::cout << "GPU Time = " << elapsed_millis << " ms.  ";
     std::cout << "mean_iou = " << mean_iou << "\n";
 

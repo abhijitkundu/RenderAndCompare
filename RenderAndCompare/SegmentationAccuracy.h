@@ -10,11 +10,11 @@
 
 #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
 
+#include <CuteGL/Utils/CudaUtils.h>
 #include <Eigen/Core>
 #include <Eigen/CXX11/Tensor>
 #include <chrono>
 #include <iostream>
-#include "RenderAndCompare/CudaHelper.h"
 
 namespace RaC {
 

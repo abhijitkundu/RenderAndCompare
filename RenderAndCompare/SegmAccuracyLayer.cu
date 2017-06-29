@@ -6,6 +6,7 @@
  */
 
 #include "SegmAccuracyLayer.h"
+#include "SegmAccuracyLayer.h"
 
 namespace caffe {
 
