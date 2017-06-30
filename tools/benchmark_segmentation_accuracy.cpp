@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  cudaCheckError(cudaSetDevice(0));
+  CUDA_CHECK(cudaSetDevice(0));
 
   {
     std::cout << "\n\n-------------------- Batch Images average IoU ----------------------\n";

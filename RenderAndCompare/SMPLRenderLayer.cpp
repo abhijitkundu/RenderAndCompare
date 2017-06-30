@@ -47,7 +47,7 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   std::vector<int> shape = {num_frames, 1, image_size.y(), image_size.x()};
   top[0]->Reshape(shape);
 
-  renderer_.reset(new CuteGL::SMPLRenderer);
+  renderer_.reset(new CuteGL::BatchSMPLRenderer);
   renderer_->setDisplayGrid(false);
   renderer_->setDisplayAxis(false);
 
@@ -57,6 +57,11 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   viewer_->camera().intrinsics() = getGLPerspectiveProjection(K, image_size.x(), image_size.y(), 0.01f, 100.0f);
 
+  // Set camera pose via lookAt
+  viewer_->setCameraToLookAt(Eigen::Vector3f(0.0f, 0.85f, 2.6f),
+                             Eigen::Vector3f(0.0f, 0.85f, 0.0f),
+                             Eigen::Vector3f::UnitY());
+
   LOG(INFO)<< "image_size= " << image_size.x() <<" x " << image_size.y();
   LOG(INFO)<< "K=\n" << K;
 
@@ -65,14 +70,14 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   viewer_->makeCurrent();
 
   LOG(INFO)<< "Adding SMPL data to renderer";
-  renderer_->setSMPLData("smpl_neutral_lbs_10_207_0.h5", "vertex_segm24_col24_14.h5");
+  renderer_->setSMPLData(num_frames, "smpl_neutral_lbs_10_207_0.h5", "vertex_segm24_col24_14.h5");
 
-  {
-    viewer_->fbo().bind();
-    GLuint rbo_id = viewer_->fbo().getRenderBufferObjectName(GL_COLOR_ATTACHMENT3);
-    viewer_->fbo().release();
-    cudaCheckError(cudaGraphicsGLRegisterImage(&cuda_gl_resource_, rbo_id, GL_RENDERBUFFER, cudaGraphicsRegisterFlagsReadOnly));
-  }
+//  {
+//    viewer_->fbo().bind();
+//    GLuint rbo_id = viewer_->fbo().getRenderBufferObjectName(GL_COLOR_ATTACHMENT3);
+//    viewer_->fbo().release();
+//    CUDA_CHECK(cudaGraphicsGLRegisterImage(&cuda_gl_resource_, rbo_id, GL_RENDERBUFFER, cudaGraphicsRegisterFlagsReadOnly));
+//  }
 
 
   LOG(INFO)<< "Done Setting up SMPLRenderLayer";
@@ -83,42 +88,44 @@ void SMPLRenderLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
 }
 
-template <typename Dtype>
-void SMPLRenderLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+template<typename Dtype>
+void SMPLRenderLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+                                         const vector<Blob<Dtype>*>& top) {
   const int num_frames = top[0]->shape(0);
-  const int height = top[0]->height();
-  const int width = top[0]->width();
 
-   const Dtype* shape_param_data = bottom[0]->cpu_data();
-   const Dtype* pose_param_data = bottom[1]->cpu_data();
-   const Dtype* camera_extrinsic_data = bottom[2]->cpu_data();
-   const Dtype* model_pose_data = bottom[3]->cpu_data();
-   Dtype* image_top_data = top[0]->mutable_cpu_data();
+  const Dtype* shape_param_data = bottom[0]->cpu_data();
+  const Dtype* pose_param_data = bottom[1]->cpu_data();
+  const Dtype* camera_extrinsic_data = bottom[2]->cpu_data();
+  const Dtype* model_pose_data = bottom[3]->cpu_data();
+  Dtype* image_top_data = top[0]->mutable_cpu_data();
 
-   viewer_->makeCurrent();
-   for (int i = 0; i < num_frames; ++i) {
-     using Matrix4 = Eigen::Matrix<Dtype, 4, 4, Eigen::RowMajor>;
-     using VectorX = Eigen::Matrix<Dtype, Eigen::Dynamic, 1>;
+  using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
 
-     viewer_->camera().extrinsics() = Eigen::Map<const Matrix4>(camera_extrinsic_data + bottom[2]->offset(i), 4, 4).template cast<float>();
-     renderer_->modelPose() = Eigen::Map<const Matrix4>(model_pose_data + bottom[3]->offset(i), 4, 4).template cast<float>();
+  // Set shape and pose params
+  renderer_->smplDrawer().shape_params() = Eigen::Map<const Params>(shape_param_data, bottom[0]->shape(1), num_frames).template cast<float>();
+  for (int i = 0; i < num_frames; ++i) {
+    using VectorX = Eigen::Matrix<Dtype, Eigen::Dynamic, 1>;
+    VectorX full_pose(72);
+    full_pose.setZero();
+    full_pose.tail(69) = Eigen::Map<const VectorX>(pose_param_data + bottom[1]->offset(i), bottom[1]->shape(1));
+    renderer_->smplDrawer().pose_params().col(i) = full_pose.template cast<float>();
+  }
 
-     renderer_->smplDrawer().shape() = Eigen::Map<const VectorX>(shape_param_data + bottom[0]->offset(i), bottom[0]->shape(1)).template cast<float>();
+  // update VBOS
+  renderer_->smplDrawer().updateShapeAndPose(true);
 
-     VectorX full_pose (72);
-     full_pose.setZero();
-     full_pose.tail(69) = Eigen::Map<const VectorX>(pose_param_data + bottom[1]->offset(i), bottom[1]->shape(1));
-     renderer_->smplDrawer().pose() = full_pose.template cast<float>();
+  // Do the rendering and copy back to CPU
+  for (int i = 0; i < num_frames; ++i) {
+    using Matrix4 = Eigen::Matrix<Dtype, 4, 4, Eigen::RowMajor>;
 
-     renderer_->smplDrawer().updateShapeAndPose();
+    viewer_->camera().extrinsics() = Eigen::Map<const Matrix4>(camera_extrinsic_data + bottom[2]->offset(i), 4, 4).template cast<float>();
+    renderer_->modelPose() = Eigen::Map<const Matrix4>(model_pose_data + bottom[3]->offset(i), 4, 4).template cast<float>();
+    renderer_->smplDrawer().batchId() = i;
 
-     viewer_->render();
+    viewer_->render();
 
-    using Image = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    Eigen::Map<Image> image(image_top_data + top[0]->offset(i, 0), height, width);
-    viewer_->grabLabelBuffer((float*) image.data());
-   }
-   viewer_->doneCurrent();
+    viewer_->grabLabelBuffer((float*) (image_top_data + top[0]->offset(i, 0)));
+  }
 }
 
 INSTANTIATE_CLASS(SMPLRenderLayer);

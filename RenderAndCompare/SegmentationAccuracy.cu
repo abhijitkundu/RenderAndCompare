@@ -157,10 +157,10 @@ void compute_seg_histograms(const uint8_t* const gt_image,
   ImageScalar* d_gt_image;
   ImageScalar* d_pred_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
-  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_gt_image, image_bytes));
+  CUDA_CHECK(cudaMalloc(&d_pred_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumLabels = 25;
   thrust::device_vector<HistVector> d_hist(NumLabels);
@@ -187,8 +187,8 @@ void compute_seg_histograms(const uint8_t* const gt_image,
 //  float2 mean_iou = d_mean_ious[0];
   std::cout << "mean_iou = " << mean_iou.x /  mean_iou.y << "\n";
 
-  cudaCheckError(cudaFree((void*)d_gt_image));
-  cudaCheckError(cudaFree((void*)d_pred_image));
+  CUDA_CHECK(cudaFree((void*)d_gt_image));
+  CUDA_CHECK(cudaFree((void*)d_pred_image));
 }
 
 template <int NumLabels, typename ImageScalar, typename CMScalar>
@@ -288,17 +288,17 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
   ImageScalar* d_gt_image;
   ImageScalar* d_pred_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
-  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_gt_image, image_bytes));
+  CUDA_CHECK(cudaMalloc(&d_pred_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumLabels = 25;
 
   CMScalar* d_conf_mat;
   const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
-  cudaCheckError(cudaMalloc((void**)(&d_conf_mat), conf_mat_bytes));
-  cudaCheckError(cudaMemset(d_conf_mat, 0, conf_mat_bytes));
+  CUDA_CHECK(cudaMalloc((void**)(&d_conf_mat), conf_mat_bytes));
+  CUDA_CHECK(cudaMemset(d_conf_mat, 0, conf_mat_bytes));
   Eigen::Matrix<CMScalar, NumLabels, NumLabels, Eigen::RowMajor> h_conf_mat;
 
   using Vector = Eigen::Matrix<CMScalar, NumLabels, 1>;
@@ -312,7 +312,7 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
 
   confusion_matrix_shared_bins<NumLabels><<<gridDim, blockDim>>>(d_gt_image, d_pred_image , width, height, d_conf_mat);
 
-  cudaCheckError(cudaMemcpy(h_conf_mat.data(), d_conf_mat, h_conf_mat.size() * sizeof(CMScalar), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(h_conf_mat.data(), d_conf_mat, h_conf_mat.size() * sizeof(CMScalar), cudaMemcpyDeviceToHost));
 
   Vector intersection_hist = h_conf_mat.diagonal();
   Vector union_hist = h_conf_mat.rowwise().sum() + h_conf_mat.colwise().sum().transpose() - intersection_hist;
@@ -332,8 +332,8 @@ void compute_confusion_matrix(const uint8_t* const gt_image,
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   std::cout << "mean_iou = " << mean_iou << "\n";
 
-  cudaCheckError(cudaFree((void*)d_gt_image));
-  cudaCheckError(cudaFree((void*)d_pred_image));
+  CUDA_CHECK(cudaFree((void*)d_gt_image));
+  CUDA_CHECK(cudaFree((void*)d_pred_image));
 }
 
 template <typename Scalar>
@@ -431,17 +431,17 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   ImageScalar* d_gt_image;
   ImageScalar* d_pred_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
-  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_gt_image, image_bytes));
+  CUDA_CHECK(cudaMalloc(&d_pred_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumLabels = 25;
 
 
   const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr = static_cast<CMScalar*>(gpu_device.allocate(conf_mat_bytes));
-  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+  CUDA_CHECK(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
 
   const std::size_t hist_bytes = NumLabels * sizeof(CMScalar);
   CMScalar* d_intersection_hist_ptr = static_cast<CMScalar*>(gpu_device.allocate(hist_bytes));
@@ -477,8 +477,8 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
 //  assert(cudaMemcpyAsync(h_union_hist.data(), d_union_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost, gpu_device.stream()) == cudaSuccess);
 //  assert(cudaStreamSynchronize(gpu_device.stream()) == cudaSuccess);
 
-  cudaCheckError(cudaMemcpy(h_intersection_hist.data(), d_intersection_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost));
-  cudaCheckError(cudaMemcpy(h_union_hist.data(), d_union_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(h_intersection_hist.data(), d_intersection_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(h_union_hist.data(), d_union_hist_ptr, hist_bytes, cudaMemcpyDeviceToHost));
 
   float mean_iou = 0;
   int valid_labels = 0;
@@ -497,8 +497,8 @@ void compute_confusion_tensor(const uint8_t* const gt_image,
   gpu_device.deallocate(d_conf_mat_ptr);
   gpu_device.deallocate(d_intersection_hist_ptr);
   gpu_device.deallocate(d_union_hist_ptr);
-  cudaCheckError(cudaFree((void*)d_gt_image));
-  cudaCheckError(cudaFree((void*)d_pred_image));
+  CUDA_CHECK(cudaFree((void*)d_gt_image));
+  CUDA_CHECK(cudaFree((void*)d_pred_image));
 }
 
 void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
@@ -508,18 +508,18 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
   ImageScalar* d_gt_image;
   ImageScalar* d_pred_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
-  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_gt_image, image_bytes));
+  CUDA_CHECK(cudaMalloc(&d_pred_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumLabels = 25;
 
 
   const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr;
-  cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
-  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+  CUDA_CHECK(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
+  CUDA_CHECK(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
 
   thrust::device_vector<float>mean_ious(1);
 
@@ -541,9 +541,9 @@ void compute_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   print_vector("mean_iou =  ", mean_ious);
 
-  cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
-  cudaCheckError(cudaFree((void*)d_gt_image));
-  cudaCheckError(cudaFree((void*)d_pred_image));
+  CUDA_CHECK(cudaFree((void*)d_conf_mat_ptr));
+  CUDA_CHECK(cudaFree((void*)d_gt_image));
+  CUDA_CHECK(cudaFree((void*)d_pred_image));
 }
 
 void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
@@ -553,16 +553,16 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* c
   ImageScalar* d_gt_image;
   ImageScalar* d_pred_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
-  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_gt_image, image_bytes));
+  CUDA_CHECK(cudaMalloc(&d_pred_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumLabels = 25;
   const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr;
-  cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
-  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+  CUDA_CHECK(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
+  CUDA_CHECK(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
 
   thrust::device_vector<float>mean_ious(1);
 
@@ -585,9 +585,9 @@ void compute_ssa_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* c
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   print_vector("mean_iou =  ", mean_ious);
 
-  cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
-  cudaCheckError(cudaFree((void*)d_gt_image));
-  cudaCheckError(cudaFree((void*)d_pred_image));
+  CUDA_CHECK(cudaFree((void*)d_conf_mat_ptr));
+  CUDA_CHECK(cudaFree((void*)d_gt_image));
+  CUDA_CHECK(cudaFree((void*)d_pred_image));
 }
 
 void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t* const pred_image, int width, int height) {
@@ -597,16 +597,16 @@ void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t*
   ImageScalar* d_gt_image;
   ImageScalar* d_pred_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_gt_image, image_bytes));
-  cudaCheckError(cudaMalloc(&d_pred_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_gt_image, image_bytes));
+  CUDA_CHECK(cudaMalloc(&d_pred_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_image, gt_image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_image, pred_image, image_bytes, cudaMemcpyHostToDevice));
 
   static const int NumLabels = 25;
   const std::size_t conf_mat_bytes = NumLabels * NumLabels * sizeof(CMScalar);
   CMScalar* d_conf_mat_ptr;
-  cudaCheckError(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
-  cudaCheckError(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
+  CUDA_CHECK(cudaMalloc(&d_conf_mat_ptr, conf_mat_bytes));
+  CUDA_CHECK(cudaMemset(d_conf_mat_ptr, 0, conf_mat_bytes));
 
   thrust::device_vector<float>mean_ious(1);
 
@@ -630,9 +630,9 @@ void compute_ssa1d_cmat_warped_iou(const uint8_t* const gt_image, const uint8_t*
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms.  ";
   print_vector("mean_iou =  ", mean_ious);
 
-  cudaCheckError(cudaFree((void*)d_conf_mat_ptr));
-  cudaCheckError(cudaFree((void*)d_gt_image));
-  cudaCheckError(cudaFree((void*)d_pred_image));
+  CUDA_CHECK(cudaFree((void*)d_conf_mat_ptr));
+  CUDA_CHECK(cudaFree((void*)d_gt_image));
+  CUDA_CHECK(cudaFree((void*)d_pred_image));
 }
 
 template <typename ImageScalar, typename HistScalar>
@@ -659,17 +659,17 @@ void computeHistogramWithAtomics(const uint8_t* const image, int width, int heig
 
   ImageScalar* d_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
 
   HistScalar *d_hist;
-  cudaCheckError(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
+  CUDA_CHECK(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
 
   using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
   gpu_timer.start();
 
-  cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
+  CUDA_CHECK(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
 
   dim3 block(16, 16);
   dim3 grid((width + 16 - 1) / 16 , (height + 16 - 1) / 16 ) ;
@@ -679,10 +679,10 @@ void computeHistogramWithAtomics(const uint8_t* const image, int width, int heig
   gpu_timer.stop();
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
-  cudaCheckError(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
-  cudaCheckError(cudaFree((void*)d_image));
-  cudaCheckError(cudaFree((void*)d_hist));
+  CUDA_CHECK(cudaFree((void*)d_image));
+  CUDA_CHECK(cudaFree((void*)d_hist));
 }
 
 template <int NumLabels, int NumParts, typename ImageScalar, typename HistScalar>
@@ -744,8 +744,8 @@ void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, in
 
   ImageScalar* d_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
 
   HistScalar *d_hist;
   cudaMalloc(&d_hist, num_labels * sizeof(HistScalar));
@@ -775,11 +775,11 @@ void computeHistogramWithSharedAtomics(const uint8_t* const image, int width, in
   gpu_timer.stop();
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
-  cudaCheckError(cudaMemcpy(hist, d_hist, NumLabels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(hist, d_hist, NumLabels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
-  cudaCheckError(cudaFree((void*)d_image));
-  cudaCheckError(cudaFree((void*)d_hist));
-  cudaCheckError(cudaFree((void*)d_part_hist));
+  CUDA_CHECK(cudaFree((void*)d_image));
+  CUDA_CHECK(cudaFree((void*)d_hist));
+  CUDA_CHECK(cudaFree((void*)d_part_hist));
 }
 
 template <int NumLabels, typename ImageScalar, typename HistScalar>
@@ -810,21 +810,21 @@ void computeHistogramWithSharedBins(const uint8_t* const image, int width, int h
 
   ImageScalar* d_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
 
 
   int numSMs;
-  cudaCheckError(cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0));
+  CUDA_CHECK(cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0));
 
   HistScalar *d_hist;
-  cudaCheckError(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
+  CUDA_CHECK(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
 
   using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
   gpu_timer.start();
 
-  cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
+  CUDA_CHECK(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
 
   static const int NumLabels = 25;
 
@@ -833,10 +833,10 @@ void computeHistogramWithSharedBins(const uint8_t* const image, int width, int h
   gpu_timer.stop();
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
-  cudaCheckError(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
-  cudaCheckError(cudaFree((void*)d_image));
-  cudaCheckError(cudaFree((void*)d_hist));
+  CUDA_CHECK(cudaFree((void*)d_image));
+  CUDA_CHECK(cudaFree((void*)d_hist));
 }
 
 template <int NumLabels, typename ImageScalar, typename HistScalar>
@@ -868,21 +868,21 @@ void computeHistogramWithPrivateBins(const uint8_t* const image, int width, int 
 
   ImageScalar* d_image;
   const std::size_t image_bytes = width * height * sizeof(ImageScalar);
-  cudaCheckError(cudaMalloc(&d_image, image_bytes));
-  cudaCheckError(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc(&d_image, image_bytes));
+  CUDA_CHECK(cudaMemcpy(d_image, image, image_bytes, cudaMemcpyHostToDevice));
 
 
   int numSMs;
-  cudaCheckError(cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0));
+  CUDA_CHECK(cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0));
 
   HistScalar *d_hist;
-  cudaCheckError(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
+  CUDA_CHECK(cudaMalloc(&d_hist, num_labels * sizeof(HistScalar)));
 
   using CuteGL::GpuTimer;
   GpuTimer gpu_timer;
   gpu_timer.start();
 
-  cudaCheckError(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
+  CUDA_CHECK(cudaMemset(d_hist, 0, num_labels * sizeof(HistScalar)));
   static const int NumLabels = 25;
 
   histogram_private_bins<NumLabels><<<numSMs, 256>>>(d_image, width * height, d_hist);
@@ -890,10 +890,10 @@ void computeHistogramWithPrivateBins(const uint8_t* const image, int width, int 
   gpu_timer.stop();
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
-  cudaCheckError(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(hist, d_hist, num_labels * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 
-  cudaCheckError(cudaFree((void*)d_image));
-  cudaCheckError(cudaFree((void*)d_hist));
+  CUDA_CHECK(cudaFree((void*)d_image));
+  CUDA_CHECK(cudaFree((void*)d_hist));
 }
 
 void computeHistogramWithThrust(const uint8_t* const image, int width, int height, int *hist, int num_bins) {
@@ -901,7 +901,7 @@ void computeHistogramWithThrust(const uint8_t* const image, int width, int heigh
   using HistScalar = int;
 
   thrust::device_vector<ImageScalar> d_image(width * height);
-  cudaCheckError(cudaMemcpy(d_image.data().get(), image, width * height * sizeof(ImageScalar), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_image.data().get(), image, width * height * sizeof(ImageScalar), cudaMemcpyHostToDevice));
 
   thrust::device_vector<HistScalar> histogram(num_bins);
 
@@ -927,7 +927,7 @@ void computeHistogramWithThrust(const uint8_t* const image, int width, int heigh
   gpu_timer.stop();
   std::cout << "GPU Time = " << gpu_timer.elapsed_in_ms() << " ms\n";
 
-  cudaCheckError(cudaMemcpy(hist, histogram.data().get(), num_bins * sizeof(HistScalar), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(hist, histogram.data().get(), num_bins * sizeof(HistScalar), cudaMemcpyDeviceToHost));
 }
 
 
@@ -944,10 +944,10 @@ void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
   uint8_t* d_gt_images;
   uint8_t* d_pred_images;
 
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  CUDA_CHECK(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
 
   for (int trial = 0; trial < trials; ++trial) {
     static const int NumLabels = 25;
@@ -986,8 +986,8 @@ void computeIoUseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
     std::cout << "mean_iou = " << mean_iou << "\n";
 
   }
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
+  CUDA_CHECK(cudaFree((void*)d_gt_images));
+  CUDA_CHECK(cudaFree((void*)d_pred_images));
 
 }
 
@@ -1005,10 +1005,10 @@ void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
   uint8_t* d_gt_images;
   uint8_t* d_pred_images;
 
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  CUDA_CHECK(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
 
   for (int trial = 0; trial < trials; ++trial) {
 
@@ -1047,8 +1047,8 @@ void computeIoUwithCUDAseq(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
 
   }
 
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
+  CUDA_CHECK(cudaFree((void*)d_gt_images));
+  CUDA_CHECK(cudaFree((void*)d_pred_images));
 }
 
 void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
@@ -1065,10 +1065,10 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
   uint8_t* d_gt_images;
   uint8_t* d_pred_images;
 
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  CUDA_CHECK(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
 
   for (int trial = 0; trial < trials; ++trial) {
 
@@ -1080,8 +1080,8 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
 
     HistVector* d_hist;
     const std::size_t d_hist_bytes = images_per_blob * NumLabels * sizeof(HistVector);
-    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
-    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
+    CUDA_CHECK(cudaMalloc((void**)(&d_hist), d_hist_bytes));
+    CUDA_CHECK(cudaMemset(d_hist, 0, d_hist_bytes));
 
     thrust::host_vector<HistVector, thrust::cuda::experimental::pinned_allocator<HistVector> > h_hist(images_per_blob * NumLabels);
 
@@ -1113,8 +1113,8 @@ void computeIoUwithCUDApar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_
 
   }
 
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
+  CUDA_CHECK(cudaFree((void*)d_gt_images));
+  CUDA_CHECK(cudaFree((void*)d_pred_images));
 }
 
 void computeIoUpar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
@@ -1130,10 +1130,10 @@ void computeIoUpar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
   uint8_t* d_gt_images;
   uint8_t* d_pred_images;
 
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  CUDA_CHECK(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
 
   for (int trial = 0; trial < trials; ++trial) {
     static const int NumLabels = 25;
@@ -1176,8 +1176,8 @@ void computeIoUpar(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>& gt_images,
     std::cout << "mean_iou = " << mean_iou << "\n";
 
   }
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
+  CUDA_CHECK(cudaFree((void*)d_gt_images));
+  CUDA_CHECK(cudaFree((void*)d_pred_images));
 
 }
 
@@ -1195,10 +1195,10 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
   uint8_t* d_gt_images;
   uint8_t* d_pred_images;
 
-  cudaCheckError(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
-  cudaCheckError(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
-  cudaCheckError(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
-  cudaCheckError(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMalloc((void**)(&d_gt_images), gt_images_bytes));
+  CUDA_CHECK(cudaMalloc((void**)(&d_pred_images), pred_images_bytes));
+  CUDA_CHECK(cudaMemcpy(d_gt_images, gt_images.data(), gt_images_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_pred_images, pred_images.data(), pred_images_bytes, cudaMemcpyHostToDevice));
 
   for (int trial = 0; trial < trials; ++trial) {
 
@@ -1210,8 +1210,8 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
 
     HistVector* d_hist;
     const std::size_t d_hist_bytes = images_per_blob * NumLabels * sizeof(HistVector);
-    cudaCheckError(cudaMalloc((void**)(&d_hist), d_hist_bytes));
-    cudaCheckError(cudaMemset(d_hist, 0, d_hist_bytes));
+    CUDA_CHECK(cudaMalloc((void**)(&d_hist), d_hist_bytes));
+    CUDA_CHECK(cudaMemset(d_hist, 0, d_hist_bytes));
 
     using CuteGL::GpuTimer;
     GpuTimer gpu_timer;
@@ -1247,8 +1247,8 @@ void computeIoUwithCUDAstreams(const Eigen::Tensor<uint8_t, 4, Eigen::RowMajor>&
 
   }
 
-  cudaCheckError(cudaFree((void*)d_gt_images));
-  cudaCheckError(cudaFree((void*)d_pred_images));
+  CUDA_CHECK(cudaFree((void*)d_gt_images));
+  CUDA_CHECK(cudaFree((void*)d_pred_images));
 }
 
 
