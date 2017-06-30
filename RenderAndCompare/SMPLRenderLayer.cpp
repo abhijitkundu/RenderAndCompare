@@ -15,7 +15,7 @@ namespace caffe {
 template<typename Dtype>
 void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
                                          const vector<Blob<Dtype>*>& top) {
-  LOG(INFO)<< "Setting up SMPLRenderLayer";
+  LOG(INFO)<< "---------- Setting up SMPLRenderLayer ------------";
   using namespace CuteGL;
 
   CHECK_EQ(top.size(), 1);
@@ -63,7 +63,6 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
                              Eigen::Vector3f::UnitY());
 
   LOG(INFO)<< "image_size= " << image_size.x() <<" x " << image_size.y();
-  LOG(INFO)<< "K=\n" << K;
 
   LOG(INFO)<< "Creating offscreen render surface";
   viewer_->create();
@@ -76,11 +75,39 @@ void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 //    viewer_->fbo().bind();
 //    GLuint rbo_id = viewer_->fbo().getRenderBufferObjectName(GL_COLOR_ATTACHMENT3);
 //    viewer_->fbo().release();
-//    CUDA_CHECK(cudaGraphicsGLRegisterImage(&cuda_gl_resource_, rbo_id, GL_RENDERBUFFER, cudaGraphicsRegisterFlagsReadOnly));
+//    CHECK_CUDA(cudaGraphicsGLRegisterImage(&cuda_gl_resource_, rbo_id, GL_RENDERBUFFER, cudaGraphicsRegisterFlagsReadOnly));
 //  }
 
+  LOG(INFO)<< "Generating PBOs";
+  {
+    cuda_pbo_resources_.resize(num_frames);
+    pbo_ids_.resize(num_frames);
+    pbo_ptrs_.resize(num_frames);
 
-  LOG(INFO)<< "Done Setting up SMPLRenderLayer";
+    const size_t pbo_size = image_size.x() * image_size.y() * sizeof(Dtype);
+
+    // Create PBOS and register with CUDA
+    viewer_->glFuncs()->glGenBuffers(num_frames, pbo_ids_.data());
+    for (int p = 0; p < num_frames; ++p) {
+      viewer_->glFuncs()->glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_ids_[p]);
+      viewer_->glFuncs()->glBufferData(GL_PIXEL_PACK_BUFFER, pbo_size, 0, GL_DYNAMIC_READ);
+      CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&cuda_pbo_resources_[p], pbo_ids_[p], cudaGraphicsRegisterFlagsReadOnly));
+      viewer_->glFuncs()->glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    }
+
+    // get device pointers to the pbos
+    CHECK_CUDA(cudaGraphicsMapResources(num_frames, cuda_pbo_resources_.data(), 0));
+    for (int p = 0; p < num_frames; ++p) {
+      size_t buffer_size;
+      CHECK_CUDA(cudaGraphicsResourceGetMappedPointer((void **)&pbo_ptrs_[p], &buffer_size, cuda_pbo_resources_[p]));
+      assert(buffer_size == pbo_size);
+
+    }
+    CHECK_CUDA(cudaGraphicsUnmapResources(num_frames, cuda_pbo_resources_.data(), 0));
+  }
+
+
+  LOG(INFO)<< "------ Done Setting up SMPLRenderLayer -------";
 }
 
 template <typename Dtype>
@@ -125,6 +152,69 @@ void SMPLRenderLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     viewer_->render();
 
     viewer_->grabLabelBuffer((float*) (image_top_data + top[0]->offset(i, 0)));
+  }
+}
+
+template<typename Dtype>
+void SMPLRenderLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+                                         const vector<Blob<Dtype>*>& top) {
+  const int num_frames = top[0]->shape(0);
+  const int height = top[0]->height();
+  const int width = top[0]->width();
+
+  const Dtype* shape_param_data = bottom[0]->cpu_data();
+  const Dtype* pose_param_data = bottom[1]->cpu_data();
+  const Dtype* camera_extrinsic_data = bottom[2]->cpu_data();
+  const Dtype* model_pose_data = bottom[3]->cpu_data();
+
+  Dtype* image_top_data = top[0]->mutable_gpu_data();
+
+  using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
+
+  // Set shape and pose params
+  renderer_->smplDrawer().shape_params() = Eigen::Map<const Params>(shape_param_data, bottom[0]->shape(1), num_frames).template cast<float>();
+  for (int i = 0; i < num_frames; ++i) {
+    using VectorX = Eigen::Matrix<Dtype, Eigen::Dynamic, 1>;
+    VectorX full_pose(72);
+    full_pose.setZero();
+    full_pose.tail(69) = Eigen::Map<const VectorX>(pose_param_data + bottom[1]->offset(i), bottom[1]->shape(1));
+    renderer_->smplDrawer().pose_params().col(i) = full_pose.template cast<float>();
+  }
+
+  // update VBOS
+  renderer_->smplDrawer().updateShapeAndPose();
+
+  // Do the rendering
+  {
+    //  viewer_->makeCurrent();
+    for (int i = 0; i < num_frames; ++i) {
+      using Matrix4 = Eigen::Matrix<Dtype, 4, 4, Eigen::RowMajor>;
+      viewer_->camera().extrinsics() = Eigen::Map<const Matrix4>(camera_extrinsic_data + bottom[2]->offset(i), 4, 4).template cast<float>();
+      renderer_->modelPose() = Eigen::Map<const Matrix4>(model_pose_data + bottom[3]->offset(i), 4, 4).template cast<float>();
+
+      renderer_->smplDrawer().batchId() = i;
+
+      viewer_->render();
+
+      viewer_->glFuncs()->glBindFramebuffer(GL_READ_FRAMEBUFFER, viewer_->fbo().handle());
+      viewer_->glFuncs()->glReadBuffer(GL_COLOR_ATTACHMENT3);
+      viewer_->glFuncs()->glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo_ids_[i]);
+      viewer_->glFuncs()->glReadPixels(0, 0, width, height, GL_RED, CuteGL::GLTraits<Dtype>::type, 0);
+      viewer_->glFuncs()->glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    }
+    viewer_->glFuncs()->glFinish();
+    //  viewer_->doneCurrent();
+  }
+
+  // Copy from PBOS to CUDA data
+  {
+    std::vector<cudaStream_t> streams(num_frames);
+    for (int i = 0; i < num_frames; ++i) {
+      CHECK_CUDA(cudaStreamCreate(&streams[i]));
+      const size_t pbo_size = width * height * sizeof(Dtype);
+      CHECK_CUDA(cudaMemcpyAsync(image_top_data + top[0]->offset(i, 0), pbo_ptrs_[i], pbo_size, cudaMemcpyDeviceToDevice, streams[i]));
+      CHECK_CUDA(cudaStreamDestroy(streams[i]));
+    }
   }
 }
 
