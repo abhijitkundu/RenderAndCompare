@@ -41,7 +41,7 @@ void RenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
   viewer_->makeCurrent();
   {
-    std::string asset_file = ASSETS_FOLDER_PATH "/Sphere.nff";
+    std::string asset_file = CUTEGL_ASSETS_FOLDER "/Sphere.nff";
     std::vector<MeshData> meshes = loadMeshesViaAssimp(asset_file);
     Eigen::AlignedBox3f bbx = computeAlignedBox(meshes);
     Eigen::Affine3f model_pose = Eigen::UniformScaling<float>(0.5f / bbx.sizes().maxCoeff())
@@ -50,7 +50,7 @@ void RenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   }
 
   {
-    std::string asset_file = ASSETS_FOLDER_PATH "/cow.off";
+    std::string asset_file = CUTEGL_ASSETS_FOLDER "/cow.off";
     std::vector<MeshData> meshes = loadMeshesViaAssimp(asset_file);
     Eigen::AlignedBox3f bbx = computeAlignedBox(meshes);
     Eigen::Affine3f model_pose = Eigen::UniformScaling<float>(
@@ -78,7 +78,7 @@ void RenderLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const v
     using Image = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
     Eigen::Map<Image> image(top_data + top[0]->offset(i, 0), 480, 640);
     viewer_->render();
-    viewer_->grabZBuffer((float*)image.data());
+    viewer_->readZBuffer(image.data());
 //     RaC::saveImage(image, "image_"+ std::to_string(i) + ".png");
    for (auto& pose : renderer_->modelDrawers().poses()) {
      pose = pose * Eigen::AngleAxisf(0.5f, Eigen::Vector3f::UnitY());

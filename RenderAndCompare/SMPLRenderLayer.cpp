@@ -151,7 +151,7 @@ void SMPLRenderLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
     viewer_->render();
 
-    viewer_->grabLabelBuffer((float*) (image_top_data + top[0]->offset(i, 0)));
+    viewer_->readLabelBuffer((image_top_data + top[0]->offset(i, 0)));
   }
 }
 

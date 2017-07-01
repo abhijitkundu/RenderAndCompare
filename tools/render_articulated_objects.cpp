@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
 
 
     {
-      QImage image = viewer.grabColorBuffer();
+      QImage image = viewer.readColorBuffer();
       image.save(QString::fromStdString(fs::path(frame_name).replace_extension(".png").string()));
     }
 

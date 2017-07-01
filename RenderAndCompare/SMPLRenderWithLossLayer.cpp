@@ -157,7 +157,7 @@ Dtype SMPLRenderWithLossLayer<Dtype>::renderAndCompare(const Eigen::MatrixBase<D
   renderer_->smplDrawer().updateShapeAndPose();
 
   viewer_->render();
-  viewer_->grabLabelBuffer((float*) rendered_image_.data());
+  viewer_->readLabelBuffer(rendered_image_.data());
 
   Dtype loss = (Dtype(1.0) - computeIoU(gt_image));
   return loss;
@@ -193,7 +193,7 @@ Dtype SMPLRenderWithLossLayer<Dtype>::renderAndCompare(const Eigen::MatrixBase<D
     LOG(FATAL) << "No update required";
 
   viewer_->render();
-  viewer_->grabLabelBuffer((float*) rendered_image_.data());
+  viewer_->readLabelBuffer(rendered_image_.data());
 
   Dtype loss = (Dtype(1.0) - computeIoU(gt_image));
   return loss;
