@@ -53,6 +53,10 @@ protected:
                             const vector<bool>& propagate_down,
                             const vector<Blob<Dtype>*>& bottom);
 
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+                            const vector<bool>& propagate_down,
+                            const vector<Blob<Dtype>*>& bottom);
+
   void renderToPBOs(const Blob<Dtype>& camera_extrisics, const Blob<Dtype>& model_poses);
 
   void renderAndCompareCPU(const Blob<Dtype>& camera_extrisics,
@@ -74,6 +78,7 @@ protected:
 
   Blob<int> confusion_matrices_;
   Blob<Dtype> losses_;
+  Blob<Dtype> deltas_;
   Blob<Dtype> rendered_images_;
 };
 

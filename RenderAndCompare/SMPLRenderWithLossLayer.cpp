@@ -7,6 +7,7 @@
 
 #include "SMPLRenderWithLossLayer.h"
 #include "SegmentationAccuracy.h"
+#include "NumericDiff.h"
 #include <CuteGL/Core/PoseUtils.h>
 #include <glog/stl_logging.h>
 #include "caffe/util/math_functions.hpp"
@@ -65,20 +66,22 @@ void SMPLRenderWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bott
   }
 
   {
+    losses_.Reshape({num_frames});
+    CHECK_EQ(losses_.num_axes(), 1) << "losses_ is expected to be a vector of size same as batch size (num_frames)";
+    CHECK_EQ(losses_.count(), num_frames) << "losses_ is expected to be a vector of size same as batch size (num_frames)";
+  }
+
+  {
+    deltas_.Reshape({num_frames});
+    CHECK_EQ(deltas_.num_axes(), 1) << "deltas_ is expected to be a vector of size same as batch size (num_frames)";
+    CHECK_EQ(deltas_.count(), num_frames) << "deltas_ is expected to be a vector of size same as batch size (num_frames)";
+  }
+
+  {
     // Allocate Rendered image data
     rendered_images_.Reshape(num_frames, 1, image_size.y(), image_size.x());
     CHECK_EQ(rendered_images_.shape(), bottom[4]->shape()) << "rendered_images_ is expected to {num_frames, 1, H, W}";
   }
-
-  {
-    std::vector<int> blob_shape = {num_frames};
-    losses_.Reshape(blob_shape);
-    CHECK_EQ(losses_.shape(), blob_shape) << "losses_ is expected to be a vector of size same as batch size (num_frames)";
-    CHECK_EQ(losses_.count(), num_frames);
-  }
-
-
-
 
   renderer_.reset(new CuteGL::BatchSMPLRenderer);
   renderer_->setDisplayGrid(false);
@@ -184,8 +187,11 @@ void SMPLRenderWithLossLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype> *>& bo
     renderer_->smplDrawer().pose_params().bottomRows(69) = Eigen::Map<const Params>(pose_param_data_ptr, bottom[1]->shape(1), num_frames).template cast<float>();
   }
 
-  Dtype* losses_data_ptr = losses_.mutable_gpu_data();
-  renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_data_ptr, top.size() > 1);
+  // Render and Compare (compute IoU loss). Also copy rendered images from PBOs if top.size() > 1
+  renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), top.size() > 1);
+
+  // Wait for losses_ to be computed on GPU
+  CHECK_CUDA(cudaDeviceSynchronize());
 
   // Compute total Loss
   Dtype loss_sum;
@@ -262,7 +268,6 @@ void SMPLRenderWithLossLayer<Dtype>::renderAndCompareGPU(const Blob<Dtype>& came
 
       CHECK_CUDA(cudaStreamDestroy(streams[i]));
     }
-    CHECK_CUDA(cudaDeviceSynchronize());
   }
 }
 
@@ -312,10 +317,10 @@ void SMPLRenderWithLossLayer<Dtype>::renderAndCompareCPU(const Blob<Dtype>& came
 
 }
 
-template <typename Dtype>
+template<typename Dtype>
 void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-                                                       const vector<bool>& propagate_down,
-                                                       const vector<Blob<Dtype>*>& bottom) {
+                                                  const vector<bool>& propagate_down,
+                                                  const vector<Blob<Dtype>*>& bottom) {
 
   if (propagate_down[4]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to gt_segm_image";
   if (propagate_down[3]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to model_pose";
@@ -374,8 +379,6 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
 
     // Scale gradient
     gradient *= gradient_scale;
-
-//    LOG(INFO) << "shape_gradient.sum() = " << gradient.sum();
   }
 
   // backpropagate to pose params
@@ -421,8 +424,115 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
 
     // Scale gradient
     gradient *= gradient_scale;
+  }
+}
 
-//    LOG(INFO) << "pose_gradient.sum() = " << gradient.sum();
+template<typename Dtype>
+void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
+                                                  const vector<bool>& propagate_down,
+                                                  const vector<Blob<Dtype>*>& bottom) {
+
+  if (propagate_down[4]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to gt_segm_image";
+  if (propagate_down[3]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to model_pose";
+  if (propagate_down[2]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to camera_extrinsic";
+
+  const int num_frames = bottom[4]->num();
+  const Dtype gradient_scale = top[0]->cpu_diff()[0] / num_frames;
+
+  // backpropagate to shape params
+  if (propagate_down[0]) {
+    using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
+    using RowVectorX = Eigen::Matrix<Dtype, 1, Eigen::Dynamic>;
+
+    Eigen::Map<const Params> shape_params(bottom[0]->cpu_data(), bottom[0]->shape(1), num_frames);
+    renderer_->smplDrawer().shape_params() = shape_params.template cast<float>();
+    renderer_->smplDrawer().pose_params().topRows(3).setZero();
+    renderer_->smplDrawer().pose_params().bottomRows(69) = Eigen::Map<const Params>(bottom[1]->cpu_data(), bottom[1]->shape(1), num_frames).template cast<float>();
+
+    Dtype* shape_diff_ptr = bottom[0]->mutable_gpu_diff();
+    Eigen::Map<RowVectorX> hvec(deltas_.mutable_cpu_data(), deltas_.shape(0));
+
+    const int num_of_params = shape_params.rows();
+    for (int j = 0; j < num_of_params; ++j) {
+
+      const Dtype min_step_size = 1e-4;
+      const Dtype relative_step_size = 1e-1;
+      hvec = (shape_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+
+      // Compute F(X+h)
+      {
+        renderer_->smplDrawer().shape_params().row(j) += hvec.template cast<float>();
+        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), false);
+      }
+
+      // Compute F(X-h)
+      {
+        renderer_->smplDrawer().shape_params().row(j) -= 2 * hvec.template cast<float>();
+        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);  // TODO: Only perform shape update
+      }
+
+      const Dtype* hvec_data_ptr = deltas_.gpu_data();
+
+      // Wait for losses_ to be computed on GPU
+      CHECK_CUDA(cudaDeviceSynchronize());
+
+      // Compute central difference derivative
+      RaC::central_diff_gpu(num_frames, losses_.gpu_data(), losses_.gpu_diff(), hvec_data_ptr, shape_diff_ptr + j, num_of_params);
+
+      // Reset shape param
+      renderer_->smplDrawer().shape_params().row(j) = shape_params.row(j).template cast<float>();
+    }
+
+    // Scale gradient
+    caffe_gpu_scal(num_frames * num_of_params, gradient_scale, shape_diff_ptr);
+  }
+
+  // backpropagate to pose params
+  if (propagate_down[1]) {
+    using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
+    using RowVectorX = Eigen::Matrix<Dtype, 1, Eigen::Dynamic>;
+
+    renderer_->smplDrawer().shape_params() = Eigen::Map<const Params>(bottom[0]->cpu_data(), bottom[0]->shape(1), num_frames).template cast<float>();
+    Eigen::Map<const Params> pose_params(bottom[1]->cpu_data(), bottom[1]->shape(1), num_frames);
+    renderer_->smplDrawer().pose_params().topRows(3).setZero();
+    renderer_->smplDrawer().pose_params().bottomRows(69) = pose_params.template cast<float>();
+
+    Dtype* pose_diff_ptr = bottom[1]->mutable_gpu_diff();
+    Eigen::Map<RowVectorX> hvec(deltas_.mutable_cpu_data(), deltas_.shape(0));
+
+    const int num_of_params = pose_params.rows();
+    for (int j = 0; j < num_of_params; ++j) {
+
+      const Dtype min_step_size = 1e-4;
+      const Dtype relative_step_size = 1e-1;
+      hvec = (pose_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+
+      // Compute F(X+h)
+      {
+        renderer_->smplDrawer().pose_params().row(j+3) += hvec.template cast<float>();
+        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), false);
+      }
+
+      // Compute F(X-h)
+      {
+        renderer_->smplDrawer().pose_params().row(j+3) -= 2 * hvec.template cast<float>();
+        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);  // TODO: Only perform pose update
+      }
+
+      const Dtype* hvec_data_ptr = deltas_.gpu_data();
+
+      // Wait for losses_ to be computed on GPU
+      CHECK_CUDA(cudaDeviceSynchronize());
+
+      // Compute central difference derivative
+      RaC::central_diff_gpu(num_frames, losses_.gpu_data(), losses_.gpu_diff(), hvec_data_ptr, pose_diff_ptr + j, num_of_params);
+
+      // Reset shape param
+      renderer_->smplDrawer().pose_params().row(j+3) = pose_params.row(j).template cast<float>();
+    }
+
+    // Scale gradient
+    caffe_gpu_scal(num_frames * num_of_params, gradient_scale, pose_diff_ptr);
   }
 }
 
