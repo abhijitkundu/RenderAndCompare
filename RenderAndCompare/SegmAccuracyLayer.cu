@@ -6,15 +6,14 @@
  */
 
 #include "SegmAccuracyLayer.h"
-#include "SegmAccuracyLayer.h"
 
 namespace caffe {
 
 template<typename ImageScalar, typename CMScalar>
-__global__ void confusion_matrix_ssa1d(const int num_of_labels,
+__global__ void confusion_matrix_ssa1d(const int num_of_pixels,
                                        const ImageScalar* const gt_image,
                                        const ImageScalar* const pred_image,
-                                       const int image_data_size,
+                                       const int num_of_labels,
                                        CMScalar* d_conf_mat) {
   const int num_of_bins = num_of_labels * num_of_labels;
   // Initialize shared mem
@@ -26,7 +25,7 @@ __global__ void confusion_matrix_ssa1d(const int num_of_labels,
   // stride length
   const int stride = blockDim.x * gridDim.x;
 
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < image_data_size; i += stride) {
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_of_pixels; i += stride) {
     int gt_label = static_cast<int>(gt_image[i]);
     int pred_label = static_cast<int>(pred_image[i]);
     atomicAdd(&smem[gt_label * num_of_labels + pred_label] , 1 );
@@ -38,10 +37,10 @@ __global__ void confusion_matrix_ssa1d(const int num_of_labels,
 }
 
 template<typename ImageScalar, typename CMScalar>
-__global__ void confusion_matrix_ssa1d(const int num_of_labels,
+__global__ void confusion_matrix_ssa1d(const int num_of_pixels,
                                        const ImageScalar* const gt_image,
                                        const ImageScalar* const pred_image,
-                                       const int image_data_size,
+                                       const int num_of_labels,
                                        const CMScalar* const label_map,
                                        CMScalar* d_conf_mat) {
   const int num_of_bins = num_of_labels * num_of_labels;
@@ -54,7 +53,7 @@ __global__ void confusion_matrix_ssa1d(const int num_of_labels,
   // stride length
   const int stride = blockDim.x * gridDim.x;
 
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < image_data_size; i += stride) {
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_of_pixels; i += stride) {
     int gt_label = label_map[static_cast<int>(gt_image[i])];
     int pred_label = label_map[static_cast<int>(pred_image[i])];
     atomicAdd(&smem[gt_label * num_of_labels + pred_label] , 1 );
@@ -187,9 +186,9 @@ void SegmAccuracyLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, c
     const int shared_mem_size = num_of_labels_ * num_of_labels_ * sizeof(int);
 
     if (label_map_.count())
-      confusion_matrix_ssa1d<<<gridsize, blocksize, shared_mem_size>>>(num_of_labels_, gt_labels_data, pred_labels_data, image_blob_size, label_map_data, confidence_matrix_data);
+      confusion_matrix_ssa1d<<<gridsize, blocksize, shared_mem_size>>>(image_blob_size, gt_labels_data, pred_labels_data, num_of_labels_, label_map_data, confidence_matrix_data);
     else
-      confusion_matrix_ssa1d<<<gridsize, blocksize, shared_mem_size>>>(num_of_labels_, gt_labels_data, pred_labels_data, image_blob_size, confidence_matrix_data);
+      confusion_matrix_ssa1d<<<gridsize, blocksize, shared_mem_size>>>(image_blob_size, gt_labels_data, pred_labels_data, num_of_labels_, confidence_matrix_data);
   }
 
   // Compute histograms from conf matrix

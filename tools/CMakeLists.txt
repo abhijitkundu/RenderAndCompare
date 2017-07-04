@@ -31,5 +31,11 @@ target_link_libraries(evaluate_bodyparts_segmentation RenderAndCompare)
 add_executable(check_smpl_render_layer check_smpl_render_layer.cpp)
 target_link_libraries(check_smpl_render_layer RenderAndCompare)
 
-cuda_add_executable(benchmark_segmentation_accuracy benchmark_segmentation_accuracy.cpp)
+cuda_include_directories(
+  ${EIGEN_INCLUDE_DIRS}
+  ${Caffe_INCLUDE_DIRS}
+  ${CUTEGL_INCLUDE_DIRS}
+  )
+
+cuda_add_executable(benchmark_segmentation_accuracy benchmark_segmentation_accuracy.cpp SegmentationBenchmark.cu SegmentationBenchmark.cpp)
 target_link_libraries(benchmark_segmentation_accuracy RenderAndCompare)

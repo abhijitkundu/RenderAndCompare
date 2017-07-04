@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
         ("datasets,d",  po::value<std::vector<fs::path>>(), "Path to dataset files (JSON)")
         ("network_prototxt,n",  po::value<fs::path>()->required(), "Path to network model file (prototxt)")
         ("num_iters,i",  po::value<int>()->default_value(10), "Num of iterations")
-        ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids")
+        ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids (Use -ve value to force CPU)")
         ;
 
   po::positional_options_description p;

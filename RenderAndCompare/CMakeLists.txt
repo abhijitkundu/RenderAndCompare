@@ -12,16 +12,11 @@ endforeach()
 list(REMOVE_DUPLICATES CUTEGL_INCLUDE_DIRS)
 
 
-# message (STATUS "Qt5OpenGL_INCLUDE_DIRS = ${Qt5OpenGL_INCLUDE_DIRS}")
-# message (STATUS "Qt5OpenGL_DEFINITIONS = ${Qt5OpenGL_DEFINITIONS}")
-# message (STATUS "Qt5OpenGL_COMPILE_DEFINITIONS = ${Qt5OpenGL_COMPILE_DEFINITIONS}")
-# message (STATUS "Qt5OpenGL_EXECUTABLE_COMPILE_FLAGS = ${Qt5OpenGL_EXECUTABLE_COMPILE_FLAGS}")
-
 cuda_include_directories(
   ${EIGEN_INCLUDE_DIRS}
   ${Caffe_INCLUDE_DIRS}
   ${CUTEGL_INCLUDE_DIRS}
-  ${Qt5OpenGL_INCLUDE_DIRS}
+  # ${Qt5OpenGL_INCLUDE_DIRS}
   )
 cuda_add_library(RenderAndCompare ${_SRCS} ${_HDRS})
 target_link_libraries(RenderAndCompare

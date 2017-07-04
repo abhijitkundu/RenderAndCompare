@@ -46,8 +46,7 @@ int main(int argc, char **argv) {
     config_options.add_options()
         ("dataset",  po::value<fs::path>(), "Path to dataset files (JSON)")
         ("network_model,n",  po::value<fs::path>()->required(), "Path to network model file (prototxt)")
-        ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids")
-        ("use_cpu",  po::value<bool>()->default_value(false), "Use CPU")
+        ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids (Use -ve value to force CPU)")
         ("pause_time,p",  po::value<int>()->default_value(0), "Pause time. Use 0 for pause")
         ;
 
@@ -84,15 +83,13 @@ int main(int argc, char **argv) {
   const int gpu_id = vm["gpu_id"].as<int>();
   const int pause_time = vm["pause_time"].as<int>();
 
-  if (vm["use_cpu"].as<bool>()) {
-    LOG(INFO)<< "Using CPU.";
-    Caffe::set_mode(Caffe::CPU);
-  }
-  else {
+  if (gpu_id >= 0) {
     LOG(INFO) << "Using GPU with device ID " << gpu_id;
-
     Caffe::SetDevice(gpu_id);
     Caffe::set_mode(Caffe::GPU);
+  } else {
+    LOG(INFO) << "Using CPU";
+    Caffe::set_mode(Caffe::CPU);
   }
 
   Dataset dataset = loadDatasetFromJson(dataset_file.string());
@@ -163,6 +160,12 @@ int main(int argc, char **argv) {
               << " (Images# " << start_idx  << "-" << end_idx << ")";
 
     caffe_net.Forward();
+
+    {
+      auto segm_class_iou_loss_blob_ptr =  caffe_net.blob_by_name("segm_class_iou_loss");
+      if (segm_class_iou_loss_blob_ptr)
+        LOG(INFO) << "class_iou_loss = " << segm_class_iou_loss_blob_ptr->cpu_data()[0];
+    }
 
     {
       auto segm_pixel_acc_blob_ptr =  caffe_net.blob_by_name("segm_pixel_acc");

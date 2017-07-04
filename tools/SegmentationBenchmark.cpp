@@ -1,11 +1,11 @@
 /**
- * @file SegmentationAccuracy.cpp
- * @brief SegmentationAccuracy
+ * @file SegmentationBenchmark.cpp
+ * @brief SegmentationBenchmark
  *
  * @author Abhijit Kundu
  */
 
-#include "SegmentationAccuracy.h"
+#include "SegmentationBenchmark.h"
 
 namespace RaC {
 

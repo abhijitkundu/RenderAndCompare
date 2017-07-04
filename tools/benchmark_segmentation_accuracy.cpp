@@ -5,7 +5,6 @@
  * @author Abhijit Kundu
  */
 
-#include "RenderAndCompare/SegmentationAccuracy.h"
 #include "RenderAndCompare/Dataset.h"
 #include "RenderAndCompare/ImageLoaders.h"
 #include <boost/program_options.hpp>
@@ -14,6 +13,8 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <chrono>
+
+#include "SegmentationBenchmark.h"
 
 
 int main(int argc, char **argv) {
@@ -150,18 +151,6 @@ int main(int argc, char **argv) {
     }
 
     {
-      std::cout << "\ncomputeIoUseq------------------------------------------------" << std::endl;
-      std::cout << "\n------------------------------------------------" << std::endl;
-      std::chrono::time_point<std::chrono::system_clock> start, end;
-      start = std::chrono::system_clock::now();
-      computeIoUseq(gt_images, pred_images);
-      end = std::chrono::system_clock::now();
-      std::chrono::duration<double> elapsed_seconds = end-start;
-      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
-
-    }
-
-    {
       std::cout << "\ncomputeIoUwithCUDApar------------------------------------------------" << std::endl;
 
       std::cout << "\n------------------------------------------------" << std::endl;
@@ -171,6 +160,30 @@ int main(int argc, char **argv) {
       end = std::chrono::system_clock::now();
       std::chrono::duration<double> elapsed_seconds = end - start;
       std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+    }
+
+    {
+      std::cout << "\ncomputeIoUwithCUDAstreams------------------------------------------------" << std::endl;
+
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      computeIoUwithCUDAstreams(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end - start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+    }
+
+    {
+      std::cout << "\ncomputeIoUseq------------------------------------------------" << std::endl;
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      computeIoUseq(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end-start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+
     }
 
     {
@@ -185,20 +198,18 @@ int main(int argc, char **argv) {
       std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
     }
 
-    {
-      std::cout << "\ncomputeIoUwithCUDAstreams------------------------------------------------" << std::endl;
-      for (int i = 0; i < 4; ++i)
-      {
-        std::cout << "\n------------------------------------------------" << std::endl;
-        std::chrono::time_point<std::chrono::system_clock> start, end;
-        start = std::chrono::system_clock::now();
-        computeIoUwithCUDAstreams(gt_images, pred_images);
-        end = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
-        std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
-      }
-    }
 
+    {
+      std::cout << "\ncomputeIoUStreams------------------------------------------------" << std::endl;
+
+      std::cout << "\n------------------------------------------------" << std::endl;
+      std::chrono::time_point<std::chrono::system_clock> start, end;
+      start = std::chrono::system_clock::now();
+      computeIoUStreams(gt_images, pred_images);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end - start;
+      std::cout << "Total Time = " << elapsed_seconds.count() * 1000 << " ms\n";
+    }
   }
 
 

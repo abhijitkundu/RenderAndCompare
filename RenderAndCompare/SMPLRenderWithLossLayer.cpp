@@ -6,17 +6,17 @@
  */
 
 #include "SMPLRenderWithLossLayer.h"
-#include "CuteGL/Core/PoseUtils.h"
+#include "SegmentationAccuracy.h"
+#include <CuteGL/Core/PoseUtils.h>
 #include <glog/stl_logging.h>
-#include <Eigen/NumericalDiff>
+#include "caffe/util/math_functions.hpp"
 
 namespace caffe {
 
 template<typename Dtype>
 void SMPLRenderWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
                                                 const vector<Blob<Dtype>*>& top) {
-
-  LOG(INFO)<< "Setting up SMPLRenderWithLoss";
+  LOG(INFO)<< "---------- Setting up BatchSMPLRenderWithLoss ------------";
   using namespace CuteGL;
 
   LossLayer<Dtype>::LayerSetUp(bottom, top);
@@ -57,11 +57,30 @@ void SMPLRenderWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bott
     CHECK_EQ(bottom[4]->shape(), blob_shape) << "bottom[4] is expected to gt_segm_image does not match render image size";
   }
 
-  // Allocate Rendered image data
-  rendered_image_.resize(image_size.y(), image_size.x());
-  losses_.resize(num_frames);
+  {
+    // Allocate confusion matrices
+    const int num_of_labels =  25;
+    confusion_matrices_.Reshape({num_frames, num_of_labels, num_of_labels});
+    CHECK_EQ(confusion_matrices_.count(), num_frames * num_of_labels * num_of_labels);
+  }
 
-  renderer_.reset(new CuteGL::SMPLRenderer);
+  {
+    // Allocate Rendered image data
+    rendered_images_.Reshape(num_frames, 1, image_size.y(), image_size.x());
+    CHECK_EQ(rendered_images_.shape(), bottom[4]->shape()) << "rendered_images_ is expected to {num_frames, 1, H, W}";
+  }
+
+  {
+    std::vector<int> blob_shape = {num_frames};
+    losses_.Reshape(blob_shape);
+    CHECK_EQ(losses_.shape(), blob_shape) << "losses_ is expected to be a vector of size same as batch size (num_frames)";
+    CHECK_EQ(losses_.count(), num_frames);
+  }
+
+
+
+
+  renderer_.reset(new CuteGL::BatchSMPLRenderer);
   renderer_->setDisplayGrid(false);
   renderer_->setDisplayAxis(false);
 
@@ -72,16 +91,35 @@ void SMPLRenderWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bott
   viewer_->camera().intrinsics() = getGLPerspectiveProjection(K, image_size.x(), image_size.y(), 0.01f, 100.0f);
 
   LOG(INFO)<< "image_size= " << image_size.x() <<" x " << image_size.y();
-  LOG(INFO)<< "K=\n" << K;
 
   LOG(INFO)<< "Creating offscreen render surface";
   viewer_->create();
   viewer_->makeCurrent();
 
   LOG(INFO)<< "Adding SMPL data to renderer";
-  renderer_->setSMPLData("smpl_neutral_lbs_10_207_0.h5", "vertex_segm24_col24_14.h5");
+  renderer_->setSMPLData(num_frames, "smpl_neutral_lbs_10_207_0.h5", "vertex_segm24_col24_14.h5");
 
-  LOG(INFO)<< "Done Setting up SMPLRenderWithLoss";
+  LOG(INFO)<< "Generating PBOs";
+  {
+    const size_t pbo_size = image_size.x() * image_size.y() * sizeof(Dtype);
+
+    // Create PBOS
+    pbo_ids_ = createGLBuffers(viewer_->glFuncs(), num_frames, GL_PIXEL_PACK_BUFFER, pbo_size, GL_DYNAMIC_READ);
+    // register PBOS with CUDA
+    cuda_pbo_resources_ = createCudaGLBufferResources(pbo_ids_, cudaGraphicsRegisterFlagsReadOnly);
+    // get device pointers to the PBOS
+    pbo_ptrs_ = createCudaGLBufferPointers<Dtype>(cuda_pbo_resources_, pbo_size);
+  }
+
+  {
+    // Make sure cublas_pointer_mode set to CUBLAS_POINTER_MODE_HOST
+    // See http://docs.nvidia.com/cuda/cublas/index.html#unique_1881057720
+    cublasPointerMode_t cublas_pointer_mode;
+    CUBLAS_CHECK(cublasGetPointerMode(Caffe::cublas_handle(), &cublas_pointer_mode));
+    CHECK_EQ(cublas_pointer_mode, CUBLAS_POINTER_MODE_HOST);
+  }
+
+  LOG(INFO) << "------ Done Setting up BatchSMPLRenderWithLoss -------";
 }
 
 template<typename Dtype>
@@ -98,265 +136,298 @@ void SMPLRenderWithLossLayer<Dtype>::Reshape(const vector<Blob<Dtype> *>& bottom
 }
 
 template<typename Dtype>
-template <class DI>
-Dtype SMPLRenderWithLossLayer<Dtype>::computeIoU(const Eigen::MatrixBase<DI>& gt_image) {
-  // TODO: Move this to member data?
-  const int num_of_labels = 25;
-  Eigen::VectorXi total_pixels_class(num_of_labels);
-  Eigen::VectorXi ok_pixels_class(num_of_labels);
-  Eigen::VectorXi label_pixels(num_of_labels);
-
-  total_pixels_class.setZero();
-  ok_pixels_class.setZero();
-  label_pixels.setZero();
-
-  for (Eigen::Index index = 0; index < rendered_image_.size(); ++index) {
-    const int pred_label = static_cast<int>(rendered_image_(index));
-    const int gt_label = static_cast<int>(gt_image(index));
-
-    ++total_pixels_class[gt_label];
-    ++label_pixels[pred_label];
-
-    if (gt_label == pred_label) {
-      ++ok_pixels_class[gt_label];
-    }
-  }
-
-  Dtype mean_iou = 0;
-  int valid_labels = 0;
-  for (Eigen::Index i = 0; i < num_of_labels; ++i) {
-    int union_pixels = total_pixels_class[i] + label_pixels[i] - ok_pixels_class[i];
-    if (union_pixels > 0)  {
-      Dtype class_iou = Dtype(ok_pixels_class[i]) / union_pixels;
-      mean_iou += class_iou;
-      ++valid_labels;
-    }
-  }
-  mean_iou /= valid_labels;
-  return mean_iou;
-}
-
-template<typename Dtype>
-template <class DS, class DP, class DC, class DM, class DI>
-Dtype SMPLRenderWithLossLayer<Dtype>::renderAndCompare(const Eigen::MatrixBase<DS>& shape_param,
-                                                       const Eigen::MatrixBase<DP>& pose_param,
-                                                       const Eigen::MatrixBase<DC>& camera_extrinsic,
-                                                       const Eigen::MatrixBase<DM>& model_pose,
-                                                       const Eigen::MatrixBase<DI>& gt_image) {
-  EIGEN_STATIC_ASSERT_VECTOR_ONLY(DS);
-  EIGEN_STATIC_ASSERT_VECTOR_ONLY(DP);
-  EIGEN_STATIC_ASSERT_MATRIX_SPECIFIC_SIZE(DC, 4, 4);
-  EIGEN_STATIC_ASSERT_MATRIX_SPECIFIC_SIZE(DM, 4, 4);
-
-  viewer_->camera().extrinsics() = camera_extrinsic.template cast<float>();
-  renderer_->modelPose() = model_pose.template cast<float>();
-
-  renderer_->smplDrawer().shape() = shape_param.template cast<float>();
-  renderer_->smplDrawer().pose().tail(69) = pose_param.template cast<float>();
-
-  renderer_->smplDrawer().updateShapeAndPose();
-
-  viewer_->render();
-  viewer_->readLabelBuffer(rendered_image_.data());
-
-  Dtype loss = (Dtype(1.0) - computeIoU(gt_image));
-  return loss;
-}
-
-template<typename Dtype>
-template <class DS, class DP, class DI>
-Dtype SMPLRenderWithLossLayer<Dtype>::renderAndCompare(const Eigen::MatrixBase<DS>& shape_param,
-                                                       const Eigen::MatrixBase<DP>& pose_param,
-                                                       const Eigen::MatrixBase<DI>& gt_image) {
-  EIGEN_STATIC_ASSERT_VECTOR_ONLY(DS);
-  EIGEN_STATIC_ASSERT_VECTOR_ONLY(DP);
-
-  bool update_shape = false;
-  bool update_pose = false;
-
-  if (renderer_->smplDrawer().shape() != shape_param.template cast<float>()) {
-    renderer_->smplDrawer().shape() = shape_param.template cast<float>();
-    update_shape = true;
-  }
-
-  if (renderer_->smplDrawer().pose().tail(69) != pose_param.template cast<float>()) {
-    renderer_->smplDrawer().pose().tail(69) = pose_param.template cast<float>();
-    update_pose = true;
-  }
-  if (update_shape && update_pose)
-    renderer_->smplDrawer().updateShapeAndPose();
-  else if (!update_shape && update_pose)
-    renderer_->smplDrawer().updatePose();
-  else if (update_shape && !update_pose)
-    renderer_->smplDrawer().updateShape();
-  else
-    LOG(FATAL) << "No update required";
-
-  viewer_->render();
-  viewer_->readLabelBuffer(rendered_image_.data());
-
-  Dtype loss = (Dtype(1.0) - computeIoU(gt_image));
-  return loss;
-}
-
-template<typename Dtype>
 void SMPLRenderWithLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype> *>& bottom,
                                                  const vector<Blob<Dtype> *>& top) {
-  const Eigen::Index num_frames = losses_.size();
-//  const Eigen::Index height = rendered_image_.rows();
-//  const Eigen::Index width = rendered_image_.cols();
+  const int num_frames = bottom[4]->num();
 
+  // Set shape and pose params
   {
     const Dtype* shape_param_data_ptr = bottom[0]->cpu_data();
     const Dtype* pose_param_data_ptr = bottom[1]->cpu_data();
-    const Dtype* camera_extrinsic_data_ptr = bottom[2]->cpu_data();
-    const Dtype* model_pose_data_ptr = bottom[3]->cpu_data();
-    const Dtype* gt_segm_image_data_ptr = bottom[4]->cpu_data();
+    using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
 
-    Dtype* rendered_image_data_ptr = nullptr;
-    if (top.size() > 1) {
-      rendered_image_data_ptr = top[1]->mutable_cpu_data();
-    }
+    assert(bottom[1]->shape(1) == 69);
+    assert(renderer_->smplDrawer().pose_params().rows() == 72);
 
-    viewer_->makeCurrent();
-    for (Eigen::Index i = 0; i < num_frames; ++i) {
-      Eigen::Map<const VectorX>shape_param(shape_param_data_ptr + bottom[0]->offset(i), bottom[0]->shape(1));
-      Eigen::Map<const VectorX>pose_param(pose_param_data_ptr + bottom[1]->offset(i), bottom[1]->shape(1));
-      Eigen::Map<const Matrix4>camera_extrinsic(camera_extrinsic_data_ptr + bottom[2]->offset(i), 4, 4);
-      Eigen::Map<const Matrix4>model_pose(model_pose_data_ptr + bottom[3]->offset(i), 4, 4);
-      Eigen::Map<const Image>gt_segm_image(gt_segm_image_data_ptr + bottom[4]->offset(i), rendered_image_.rows(), rendered_image_.cols());
-
-      losses_[i] = renderAndCompare(shape_param, pose_param, camera_extrinsic, model_pose, gt_segm_image);
-
-      if (rendered_image_data_ptr) {
-        Eigen::Map<Image>(rendered_image_data_ptr + top[1]->offset(i), rendered_image_.rows(), rendered_image_.cols()) = rendered_image_;
-      }
-    }
-    viewer_->doneCurrent();
+    renderer_->smplDrawer().shape_params() = Eigen::Map<const Params>(shape_param_data_ptr, bottom[0]->shape(1), num_frames).template cast<float>();
+    renderer_->smplDrawer().pose_params().topRows(3).setZero();
+    renderer_->smplDrawer().pose_params().bottomRows(69) = Eigen::Map<const Params>(pose_param_data_ptr, bottom[1]->shape(1), num_frames).template cast<float>();
   }
 
+  Dtype* losses_data_ptr = losses_.mutable_cpu_data();
+  renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], losses_data_ptr);
+
   // Compute total Loss
-  top[0]->mutable_cpu_data()[0] = losses_.mean();
+  top[0]->mutable_cpu_data()[0] = caffe_cpu_asum(num_frames, losses_.cpu_data()) / num_frames;
+
+  if (top.size() > 1) {
+    top[1]->ShareData(rendered_images_);
+  }
 }
 
+template<typename Dtype>
+void SMPLRenderWithLossLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype> *>& bottom,
+                                                 const vector<Blob<Dtype> *>& top) {
+  const int num_frames = bottom[4]->num();
+
+  // Set shape and pose params
+  {
+    const Dtype* shape_param_data_ptr = bottom[0]->cpu_data();
+    const Dtype* pose_param_data_ptr = bottom[1]->cpu_data();
+    using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
+
+    assert(bottom[1]->shape(1) == 69);
+    assert(renderer_->smplDrawer().pose_params().rows() == 72);
+
+    renderer_->smplDrawer().shape_params() = Eigen::Map<const Params>(shape_param_data_ptr, bottom[0]->shape(1), num_frames).template cast<float>();
+    renderer_->smplDrawer().pose_params().topRows(3).setZero();
+    renderer_->smplDrawer().pose_params().bottomRows(69) = Eigen::Map<const Params>(pose_param_data_ptr, bottom[1]->shape(1), num_frames).template cast<float>();
+  }
+
+  Dtype* losses_data_ptr = losses_.mutable_gpu_data();
+  renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_data_ptr, top.size() > 1);
+
+  // Compute total Loss
+  Dtype loss_sum;
+  caffe_gpu_asum(num_frames, losses_.gpu_data(), &loss_sum);
+  top[0]->mutable_cpu_data()[0] = loss_sum / num_frames;
+
+  if (top.size() > 1) {
+    top[1]->ShareData(rendered_images_);
+  }
+}
+
+template<typename Dtype>
+void SMPLRenderWithLossLayer<Dtype>::renderToPBOs(const Blob<Dtype>& camera_extrisics, const Blob<Dtype>& model_poses) {
+  const int num_frames = camera_extrisics.num();
+  assert(model_poses.num() == num_frames);
+  assert(model_poses.count() == num_frames * 16);
+  assert(camera_extrisics.count() == num_frames * 16);
+  assert(pbo_ids_.size() == num_frames);
+
+  const Dtype* camera_extrinsic_data_ptr = camera_extrisics.cpu_data();
+  const Dtype* model_pose_data_ptr = model_poses.cpu_data();
+  for (int i = 0; i < num_frames; ++i) {
+    using Matrix4 = Eigen::Matrix<Dtype, 4, 4, Eigen::RowMajor>;
+    viewer_->camera().extrinsics() = Eigen::Map<const Matrix4>(camera_extrinsic_data_ptr + i * 16, 4, 4).template cast<float>();
+    renderer_->modelPose() = Eigen::Map<const Matrix4>(model_pose_data_ptr + i * 16, 4, 4).template cast<float>();
+    renderer_->smplDrawer().batchId() = i;
+
+    viewer_->render();
+    viewer_->readLabelBuffer(CuteGL::GLTraits<Dtype>::type, pbo_ids_[i]);
+  }
+  viewer_->glFuncs()->glFinish();
+}
+
+template<typename Dtype>
+void SMPLRenderWithLossLayer<Dtype>::renderAndCompareGPU(const Blob<Dtype>& camera_extrisics,
+                                                         const Blob<Dtype>& model_poses,
+                                                         const Blob<Dtype>& gt_segm_images,
+                                                         Dtype* losses,
+                                                         bool copy_rendered_images) {
+  const int num_frames = gt_segm_images.num();
+  const int height = gt_segm_images.height();
+  const int width = gt_segm_images.width();
+
+  // update VBOS
+  renderer_->smplDrawer().updateShapeAndPose();
+
+  // Do the Rendering
+  renderToPBOs(camera_extrisics, model_poses);
+
+  // compute IoU losses and if required Copy from PBOS to CUDA data
+  {
+    const Dtype* gt_segm_image_data_ptr = gt_segm_images.gpu_data();
+    int* confusion_matrices_data_ptr = confusion_matrices_.mutable_gpu_data();
+    Dtype* rendered_images_data_ptr = copy_rendered_images ? rendered_images_.mutable_gpu_data() : nullptr;
+
+    const int image_size = width * height;
+    const size_t pbo_size = image_size * sizeof(Dtype);
+    const int num_of_labels = 25;
+
+    std::vector<cudaStream_t> streams(num_frames);
+    for (int i = 0; i < num_frames; ++i) {
+      CHECK_CUDA(cudaStreamCreate(&streams[i]));
+
+      RaC::cudaIoULoss(image_size,
+                       gt_segm_image_data_ptr + i * image_size,
+                       pbo_ptrs_[i],
+                       num_of_labels,
+                       confusion_matrices_data_ptr + i * num_of_labels * num_of_labels,
+                       losses + i,
+                       streams[i]);
+
+      if (rendered_images_data_ptr)
+        CHECK_CUDA(cudaMemcpyAsync(rendered_images_data_ptr + i * image_size, pbo_ptrs_[i], pbo_size, cudaMemcpyDeviceToDevice, streams[i]));
+
+      CHECK_CUDA(cudaStreamDestroy(streams[i]));
+    }
+    CHECK_CUDA(cudaDeviceSynchronize());
+  }
+}
+
+template<typename Dtype>
+void SMPLRenderWithLossLayer<Dtype>::renderAndCompareCPU(const Blob<Dtype>& camera_extrisics,
+                                                         const Blob<Dtype>& model_poses,
+                                                         const Blob<Dtype>& gt_segm_images,
+                                                         Dtype* loss) {
+
+  const int num_frames = gt_segm_images.num();
+  const int height = gt_segm_images.height();
+  const int width = gt_segm_images.width();
+
+  // update VBOS (We need to do both shape and pose update here)
+  renderer_->smplDrawer().updateShapeAndPose();
+
+  // Do the Rendering
+  renderToPBOs(camera_extrisics, model_poses);
+
+  // Copy from PBOS to CPU
+  {
+    Dtype* rendered_images_data_ptr = rendered_images_.mutable_cpu_data();
+    std::vector<cudaStream_t> streams(num_frames);
+    for (int i = 0; i < num_frames; ++i) {
+      CHECK_CUDA(cudaStreamCreate(&streams[i]));
+      const size_t pbo_size = width * height * sizeof(Dtype);
+      CHECK_CUDA(cudaMemcpyAsync(rendered_images_data_ptr + rendered_images_.offset(i, 0), pbo_ptrs_[i], pbo_size, cudaMemcpyDeviceToHost, streams[i]));
+      CHECK_CUDA(cudaStreamDestroy(streams[i]));
+    }
+    CHECK_CUDA(cudaDeviceSynchronize());
+  }
+
+  // compute IoU losses
+  {
+    const Dtype* gt_segm_image_data_ptr = gt_segm_images.cpu_data();
+    const Dtype* rendered_images_data_ptr = rendered_images_.cpu_data();
+    const int image_data_stride = width * height;
+
+#pragma omp parallel for
+    for (int i = 0; i < num_frames; ++i) {
+      using Image = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+      Eigen::Map<const Image>gt_segm_image(gt_segm_image_data_ptr + i * image_data_stride, height, width);
+      Eigen::Map<const Image>rendered_segm_image(rendered_images_data_ptr + i * image_data_stride, height, width);
+      loss[i] = Dtype(1.0) - RaC::computeIoU(gt_segm_image, rendered_segm_image);
+    }
+  }
+
+}
 
 template <typename Dtype>
 void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+                                                       const vector<bool>& propagate_down,
+                                                       const vector<Blob<Dtype>*>& bottom) {
 
   if (propagate_down[4]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to gt_segm_image";
   if (propagate_down[3]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to model_pose";
   if (propagate_down[2]) LOG(FATAL) << this->type() << " Layer cannot backpropagate to camera_extrinsic";
 
-  const Eigen::Index num_frames = losses_.size();
+  const int num_frames = bottom[4]->num();
   const Dtype gradient_scale = top[0]->cpu_diff()[0] / num_frames;
 
   // backpropagate to shape params
   if (propagate_down[0]) {
-    Dtype* shape_param_diff_ptr = bottom[0]->mutable_cpu_diff();
     const Dtype* shape_param_data_ptr = bottom[0]->cpu_data();
     const Dtype* pose_param_data_ptr = bottom[1]->cpu_data();
-    const Dtype* camera_extrinsic_data_ptr = bottom[2]->cpu_data();
-    const Dtype* model_pose_data_ptr = bottom[3]->cpu_data();
-    const Dtype* gt_segm_image_data_ptr = bottom[4]->cpu_data();
 
-    viewer_->makeCurrent();
-    for (Eigen::Index i = 0; i < num_frames; ++i) {
-      // Compute shape gradients of frame i
+    using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
+    using VectorX = Eigen::Matrix<Dtype, Eigen::Dynamic, 1>;
+    using RowVectorX = Eigen::Matrix<Dtype, 1, Eigen::Dynamic>;
 
-      Eigen::Map<const VectorX>shape_param(shape_param_data_ptr + bottom[0]->offset(i), bottom[0]->shape(1));
-      Eigen::Map<const VectorX>pose_param(pose_param_data_ptr + bottom[1]->offset(i), bottom[1]->shape(1));
-      Eigen::Map<const Matrix4>camera_extrinsic(camera_extrinsic_data_ptr + bottom[2]->offset(i), 4, 4);
-      Eigen::Map<const Matrix4>model_pose(model_pose_data_ptr + bottom[3]->offset(i), 4, 4);
-      Eigen::Map<const Image>gt_segm_image(gt_segm_image_data_ptr + bottom[4]->offset(i), rendered_image_.rows(), rendered_image_.cols());
+    Eigen::Map<const Params> shape_params(shape_param_data_ptr, bottom[0]->shape(1), num_frames);
 
-      Eigen::Map<VectorX>gradient(shape_param_diff_ptr + bottom[0]->offset(i), bottom[0]->shape(1));
-
-      viewer_->camera().extrinsics() = camera_extrinsic.template cast<float>();
-      renderer_->modelPose() = model_pose.template cast<float>();
-
-      for (Eigen::Index j = 0; j < gradient.size(); ++j) {
-        const Dtype min_step_size = 1e-4;
-        const Dtype relative_step_size = 1e-1;
-
-        const Dtype step_size = std::abs(shape_param[j]) * relative_step_size;
-        const Dtype h = std::max(min_step_size, step_size);
-
-        const Dtype two_h = 2 * h;
-
-        VectorX parameters_plus_h = shape_param;
-        parameters_plus_h[j] += h;
-
-        const Dtype f_plus = renderAndCompare(parameters_plus_h, pose_param, gt_segm_image);
-
-        parameters_plus_h[j] -= two_h;
-        const Dtype f_minus = renderAndCompare(parameters_plus_h, pose_param, gt_segm_image);
-
-        gradient[j] = (f_plus - f_minus) / two_h;
-      }
+    renderer_->smplDrawer().shape_params() = shape_params.template cast<float>();
+    for (int i = 0; i < num_frames; ++i) {
+      VectorX full_pose(72);
+      full_pose.setZero();
+      full_pose.tail(69) = Eigen::Map<const VectorX>(pose_param_data_ptr + bottom[1]->offset(i), bottom[1]->shape(1));
+      renderer_->smplDrawer().pose_params().col(i) = full_pose.template cast<float>();
     }
-    viewer_->doneCurrent();
+
+
+    Eigen::Map<Params> gradient(bottom[0]->mutable_cpu_diff(), bottom[0]->shape(1), bottom[0]->shape(0));
+    for (Eigen::Index j = 0; j < gradient.rows(); ++j) {
+
+      const Dtype min_step_size = 1e-4;
+      const Dtype relative_step_size = 1e-1;
+      const RowVectorX hvec = (shape_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+
+      RowVectorX f_plus(num_frames);
+      // Compute F(X+h)
+      {
+        renderer_->smplDrawer().shape_params().row(j) += hvec.template cast<float>();
+        renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_plus.data());
+      }
+
+      RowVectorX f_minus(num_frames);
+      // Compute F(X-h)
+      {
+        renderer_->smplDrawer().shape_params().row(j) -= 2 * hvec.template cast<float>();
+        renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_minus.data());  // TODO: Only perform shape update
+      }
+
+      // Compute central difference derivative
+      gradient.row(j) = (f_plus - f_minus).cwiseQuotient(2 * hvec);
+
+      // Reset shape param
+      renderer_->smplDrawer().shape_params().row(j) = shape_params.row(j).template cast<float>();
+    }
 
     // Scale gradient
-    using MatrixX = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    Eigen::Map<MatrixX>shape_param_diff(shape_param_diff_ptr, bottom[0]->shape(0), bottom[0]->shape(1));
-    shape_param_diff *= gradient_scale;
+    gradient *= gradient_scale;
+
+//    LOG(INFO) << "shape_gradient.sum() = " << gradient.sum();
   }
 
   // backpropagate to pose params
   if (propagate_down[1]) {
-    Dtype* pose_param_diff_ptr = bottom[1]->mutable_cpu_diff();
     const Dtype* shape_param_data_ptr = bottom[0]->cpu_data();
     const Dtype* pose_param_data_ptr = bottom[1]->cpu_data();
-    const Dtype* camera_extrinsic_data_ptr = bottom[2]->cpu_data();
-    const Dtype* model_pose_data_ptr = bottom[3]->cpu_data();
-    const Dtype* gt_segm_image_data_ptr = bottom[4]->cpu_data();
 
-    viewer_->makeCurrent();
-    for (Eigen::Index i = 0; i < num_frames; ++i) {
-      // Compute pose gradients of frame i
+    using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
+    using RowVectorX = Eigen::Matrix<Dtype, 1, Eigen::Dynamic>;
 
-      Eigen::Map<const VectorX>shape_param(shape_param_data_ptr + bottom[0]->offset(i), bottom[0]->shape(1));
-      Eigen::Map<const VectorX>pose_param(pose_param_data_ptr + bottom[1]->offset(i), bottom[1]->shape(1));
-      Eigen::Map<const Matrix4>camera_extrinsic(camera_extrinsic_data_ptr + bottom[2]->offset(i), 4, 4);
-      Eigen::Map<const Matrix4>model_pose(model_pose_data_ptr + bottom[3]->offset(i), 4, 4);
-      Eigen::Map<const Image>gt_segm_image(gt_segm_image_data_ptr + bottom[4]->offset(i), rendered_image_.rows(), rendered_image_.cols());
+    renderer_->smplDrawer().shape_params() = Eigen::Map<const Params>(shape_param_data_ptr, bottom[0]->shape(1), num_frames).template cast<float>();
+    Eigen::Map<const Params> pose_params(pose_param_data_ptr, bottom[1]->shape(1), num_frames);
+    renderer_->smplDrawer().pose_params().topRows(3).setZero();
+    renderer_->smplDrawer().pose_params().bottomRows(69) = pose_params.template cast<float>();
 
-      Eigen::Map<VectorX>gradient(pose_param_diff_ptr + bottom[1]->offset(i), bottom[1]->shape(1));
+    Eigen::Map<Params> gradient(bottom[1]->mutable_cpu_diff(), bottom[1]->shape(1), bottom[1]->shape(0));
+    for (Eigen::Index j = 0; j < gradient.rows(); ++j) {
 
-      viewer_->camera().extrinsics() = camera_extrinsic.template cast<float>();
-      renderer_->modelPose() = model_pose.template cast<float>();
+      const Dtype min_step_size = 1e-4;
+      const Dtype relative_step_size = 1e-1;
+      const RowVectorX hvec = (pose_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
 
-      for (Eigen::Index j = 0; j < gradient.size(); ++j) {
-        const Dtype min_step_size = 1e-4;
-        const Dtype relative_step_size = 1e-1;
-
-        const Dtype step_size = std::abs(pose_param[j]) * relative_step_size;
-        const Dtype h = std::max(min_step_size, step_size);
-
-        const Dtype two_h = 2 * h;
-
-        VectorX parameters_plus_h = pose_param;
-        parameters_plus_h[j] += h;
-
-        const Dtype f_plus = renderAndCompare(shape_param, parameters_plus_h, gt_segm_image);
-
-        parameters_plus_h[j] -= two_h;
-        const Dtype f_minus = renderAndCompare(shape_param, parameters_plus_h, gt_segm_image);
-
-        gradient[j] = (f_plus - f_minus) / two_h;
+      RowVectorX f_plus(num_frames);
+      // Compute F(X+h)
+      {
+        renderer_->smplDrawer().pose_params().row(j+3) += hvec.template cast<float>();
+        renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_plus.data());
       }
+
+      RowVectorX f_minus(num_frames);
+      // Compute F(X-h)
+      {
+        renderer_->smplDrawer().pose_params().row(j+3) -= 2 * hvec.template cast<float>();
+        renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_minus.data());  // TODO: Only perform pose update
+      }
+
+      // Compute central difference derivative
+      gradient.row(j) = (f_plus - f_minus).cwiseQuotient(2 * hvec);
+
+      // Reset shape param
+      renderer_->smplDrawer().pose_params().row(j+3) = pose_params.row(j).template cast<float>();
     }
-    viewer_->doneCurrent();
 
     // Scale gradient
-    using MatrixX = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    Eigen::Map<MatrixX>pose_param_diff(pose_param_diff_ptr, bottom[1]->shape(0), bottom[1]->shape(1));
-    pose_param_diff *= gradient_scale;
+    gradient *= gradient_scale;
+
+//    LOG(INFO) << "pose_gradient.sum() = " << gradient.sum();
   }
 }
-
 
 INSTANTIATE_CLASS(SMPLRenderWithLossLayer);
 
 }  // end namespace caffe
+
+
