@@ -381,6 +381,10 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
 
     // Scale gradient
     gradient *= gradient_scale;
+
+//    {
+//      LOG(INFO) << "shape.diff.cwiseAbs.mean() = " << gradient.cwiseAbs().mean();
+//    }
   }
 
   // backpropagate to pose params
@@ -428,6 +432,10 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
 
     // Scale gradient
     gradient *= gradient_scale;
+
+//    {
+//      LOG(INFO) << "pose.diff.cwiseAbs.mean() = " << gradient.cwiseAbs().mean();
+//    }
   }
 }
 
@@ -466,14 +474,19 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
       // Compute F(X+h)
       {
         renderer_->smplDrawer().shape_params().row(j) += hvec.template cast<float>();
-        renderer_->smplDrawer().updateShapeAndPose();// update VBOS
+
+        if (j == 0)
+          renderer_->smplDrawer().updateShapeAndPose(); // update ShapeAndPose only for 1st time
+        else
+          renderer_->smplDrawer().updateShape(); // only update shape for the rest of the time
+
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), false);
       }
 
       // Compute F(X-h)
       {
         renderer_->smplDrawer().shape_params().row(j) -= 2 * hvec.template cast<float>();
-        renderer_->smplDrawer().updateShapeAndPose();// update VBOS  // TODO: Only perform shape update
+        renderer_->smplDrawer().updateShape(); //  shape-only update is good enough
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);
       }
 
@@ -491,6 +504,12 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
 
     // Scale gradient
     caffe_gpu_scal(num_frames * num_of_params, gradient_scale, shape_diff_ptr);
+
+//    {
+//      CHECK_CUDA(cudaDeviceSynchronize());
+//      Eigen::Map<Params> gradient(bottom[0]->mutable_cpu_diff(), bottom[0]->shape(1), bottom[0]->shape(0));
+//      LOG(INFO) << "shape.diff.cwiseAbs.mean() = " << gradient.cwiseAbs().mean();
+//    }
   }
 
   // backpropagate to pose params
@@ -516,15 +535,18 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
       // Compute F(X+h)
       {
         renderer_->smplDrawer().pose_params().row(j+3) += hvec.template cast<float>();
-        renderer_->smplDrawer().updateShapeAndPose();// update VBOS
+        if (j == 0)
+           renderer_->smplDrawer().updateShapeAndPose(); // update ShapeAndPose only for 1st time
+         else
+           renderer_->smplDrawer().updatePose(); // only update pose for the rest of the time
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), false);
       }
 
       // Compute F(X-h)
       {
         renderer_->smplDrawer().pose_params().row(j+3) -= 2 * hvec.template cast<float>();
-        renderer_->smplDrawer().updateShapeAndPose();// update VBOS
-        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);  // TODO: Only perform pose update
+        renderer_->smplDrawer().updatePose();   // pose-only update is good enough
+        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);
       }
 
       const Dtype* hvec_data_ptr = deltas_.gpu_data();
@@ -541,8 +563,15 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
 
     // Scale gradient
     caffe_gpu_scal(num_frames * num_of_params, gradient_scale, pose_diff_ptr);
+
+//    {
+//      CHECK_CUDA(cudaDeviceSynchronize());
+//      Eigen::Map<Params> gradient(bottom[1]->mutable_cpu_diff(), bottom[1]->shape(1), bottom[1]->shape(0));
+//      LOG(INFO) << "pose.diff.cwiseAbs.mean() = " << gradient.cwiseAbs().mean();
+//    }
   }
 
+  // TODO: Do we really need this sync?
   CHECK_CUDA(cudaDeviceSynchronize());
 }
 
