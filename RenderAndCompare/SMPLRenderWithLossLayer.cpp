@@ -157,8 +157,11 @@ void SMPLRenderWithLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype> *>& bo
     renderer_->smplDrawer().pose_params().bottomRows(69) = Eigen::Map<const Params>(pose_param_data_ptr, bottom[1]->shape(1), num_frames).template cast<float>();
   }
 
-  Dtype* losses_data_ptr = losses_.mutable_cpu_data();
-  renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], losses_data_ptr);
+  // update VBOS
+  renderer_->smplDrawer().updateShapeAndPose();
+
+  // Render and Compare (compute IoU loss). Also copy rendered images from PBOs
+  renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_cpu_data());
 
   // Compute total Loss
   top[0]->mutable_cpu_data()[0] = caffe_cpu_asum(num_frames, losses_.cpu_data()) / num_frames;
@@ -186,6 +189,9 @@ void SMPLRenderWithLossLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype> *>& bo
     renderer_->smplDrawer().pose_params().topRows(3).setZero();
     renderer_->smplDrawer().pose_params().bottomRows(69) = Eigen::Map<const Params>(pose_param_data_ptr, bottom[1]->shape(1), num_frames).template cast<float>();
   }
+
+  // update VBOS
+  renderer_->smplDrawer().updateShapeAndPose();
 
   // Render and Compare (compute IoU loss). Also copy rendered images from PBOs if top.size() > 1
   renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), top.size() > 1);
@@ -235,9 +241,6 @@ void SMPLRenderWithLossLayer<Dtype>::renderAndCompareGPU(const Blob<Dtype>& came
   const int height = gt_segm_images.height();
   const int width = gt_segm_images.width();
 
-  // update VBOS
-  renderer_->smplDrawer().updateShapeAndPose();
-
   // Do the Rendering
   renderToPBOs(camera_extrisics, model_poses);
 
@@ -280,9 +283,6 @@ void SMPLRenderWithLossLayer<Dtype>::renderAndCompareCPU(const Blob<Dtype>& came
   const int num_frames = gt_segm_images.num();
   const int height = gt_segm_images.height();
   const int width = gt_segm_images.width();
-
-  // update VBOS (We need to do both shape and pose update here)
-  renderer_->smplDrawer().updateShapeAndPose();
 
   // Do the Rendering
   renderToPBOs(camera_extrisics, model_poses);
@@ -360,6 +360,7 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
       // Compute F(X+h)
       {
         renderer_->smplDrawer().shape_params().row(j) += hvec.template cast<float>();
+        renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_plus.data());
       }
 
@@ -367,6 +368,7 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
       // Compute F(X-h)
       {
         renderer_->smplDrawer().shape_params().row(j) -= 2 * hvec.template cast<float>();
+        renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_minus.data());  // TODO: Only perform shape update
       }
 
@@ -405,6 +407,7 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
       // Compute F(X+h)
       {
         renderer_->smplDrawer().pose_params().row(j+3) += hvec.template cast<float>();
+        renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_plus.data());
       }
 
@@ -412,6 +415,7 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
       // Compute F(X-h)
       {
         renderer_->smplDrawer().pose_params().row(j+3) -= 2 * hvec.template cast<float>();
+        renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_minus.data());  // TODO: Only perform pose update
       }
 
@@ -462,13 +466,15 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
       // Compute F(X+h)
       {
         renderer_->smplDrawer().shape_params().row(j) += hvec.template cast<float>();
+        renderer_->smplDrawer().updateShapeAndPose();// update VBOS
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), false);
       }
 
       // Compute F(X-h)
       {
         renderer_->smplDrawer().shape_params().row(j) -= 2 * hvec.template cast<float>();
-        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);  // TODO: Only perform shape update
+        renderer_->smplDrawer().updateShapeAndPose();// update VBOS  // TODO: Only perform shape update
+        renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);
       }
 
       const Dtype* hvec_data_ptr = deltas_.gpu_data();
@@ -510,12 +516,14 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
       // Compute F(X+h)
       {
         renderer_->smplDrawer().pose_params().row(j+3) += hvec.template cast<float>();
+        renderer_->smplDrawer().updateShapeAndPose();// update VBOS
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_data(), false);
       }
 
       // Compute F(X-h)
       {
         renderer_->smplDrawer().pose_params().row(j+3) -= 2 * hvec.template cast<float>();
+        renderer_->smplDrawer().updateShapeAndPose();// update VBOS
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);  // TODO: Only perform pose update
       }
 
@@ -534,6 +542,8 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
     // Scale gradient
     caffe_gpu_scal(num_frames * num_of_params, gradient_scale, pose_diff_ptr);
   }
+
+  CHECK_CUDA(cudaDeviceSynchronize());
 }
 
 INSTANTIATE_CLASS(SMPLRenderWithLossLayer);
