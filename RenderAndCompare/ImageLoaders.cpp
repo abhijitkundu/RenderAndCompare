@@ -29,6 +29,8 @@ void BatchImageLoader<S, C>::setImageSize(int width, int height) {
 
 template<class S, int C>
 void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image_files, bool do_vertical_flip) {
+  std::locale loc("");
+  std::cout.imbue(loc);
   std::cout << "BatchImageLoader: Preloading " << image_files.size() << " images. Ops: Resize,Shuffle" << std::endl;
   assert(width_ > 0);
   assert(height_ > 0);
@@ -72,6 +74,8 @@ void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image
 template<class S, int C>
 void BatchImageLoader<S, C>::preloadImages(const std::vector<std::string>& image_files,
                                            const Eigen::AlignedStdVector<Eigen::Vector4i>& croppings) {
+  std::locale loc("");
+  std::cout.imbue(loc);
   std::cout << "BatchImageLoader: Preloading " << image_files.size() << " images. Ops: Crop,Resize,Shuffle" << std::endl;
   assert(width_ > 0);
   assert(height_ > 0);
