@@ -352,9 +352,10 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
     Eigen::Map<Params> gradient(bottom[0]->mutable_cpu_diff(), bottom[0]->shape(1), bottom[0]->shape(0));
     for (Eigen::Index j = 0; j < gradient.rows(); ++j) {
 
-      const Dtype min_step_size = 1e-4;
-      const Dtype relative_step_size = 1e-1;
-      const RowVectorX hvec = (shape_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+//      const Dtype min_step_size = 1e-4;
+//      const Dtype relative_step_size = 1e-1;
+//      const RowVectorX hvec = (shape_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+      const RowVectorX hvec = RowVectorX::Constant(num_frames, 1e-2);
 
       RowVectorX f_plus(num_frames);
       // Compute F(X+h)
@@ -403,9 +404,10 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
     Eigen::Map<Params> gradient(bottom[1]->mutable_cpu_diff(), bottom[1]->shape(1), bottom[1]->shape(0));
     for (Eigen::Index j = 0; j < gradient.rows(); ++j) {
 
-      const Dtype min_step_size = 1e-4;
-      const Dtype relative_step_size = 1e-1;
-      const RowVectorX hvec = (pose_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+//      const Dtype min_step_size = 1e-4;
+//      const Dtype relative_step_size = 1e-1;
+//      const RowVectorX hvec = (pose_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+      const RowVectorX hvec = RowVectorX::Constant(num_frames, 1e-2);
 
       RowVectorX f_plus(num_frames);
       // Compute F(X+h)

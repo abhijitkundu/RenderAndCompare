@@ -31,6 +31,9 @@ target_link_libraries(evaluate_bodyparts_segmentation RenderAndCompare)
 add_executable(check_smpl_render_layer check_smpl_render_layer.cpp)
 target_link_libraries(check_smpl_render_layer RenderAndCompare)
 
+add_executable(check_render_layer_diff check_render_layer_diff.cpp)
+target_link_libraries(check_render_layer_diff RenderAndCompare)
+
 cuda_include_directories(
   ${EIGEN_INCLUDE_DIRS}
   ${Caffe_INCLUDE_DIRS}
