@@ -7,10 +7,13 @@
 
 #include "RenderAndCompare/SMPLRenderWithLossLayer.h"
 #include "CuteGL/Renderer/SMPLRenderer.h"
-#include <CuteGL/Core/PoseUtils.h>
-//#include "caffe/test/test_gradient_check_util.hpp"
+#include "CuteGL/Core/PoseUtils.h"
 #include "RenderAndCompare/ImageUtils.h"
 
+#include "caffe/blob.hpp"
+#include "caffe/layer.hpp"
+
+#include <boost/program_options.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <QApplication>
@@ -25,11 +28,8 @@ class GradientChecker {
   // kink and kink_range specify an ignored nonsmooth region of the form
   // kink - kink_range <= |feature value| <= kink + kink_range,
   // which accounts for all nonsmoothness in use by caffe
-  GradientChecker(const Dtype stepsize, const Dtype threshold,
-      const unsigned int seed = 1701, const Dtype kink = 0.,
-      const Dtype kink_range = -1)
-      : stepsize_(stepsize), threshold_(threshold), seed_(seed),
-        kink_(kink), kink_range_(kink_range) {}
+  GradientChecker(const Dtype stepsize, const Dtype threshold)
+      : stepsize_(stepsize), threshold_(threshold){}
   // Checks the gradient of a layer, with provided bottom layers and top
   // layers.
   // Note that after the gradient check, we do not guarantee that the data
@@ -41,13 +41,7 @@ class GradientChecker {
   }
   void CheckGradientExhaustive(Layer<Dtype>* layer,
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top,
-      int check_bottom = -1);
-
-  // CheckGradientEltwise can be used to test layers that perform element-wise
-  // computation only (e.g., neuron layers) -- where (d y_i) / (d x_j) = 0 when
-  // i != j.
-  void CheckGradientEltwise(Layer<Dtype>* layer,
-      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+      int check_bottom = -1, int top_id = 0);
 
   // Checks the gradient of a single output with respect to particular input
   // blob(s).  If check_bottom = i >= 0, check only the ith bottom Blob.
@@ -55,32 +49,20 @@ class GradientChecker {
   // param Blobs.  Otherwise (if check_bottom < -1), check only param Blobs.
   void CheckGradientSingle(Layer<Dtype>* layer,
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top,
-      int check_bottom, int top_id, int top_data_id, bool element_wise = false);
+      int check_bottom, int top_id, int top_data_id);
 
  protected:
   Dtype GetObjAndGradient(const Layer<Dtype>& layer,
       const vector<Blob<Dtype>*>& top, int top_id = -1, int top_data_id = -1);
   Dtype stepsize_;
   Dtype threshold_;
-  unsigned int seed_;
-  Dtype kink_;
-  Dtype kink_range_;
 };
 
 
 template <typename Dtype>
 void GradientChecker<Dtype>::CheckGradientSingle(Layer<Dtype>* layer,
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top,
-    int check_bottom, int top_id, int top_data_id, bool element_wise) {
-  if (element_wise) {
-    CHECK_EQ(0, layer->blobs().size());
-    CHECK_LE(0, top_id);
-    CHECK_LE(0, top_data_id);
-    const int top_count = top[top_id]->count();
-    for (size_t blob_id = 0; blob_id < bottom.size(); ++blob_id) {
-      CHECK_EQ(top_count, bottom[blob_id]->count());
-    }
-  }
+    int check_bottom, int top_id, int top_data_id) {
   // First, figure out what blobs we need to check against, and zero init
   // parameter blobs.
   vector<Blob<Dtype>*> blobs_to_check;
@@ -101,7 +83,6 @@ void GradientChecker<Dtype>::CheckGradientSingle(Layer<Dtype>* layer,
   }
   CHECK_GT(blobs_to_check.size(), 0) << "No blobs to check.";
   // Compute the gradient analytically using Backward
-  Caffe::set_random_seed(seed_);
   // Ignore the loss from the layer (it's just the weighted sum of the losses
   // from the top blobs, whose gradients we may want to test individually).
   layer->Forward(bottom, top);
@@ -139,17 +120,15 @@ void GradientChecker<Dtype>::CheckGradientSingle(Layer<Dtype>* layer,
       Dtype estimated_gradient = 0;
       Dtype positive_objective = 0;
       Dtype negative_objective = 0;
-      if (!element_wise || (feat_id == top_data_id)) {
+      {
         // Do finite differencing.
         // Compute loss with stepsize_ added to input.
         current_blob->mutable_cpu_data()[feat_id] += stepsize_;
-        Caffe::set_random_seed(seed_);
         layer->Forward(bottom, top);
         positive_objective =
             GetObjAndGradient(*layer, top, top_id, top_data_id);
         // Compute loss with stepsize_ subtracted from input.
         current_blob->mutable_cpu_data()[feat_id] -= stepsize_ * 2;
-        Caffe::set_random_seed(seed_);
         layer->Forward(bottom, top);
         negative_objective =
             GetObjAndGradient(*layer, top, top_id, top_data_id);
@@ -159,12 +138,8 @@ void GradientChecker<Dtype>::CheckGradientSingle(Layer<Dtype>* layer,
             stepsize_ / 2.;
       }
       Dtype computed_gradient = computed_gradients[feat_id];
-      Dtype feature = current_blob->cpu_data()[feat_id];
 //      LOG(INFO) << estimated_gradient << " " << computed_gradient;
-//       LOG(ERROR) << "debug: " << current_blob->cpu_data()[feat_id] << " "
-//           << current_blob->cpu_diff()[feat_id];
-      if (kink_ - kink_range_ > fabs(feature)
-          || fabs(feature) > kink_ + kink_range_) {
+//      LOG(ERROR) << "debug: " << current_blob->cpu_data()[feat_id] << " " << current_blob->cpu_diff()[feat_id];
         // We check relative accuracy, but for too small values, we threshold
         // the scale factor by 1.
         Dtype scale = std::max<Dtype>(
@@ -176,7 +151,6 @@ void GradientChecker<Dtype>::CheckGradientSingle(Layer<Dtype>* layer,
 //          << "; feat = " << feature
 //          << "; objective+ = " << positive_objective
 //          << "; objective- = " << negative_objective;
-      }
       // LOG(ERROR) << "Feature: " << current_blob->cpu_data()[feat_id];
       // LOG(ERROR) << "computed gradient: " << computed_gradient
       //    << " estimated_gradient: " << estimated_gradient;
@@ -187,30 +161,15 @@ void GradientChecker<Dtype>::CheckGradientSingle(Layer<Dtype>* layer,
 template <typename Dtype>
 void GradientChecker<Dtype>::CheckGradientExhaustive(Layer<Dtype>* layer,
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top,
-    int check_bottom) {
+    int check_bottom, int top_id) {
   layer->SetUp(bottom, top);
-  CHECK_GT(top.size(), 0) << "Exhaustive mode requires at least one top blob.";
-  // LOG(ERROR) << "Exhaustive Mode.";
-  for (size_t i = 0; i < top.size(); ++i) {
-    // LOG(ERROR) << "Exhaustive: blob " << i << " size " << top[i]->count();
-    for (int j = 0; j < top[i]->count(); ++j) {
-      // LOG(ERROR) << "Exhaustive: blob " << i << " data " << j;
-      CheckGradientSingle(layer, bottom, top, check_bottom, i, j);
-    }
-  }
-}
-
-template <typename Dtype>
-void GradientChecker<Dtype>::CheckGradientEltwise(Layer<Dtype>* layer,
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  layer->SetUp(bottom, top);
-  CHECK_GT(top.size(), 0) << "Eltwise mode requires at least one top blob.";
-  const int check_bottom = -1;
-  const bool element_wise = true;
-  for (int i = 0; i < top.size(); ++i) {
-    for (int j = 0; j < top[i]->count(); ++j) {
-      CheckGradientSingle(layer, bottom, top, check_bottom, i, j, element_wise);
-    }
+  CHECK_GE(top_id, 0) << "top_id should be >=0";
+  CHECK_LT(top_id, top.size()) << "top_id should be less than number of tops";
+  LOG(INFO) << "Exhaustive Mode.";
+  LOG(INFO)<< "Exhaustive: Top Blob " << top_id << " size " << top[top_id]->count();
+  for (int j = 0; j < top[top_id]->count(); ++j) {
+    // LOG(ERROR) << "Exhaustive: blob " << i << " data " << j;
+    CheckGradientSingle(layer, bottom, top, check_bottom, top_id, j);
   }
 }
 
@@ -249,11 +208,52 @@ Dtype GradientChecker<Dtype>::GetObjAndGradient(const Layer<Dtype>& layer,
 }  // namespace caffe
 
 int main(int argc, char **argv) {
-  QApplication app(argc, argv);
-
+  namespace po = boost::program_options;
   using namespace caffe;
   using Dtype = float;
   using BlobType = Blob<Dtype>;
+
+  QApplication app(argc, argv);
+
+  po::options_description generic_options("Generic Options");
+  generic_options.add_options()("help,h", "Help screen");
+
+  po::options_description config_options("Config");
+  config_options.add_options()
+      ("gpu_id,g",  po::value<int>()->default_value(0), "GPU Decice Ids (Use -ve value to force CPU)")
+      ("pause_time,p",  po::value<int>()->default_value(0), "Pause time. Use 0 for pause")
+      ;
+  po::options_description cmdline_options;
+  cmdline_options.add(generic_options).add(config_options);
+
+  po::variables_map vm;
+
+  try {
+    po::store(po::command_line_parser(argc, argv).options(cmdline_options).run(), vm);
+    po::notify(vm);
+  } catch (const po::error &ex) {
+    std::cerr << ex.what() << '\n';
+    std::cout << cmdline_options << '\n';
+    return EXIT_FAILURE;
+  }
+
+  if (vm.count("help")) {
+    std::cout << cmdline_options << '\n';
+    return EXIT_SUCCESS;
+  }
+
+  const int gpu_id = vm["gpu_id"].as<int>();
+  const int pause_time = vm["pause_time"].as<int>();
+
+  if (gpu_id >= 0) {
+    LOG(INFO) << "Using GPU with device ID " << gpu_id;
+    Caffe::SetDevice(gpu_id);
+    Caffe::set_mode(Caffe::GPU);
+  } else {
+    LOG(INFO) << "Using CPU";
+    Caffe::set_mode(Caffe::CPU);
+  }
+
 
   vector<BlobType*> blob_bottom_vec;
   vector<BlobType*> blob_top_vec;
@@ -363,30 +363,32 @@ int main(int argc, char **argv) {
     // Check Fwd pass
     layer.Forward(blob_bottom_vec, blob_top_vec);
 
-//    {
-//      // Visualize the gt segm blob
-//      using Tensor4f = Eigen::Tensor<const float , 4, Eigen::RowMajor>;
-//      Eigen::TensorMap<Tensor4f>gt_segm_images_tensor(gt_segm_images->cpu_data(), num_frames, 1, 240, 320);
-//      Eigen::TensorMap<Tensor4f>rendered_images_tensor(rendered_images->cpu_data(), num_frames, 1, 240, 320);
-//      cv::namedWindow("GTSegmImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
-//      cv::namedWindow("RenderedSegmImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
-//      for (int i = 0; i < num_frames; ++i) {
-//        using Tensor3u = Eigen::Tensor<unsigned char , 3, Eigen::RowMajor>;
-//        {
-//          Tensor3u image = gt_segm_images_tensor.chip(i, 0).cast<unsigned char>();
-//          cv::Mat cv_image(image.dimension(1), image.dimension(2), CV_8UC1, image.data());
-//          cv::flip(cv_image, cv_image, 0);  // Can be done with Eigen tensor reverse also
-//          cv::imshow("GTSegmImage", RaC::getColoredImageFromLabels(cv_image, smpl24_cmap));
-//        }
-//        {
-//          Tensor3u image = rendered_images_tensor.chip(i, 0).cast<unsigned char>();
-//          cv::Mat cv_image(image.dimension(1), image.dimension(2), CV_8UC1, image.data());
-//          cv::flip(cv_image, cv_image, 0);  // Can be done with Eigen tensor reverse also
-//          cv::imshow("RenderedSegmImage", RaC::getColoredImageFromLabels(cv_image, smpl24_cmap));
-//        }
-//        cv::waitKey(1);
-//      }
-//    }
+    {
+      // Visualize the gt segm blob
+      using Tensor4f = Eigen::Tensor<const float , 4, Eigen::RowMajor>;
+      Eigen::TensorMap<Tensor4f>gt_segm_images_tensor(gt_segm_images->cpu_data(), num_frames, 1, 240, 320);
+      Eigen::TensorMap<Tensor4f>rendered_images_tensor(rendered_images->cpu_data(), num_frames, 1, 240, 320);
+      cv::namedWindow("GTSegmImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+      cv::moveWindow("GTSegmImage", 100, 100);
+      cv::namedWindow("RenderedSegmImage", CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+      cv::moveWindow("RenderedSegmImage", 420, 100);
+      for (int i = 0; i < num_frames; ++i) {
+        using Tensor3u = Eigen::Tensor<unsigned char , 3, Eigen::RowMajor>;
+        {
+          Tensor3u image = gt_segm_images_tensor.chip(i, 0).cast<unsigned char>();
+          cv::Mat cv_image(image.dimension(1), image.dimension(2), CV_8UC1, image.data());
+          cv::flip(cv_image, cv_image, 0);  // Can be done with Eigen tensor reverse also
+          cv::imshow("GTSegmImage", RaC::getColoredImageFromLabels(cv_image, smpl24_cmap));
+        }
+        {
+          Tensor3u image = rendered_images_tensor.chip(i, 0).cast<unsigned char>();
+          cv::Mat cv_image(image.dimension(1), image.dimension(2), CV_8UC1, image.data());
+          cv::flip(cv_image, cv_image, 0);  // Can be done with Eigen tensor reverse also
+          cv::imshow("RenderedSegmImage", RaC::getColoredImageFromLabels(cv_image, smpl24_cmap));
+        }
+        cv::waitKey(pause_time);
+      }
+    }
 
     CHECK_EQ(loss->cpu_data()[0], 0.0f) << "Expects loss to be close to zero";
     const Dtype* gt_segm_images_data = gt_segm_images->cpu_data();
@@ -400,7 +402,7 @@ int main(int argc, char **argv) {
   }
 
   {
-    GradientChecker<Dtype> checker(1e-2, 1e-2, 1701);
+    GradientChecker<Dtype> checker(1e-2, 1e-2);
     checker.CheckGradientExhaustive(&layer, blob_bottom_vec, blob_top_vec, 0);
   }
 

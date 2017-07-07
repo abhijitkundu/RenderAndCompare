@@ -29,6 +29,8 @@ class SMPLRenderWithLossLayer : public LossLayer<Dtype> {
       : LossLayer<Dtype>(param) {
   }
 
+  virtual ~SMPLRenderWithLossLayer();
+
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
 
   virtual void Reshape(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);

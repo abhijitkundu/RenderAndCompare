@@ -13,6 +13,14 @@
 namespace caffe {
 
 template<typename Dtype>
+SMPLRenderLayer<Dtype>::~SMPLRenderLayer() {
+  for (std::size_t i = 0; i < cuda_pbo_resources_.size(); ++i) {
+    CHECK_CUDA(cudaGraphicsUnregisterResource (cuda_pbo_resources_[i]));
+  }
+  viewer_->glFuncs()->glDeleteBuffers(pbo_ids_.size(), pbo_ids_.data());
+}
+
+template<typename Dtype>
 void SMPLRenderLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
                                          const vector<Blob<Dtype>*>& top) {
   LOG(INFO)<< "---------- Setting up SMPLRenderLayer ------------";
