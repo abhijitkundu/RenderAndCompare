@@ -34,6 +34,9 @@ target_link_libraries(check_smpl_render_layer RenderAndCompare)
 add_executable(check_render_layer_diff check_render_layer_diff.cpp)
 target_link_libraries(check_render_layer_diff RenderAndCompare)
 
+add_executable(visualize_smpl_loss_map visualize_smpl_loss_map.cpp)
+target_link_libraries(visualize_smpl_loss_map RenderAndCompare)
+
 cuda_include_directories(
   ${EIGEN_INCLUDE_DIRS}
   ${Caffe_INCLUDE_DIRS}
