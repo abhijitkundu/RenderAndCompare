@@ -14,7 +14,7 @@ template <class T>
 void central_diff_gpu(const int n,
                       const T* const fplus,
                       const T* const fminus,
-                      const T* const hvec,
+                      const T step_size,
                       T* diff,
                       const int diff_stride);
 

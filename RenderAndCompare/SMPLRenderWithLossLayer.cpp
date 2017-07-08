@@ -80,12 +80,6 @@ void SMPLRenderWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bott
   }
 
   {
-    deltas_.Reshape({num_frames});
-    CHECK_EQ(deltas_.num_axes(), 1) << "deltas_ is expected to be a vector of size same as batch size (num_frames)";
-    CHECK_EQ(deltas_.count(), num_frames) << "deltas_ is expected to be a vector of size same as batch size (num_frames)";
-  }
-
-  {
     // Allocate Rendered image data
     rendered_images_.Reshape(num_frames, 1, image_size.y(), image_size.x());
     CHECK_EQ(rendered_images_.shape(), bottom[4]->shape()) << "rendered_images_ is expected to {num_frames, 1, H, W}";
@@ -360,15 +354,13 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
     Eigen::Map<Params> gradient(bottom[0]->mutable_cpu_diff(), bottom[0]->shape(1), bottom[0]->shape(0));
     for (Eigen::Index j = 0; j < gradient.rows(); ++j) {
 
-//      const Dtype min_step_size = 1e-4;
-//      const Dtype relative_step_size = 1e-1;
-//      const RowVectorX hvec = (shape_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
-      const RowVectorX hvec = RowVectorX::Constant(num_frames, 1e-2);
+      // TODO Adjust this for each param type
+      const Dtype step_size = 1e-2;
 
       RowVectorX f_plus(num_frames);
       // Compute F(X+h)
       {
-        renderer_->smplDrawer().shape_params().row(j) += hvec.template cast<float>();
+        renderer_->smplDrawer().shape_params().row(j).array() += step_size;
         renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_plus.data());
       }
@@ -376,16 +368,16 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
       RowVectorX f_minus(num_frames);
       // Compute F(X-h)
       {
-        renderer_->smplDrawer().shape_params().row(j) -= 2 * hvec.template cast<float>();
+        renderer_->smplDrawer().shape_params().row(j).array() -= 2 * step_size;
         renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_minus.data());  // TODO: Only perform shape update
       }
 
       // Compute central difference derivative
-      gradient.row(j) = (f_plus - f_minus).cwiseQuotient(2 * hvec);
+      gradient.row(j) = (f_plus - f_minus) / (2 * step_size);
 
       // Reset shape param
-      renderer_->smplDrawer().shape_params().row(j) = shape_params.row(j).template cast<float>();
+      renderer_->smplDrawer().shape_params().row(j).array() += step_size;
     }
 
     // Scale gradient
@@ -412,15 +404,13 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
     Eigen::Map<Params> gradient(bottom[1]->mutable_cpu_diff(), bottom[1]->shape(1), bottom[1]->shape(0));
     for (Eigen::Index j = 0; j < gradient.rows(); ++j) {
 
-//      const Dtype min_step_size = 1e-4;
-//      const Dtype relative_step_size = 1e-1;
-//      const RowVectorX hvec = (pose_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
-      const RowVectorX hvec = RowVectorX::Constant(num_frames, 1e-2);
+      // TODO Adjust this for each param type
+      const Dtype step_size = 1e-2;
 
       RowVectorX f_plus(num_frames);
       // Compute F(X+h)
       {
-        renderer_->smplDrawer().pose_params().row(j+3) += hvec.template cast<float>();
+        renderer_->smplDrawer().pose_params().row(j+3).array() += step_size;
         renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_plus.data());
       }
@@ -428,16 +418,16 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& to
       RowVectorX f_minus(num_frames);
       // Compute F(X-h)
       {
-        renderer_->smplDrawer().pose_params().row(j+3) -= 2 * hvec.template cast<float>();
+        renderer_->smplDrawer().pose_params().row(j+3).array() -= 2 * step_size;
         renderer_->smplDrawer().updateShapeAndPose(); // update VBOS
         renderAndCompareCPU(*bottom[2], *bottom[3], *bottom[4], f_minus.data());  // TODO: Only perform pose update
       }
 
       // Compute central difference derivative
-      gradient.row(j) = (f_plus - f_minus).cwiseQuotient(2 * hvec);
+      gradient.row(j) = (f_plus - f_minus) / (2 * step_size);
 
       // Reset shape param
-      renderer_->smplDrawer().pose_params().row(j+3) = pose_params.row(j).template cast<float>();
+      renderer_->smplDrawer().pose_params().row(j+3).array() += step_size;
     }
 
     // Scale gradient
@@ -464,7 +454,6 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
   // backpropagate to shape params
   if (propagate_down[0]) {
     using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
-    using RowVectorX = Eigen::Matrix<Dtype, 1, Eigen::Dynamic>;
 
     Eigen::Map<const Params> shape_params(bottom[0]->cpu_data(), bottom[0]->shape(1), num_frames);
     renderer_->smplDrawer().shape_params() = shape_params.template cast<float>();
@@ -472,18 +461,15 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
     renderer_->smplDrawer().pose_params().bottomRows(69) = Eigen::Map<const Params>(bottom[1]->cpu_data(), bottom[1]->shape(1), num_frames).template cast<float>();
 
     Dtype* shape_diff_ptr = bottom[0]->mutable_gpu_diff();
-    Eigen::Map<RowVectorX> hvec(deltas_.mutable_cpu_data(), deltas_.shape(0));
-
     const int num_of_params = shape_params.rows();
     for (int j = 0; j < num_of_params; ++j) {
 
-      const Dtype min_step_size = 1e-4;
-      const Dtype relative_step_size = 1e-1;
-      hvec = (shape_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+      // TODO Adjust this for each param type
+      const Dtype step_size = 1e-2;
 
       // Compute F(X+h)
       {
-        renderer_->smplDrawer().shape_params().row(j) += hvec.template cast<float>();
+        renderer_->smplDrawer().shape_params().row(j).array() += step_size;
 
         if (j == 0)
           renderer_->smplDrawer().updateShapeAndPose(); // update ShapeAndPose only for 1st time
@@ -495,21 +481,19 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
 
       // Compute F(X-h)
       {
-        renderer_->smplDrawer().shape_params().row(j) -= 2 * hvec.template cast<float>();
+        renderer_->smplDrawer().shape_params().row(j).array() -= 2 * step_size;
         renderer_->smplDrawer().updateShape(); //  shape-only update is good enough
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);
       }
-
-      const Dtype* hvec_data_ptr = deltas_.gpu_data();
 
       // Wait for losses_ to be computed on GPU
       CHECK_CUDA(cudaDeviceSynchronize());
 
       // Compute central difference derivative
-      RaC::central_diff_gpu(num_frames, losses_.gpu_data(), losses_.gpu_diff(), hvec_data_ptr, shape_diff_ptr + j, num_of_params);
+      RaC::central_diff_gpu(num_frames, losses_.gpu_data(), losses_.gpu_diff(), step_size, shape_diff_ptr + j, num_of_params);
 
       // Reset shape param
-      renderer_->smplDrawer().shape_params().row(j) = shape_params.row(j).template cast<float>();
+      renderer_->smplDrawer().shape_params().row(j).array() += step_size;
     }
 
     // Scale gradient
@@ -525,7 +509,6 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
   // backpropagate to pose params
   if (propagate_down[1]) {
     using Params = Eigen::Matrix<Dtype, Eigen::Dynamic, Eigen::Dynamic>;
-    using RowVectorX = Eigen::Matrix<Dtype, 1, Eigen::Dynamic>;
 
     renderer_->smplDrawer().shape_params() = Eigen::Map<const Params>(bottom[0]->cpu_data(), bottom[0]->shape(1), num_frames).template cast<float>();
     Eigen::Map<const Params> pose_params(bottom[1]->cpu_data(), bottom[1]->shape(1), num_frames);
@@ -533,18 +516,15 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
     renderer_->smplDrawer().pose_params().bottomRows(69) = pose_params.template cast<float>();
 
     Dtype* pose_diff_ptr = bottom[1]->mutable_gpu_diff();
-    Eigen::Map<RowVectorX> hvec(deltas_.mutable_cpu_data(), deltas_.shape(0));
-
     const int num_of_params = pose_params.rows();
     for (int j = 0; j < num_of_params; ++j) {
 
-      const Dtype min_step_size = 1e-4;
-      const Dtype relative_step_size = 1e-1;
-      hvec = (pose_params.row(j).cwiseAbs() * relative_step_size).cwiseMax(min_step_size);
+      // TODO Adjust this for each param type
+      const Dtype step_size = 1e-2;
 
       // Compute F(X+h)
       {
-        renderer_->smplDrawer().pose_params().row(j+3) += hvec.template cast<float>();
+        renderer_->smplDrawer().pose_params().row(j+3).array() += step_size;
         if (j == 0)
            renderer_->smplDrawer().updateShapeAndPose(); // update ShapeAndPose only for 1st time
          else
@@ -554,21 +534,19 @@ void SMPLRenderWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& to
 
       // Compute F(X-h)
       {
-        renderer_->smplDrawer().pose_params().row(j+3) -= 2 * hvec.template cast<float>();
+        renderer_->smplDrawer().pose_params().row(j+3).array() -= 2 * step_size;
         renderer_->smplDrawer().updatePose();   // pose-only update is good enough
         renderAndCompareGPU(*bottom[2], *bottom[3], *bottom[4], losses_.mutable_gpu_diff(), false);
       }
-
-      const Dtype* hvec_data_ptr = deltas_.gpu_data();
 
       // Wait for losses_ to be computed on GPU
       CHECK_CUDA(cudaDeviceSynchronize());
 
       // Compute central difference derivative
-      RaC::central_diff_gpu(num_frames, losses_.gpu_data(), losses_.gpu_diff(), hvec_data_ptr, pose_diff_ptr + j, num_of_params);
+      RaC::central_diff_gpu(num_frames, losses_.gpu_data(), losses_.gpu_diff(), step_size, pose_diff_ptr + j, num_of_params);
 
       // Reset shape param
-      renderer_->smplDrawer().pose_params().row(j+3) = pose_params.row(j).template cast<float>();
+      renderer_->smplDrawer().pose_params().row(j+3).array() += step_size;
     }
 
     // Scale gradient

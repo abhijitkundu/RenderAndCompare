@@ -80,7 +80,6 @@ protected:
 
   Blob<int> confusion_matrices_;
   Blob<Dtype> losses_;
-  Blob<Dtype> deltas_;
   Blob<Dtype> rendered_images_;
 };
 
