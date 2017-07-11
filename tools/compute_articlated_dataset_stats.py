@@ -22,6 +22,8 @@ def plot_param_statistics(datasets, param_key='body_shape'):
         return
 
     params = np.array(params)
+    print 'params.shape() = {}'.format(params.shape)
+    print 'params.min = {} params.max = {}'.format(params.min(), params.max())
 
     f, axes = plt.subplots(10, sharex=True, sharey=True, figsize=(7, 20))
     f.suptitle('{} statistics'.format(param_key), fontsize=14)
@@ -49,8 +51,8 @@ if __name__ == '__main__':
         datasets.append(dataset)
         print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
-    plot_param_statistics(datasets, 'body_shape')
-    plot_param_statistics(datasets, 'body_pose')
+    plot_param_statistics(datasets, 'shape_param')
+    plot_param_statistics(datasets, 'pose_param')
 
     # Show all plots
     plt.show()
