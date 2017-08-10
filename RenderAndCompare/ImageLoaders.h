@@ -27,7 +27,9 @@ class BatchImageLoader {
   void setImageSize(int width, int height);
 
   void preloadImages(const std::vector<std::string>& image_files, bool do_vertical_flip = false);
-  void preloadImages(const std::vector<std::string>& image_files, const Eigen::AlignedStdVector<Eigen::Vector4i>& croppings);
+  void preloadImages(const std::vector<std::string>& image_files,
+                     const Eigen::AlignedStdVector<Eigen::Vector4i>& croppings,
+                     const bool use_uniform_scaling = true);
 
   std::vector<ImageType>& images() {return images_;}
   const std::vector<ImageType>& images() const {return images_;}

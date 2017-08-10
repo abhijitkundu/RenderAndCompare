@@ -188,7 +188,7 @@ void ArticulatedObjectsDataLayer<Dtype>::generateDatumIds() {
   LOG(INFO) << "Generating Data Ids";
 
   CHECK_GT(batch_size_, 0);
-  CHECK_GT(input_image_loader_.images().size(), batch_size_);
+  CHECK_GE(input_image_loader_.images().size(), batch_size_);
 
   data_ids_.resize(input_image_loader_.images().size());
   std::iota(data_ids_.begin(), data_ids_.end(), 0);
@@ -207,13 +207,13 @@ void ArticulatedObjectsDataLayer<Dtype>::generateDatumIds() {
 
 template <typename Dtype>
 void ArticulatedObjectsDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  CHECK_GT(data_ids_.size(), batch_size_) << "batch size cannot be smaller than total number of data points";
+  CHECK_GE(data_ids_.size(), batch_size_) << "batch size cannot be smaller than total number of data points";
 
   std::vector<std::size_t> batch_data_ids(batch_size_);
   for (int i = 0; i < batch_size_; ++i) {
     if (curr_data_idx_ == data_ids_.size()) {
-      LOG(INFO) << "Shuffling Data Ids";
-      std::shuffle(data_ids_.begin(), data_ids_.end(), rand_engine_);
+      // LOG(INFO) << "Shuffling Data Ids";
+      // std::shuffle(data_ids_.begin(), data_ids_.end(), rand_engine_);
       curr_data_idx_ = 0;
     }
     batch_data_ids[i] = data_ids_[curr_data_idx_++];
