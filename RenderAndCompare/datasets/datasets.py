@@ -4,6 +4,12 @@ import json
 
 
 class Dataset(object):
+
+    """Dataset class
+    Attributes:
+        data: Contains annotations, name, rootdir
+    """
+
     def __init__(self, name='RenderAndCompareDataset', data=None):
         if data is None:
             self.data = OrderedDict()
@@ -69,19 +75,30 @@ class Dataset(object):
         return 'Dataset(name="%s", with %d annotations)' % (self.name(), self.num_of_annotations())
 
 
+class NoIndent(object):
+
+    """Helper class for preventing indention while json serialization
+    Usage:
+        json.dump(NoIndent([1, 2, 3]), file, indent=2, cls=DatasetJSONEncoder)
+    """
+
+    def __init__(self, value):
+        self.value = value
+
+
 class DatasetJSONEncoder(json.JSONEncoder):
+
+    """Custom json decoder used by Dataset
+    """
+
+    def default(self, o):
+        if isinstance(o, NoIndent):
+            return "@@" + repr(o.value).replace(' ', '') + "@@"
+        return DatasetJSONEncoder(self, o)
+
     def iterencode(self, o, _one_shot=False):
-        list_lvl = 0
-        for s in super(DatasetJSONEncoder, self).iterencode(o, _one_shot=_one_shot):
-            if s.startswith('['):
-                list_lvl += 1
-            if list_lvl > 1:
-                s = s.replace('\n', '')
-                s = s.replace(' ', '')
-                if s and s[-1] == ',':
-                    s = s[:-1] + self.item_separator
-                elif s and s[-1] == ':':
-                    s = s[:-1] + self.key_separator
-            if s.endswith(']'):
-                list_lvl -= 1
-            yield s
+        for chunk in super(DatasetJSONEncoder, self).iterencode(o, _one_shot=_one_shot):
+            if chunk.startswith("\"@@"):
+                chunk = chunk.replace("@@", '')
+                chunk = chunk.replace('"', '')
+            yield chunk
