@@ -118,8 +118,8 @@ def get_kitti_3D_bbox_corners(object):
                   [0, 1, 0],
                   [-s, 0, c]])
 
-    W = object['dimension'][1]
     H = object['dimension'][0]
+    W = object['dimension'][1]    
     L = object['dimension'][2]
 
     x_corners = np.array([L / 2, L / 2, -L / 2, -L / 2, L / 2, L / 2, -L / 2, -L / 2])

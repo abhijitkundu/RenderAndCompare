@@ -92,7 +92,7 @@ for i in xrange(num_of_images):
 
     cv2.imshow('image', image)
 
-    key = cv2.waitKey(1)
+    key = cv2.waitKey(0)
     if key == 27:
         cv2.destroyAllWindows()
         break

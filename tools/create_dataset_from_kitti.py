@@ -58,7 +58,7 @@ def main():
     max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
     max_truncation = 0.6  # maximum truncation level of the groundtruth used for evaluation
 
-    print 'Generating images. May take a long time'
+    print 'Generating images. May take long time'
     for image_name in tqdm(image_names):
         image_file_path = osp.join(image_dir, image_name + '.png')
         label_file_path = osp.join(label_dir, image_name + '.txt')
@@ -95,11 +95,11 @@ def main():
         W = image.shape[1]
         H = image.shape[0]
         calib_data = read_kitti_calib_file(calib_file_path)
-        P1 = calib_data['P1'].reshape((3, 4))
+        P0 = calib_data['P0'].reshape((3, 4))      
         P2 = calib_data['P2'].reshape((3, 4))
-
-        K = P1[:3, :3]
+        K = P0[:3, :3]
         assert np.all(P2[:3, :3] == K)
+
         cam2_center = -np.linalg.inv(K).dot(P2[:, 3])
         principal_point = K[:2, 2]
 
@@ -123,18 +123,27 @@ def main():
             elevation = math.degrees(elevation_angle) % 360
             distance = np.linalg.norm(obj_center_cam2)
 
+            # projection of obj_center on image_2
+            obj_center_img2 = P2.dot(np.append(obj_center, 1))
+            obj_center_img2 = obj_center_img2[:-1]/obj_center_img2[-1]
+
             obj_info = OrderedDict()
             obj_info['category'] = obj['type']
-            obj_info['viewpoint'] = NoIndent([azimuth, elevation, 0, distance])
             obj_info['bbx_visible'] = NoIndent(bbx_visible.astype(np.float).tolist())
             obj_info['bbx_amodal'] = NoIndent(bbx_amodal.astype(np.float).tolist())
+            obj_info['center'] = NoIndent(obj_center_img2.astype(np.float).tolist())
+            obj_info['viewpoint'] = NoIndent([azimuth, elevation, 0, distance])            
+            obj_info['size'] = NoIndent(obj['dimension'][::-1])
 
             obj_infos.append(obj_info)
         annotation['objects'] = obj_infos
         dataset.add_annotation(annotation)
 
     print 'Finished creating dataset with {} annotations'.format(dataset.num_of_annotations())
-    dataset.write_data_to_json(osp.join('temp.json'))
+
+    out_json_filename = dataset_name + '.json'
+    print 'Saving annotations to {}'.format(out_json_filename)
+    dataset.write_data_to_json(out_json_filename)
 
 
 if __name__ == '__main__':
