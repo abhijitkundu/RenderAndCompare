@@ -7,6 +7,9 @@ target_link_libraries(device_query RenderAndCompare)
 add_executable(visualize_dataset visualize_dataset.cpp)
 target_link_libraries(visualize_dataset RenderAndCompare)
 
+add_executable(visualize_image_dataset visualize_image_dataset.cpp)
+target_link_libraries(visualize_image_dataset RenderAndCompare)
+
 add_executable(check_cpp_data_layer check_cpp_data_layer.cpp)
 target_link_libraries(check_cpp_data_layer RenderAndCompare)
 

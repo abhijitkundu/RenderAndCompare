@@ -106,7 +106,7 @@ def main():
         annotation = OrderedDict()
         annotation['image_file'] = osp.relpath(image_file_path, root_dir)
         annotation['image_size'] = NoIndent([W, H])
-        annotation['image_intrinsics'] = NoIndent(K.astype(np.float).tolist())
+        annotation['image_intrinsic'] = NoIndent(K.astype(np.float).tolist())
 
         obj_infos = []
         for obj_id, obj in enumerate(filtered_objects):
@@ -131,9 +131,9 @@ def main():
             obj_info['category'] = obj['type']
             obj_info['bbx_visible'] = NoIndent(bbx_visible.astype(np.float).tolist())
             obj_info['bbx_amodal'] = NoIndent(bbx_amodal.astype(np.float).tolist())
-            obj_info['center'] = NoIndent(obj_center_img2.astype(np.float).tolist())
+            obj_info['origin_proj'] = NoIndent(obj_center_img2.astype(np.float).tolist())
             obj_info['viewpoint'] = NoIndent([azimuth, elevation, 0, distance])            
-            obj_info['size'] = NoIndent(obj['dimension'][::-1])
+            obj_info['dimension'] = NoIndent(obj['dimension'][::-1])
 
             obj_infos.append(obj_info)
         annotation['objects'] = obj_infos
