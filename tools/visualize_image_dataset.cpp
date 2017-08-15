@@ -10,6 +10,7 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 
 int main(int argc, char **argv) {
@@ -74,11 +75,37 @@ int main(int argc, char **argv) {
   int step = 1;
   for (int i = 0;;) {
     const RaC::ImageInfo& image_info = dataset.annotations[i];
+
+    {
+      std::cout << "---------------------------------------------------\n";
+      nlohmann::json image_info_json(image_info);
+      std::cout << image_info_json.dump(2) << std::endl;
+    }
+
     const std::string image_path = (dataset.rootdir / image_info.image_file.value()).string();
     cv::Mat cv_image = cv::imread(image_path, cv::IMREAD_COLOR);
 
-    nlohmann::json image_info_json(image_info);
-    std::cout << image_info_json.dump(2) << std::endl;
+    if (image_info.objects) {
+      // Loop over all objects
+      for (const RaC::ImageObjectInfo& obj_info : image_info.objects.value()) {
+
+        if(obj_info.bbx_visible) {
+          auto bbx_visible = obj_info.bbx_visible.value();
+          cv::rectangle(cv_image, cv::Point(bbx_visible[0], bbx_visible[1]), cv::Point(bbx_visible[2], bbx_visible[3]), cv::Scalar( 255, 0, 0));
+        }
+
+        if(obj_info.bbx_amodal) {
+          auto bbx_amodal = obj_info.bbx_amodal.value();
+          cv::rectangle(cv_image, cv::Point(bbx_amodal[0], bbx_amodal[1]), cv::Point(bbx_amodal[2], bbx_amodal[3]), cv::Scalar( 255, 255, 0));
+        }
+
+        if(obj_info.origin_proj) {
+          auto origin_proj = obj_info.origin_proj.value();
+          cv::circle(cv_image, cv::Point(origin_proj[0], origin_proj[1]), 5, cv::Scalar( 0, 0, 255 ), -1);
+        }
+
+      }
+    }
 
     cv::imshow(windowname, cv_image);
     const int key = cv::waitKey(!paused) % 256;
