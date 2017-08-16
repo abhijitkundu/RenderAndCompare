@@ -7,10 +7,10 @@ import cv2
 from tqdm import tqdm
 import _init_paths
 from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.datasets import NoIndent
 from RenderAndCompare.datasets import read_kitti_calib_file
 from RenderAndCompare.datasets import read_kitti_object_labels
 from RenderAndCompare.datasets import get_kitti_amodal_bbx
-from RenderAndCompare.datasets import NoIndent
 from RenderAndCompare.datasets import alpha_to_azimuth
 
 def main():
