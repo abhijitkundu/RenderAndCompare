@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
-import sys
 import os.path as osp
-from os import makedirs
 from collections import OrderedDict
-import math
 import numpy as np
 import cv2
 from tqdm import tqdm
@@ -101,7 +98,6 @@ def main():
         assert np.all(P2[:3, :3] == K)
 
         cam2_center = -np.linalg.inv(K).dot(P2[:, 3])
-        principal_point = K[:2, 2]
 
         annotation = OrderedDict()
         annotation['image_file'] = osp.relpath(image_file_path, root_dir)
@@ -109,7 +105,7 @@ def main():
         annotation['image_intrinsic'] = NoIndent(K.astype(np.float).tolist())
 
         obj_infos = []
-        for obj_id, obj in enumerate(filtered_objects):
+        for obj in filtered_objects:
             bbx_visible = np.array(obj['bbox'])
             bbx_amodal = get_kitti_amodal_bbx(obj, P2)
 
