@@ -14,18 +14,18 @@ from RenderAndCompare.datasets import read_kitti_calib_file
 from RenderAndCompare.datasets import read_kitti_object_labels
 from RenderAndCompare.datasets import get_kitti_amodal_bbx
 from RenderAndCompare.datasets import NoIndent
-from RenderAndCompare.geometry import alpha_to_azimuth
+from RenderAndCompare.datasets import alpha_to_azimuth
 
 def main():
     root_dir_default = osp.join(_init_paths.root_dir, 'data', 'kitti', 'KITTI-Object')
     splits_file_default = osp.join(_init_paths.root_dir, 'data', 'kitti', 'splits', 'trainval.txt')
-    all_types = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
+    all_categories = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
 
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--root_dir", default=root_dir_default, help="Path to KITTI Object directory")
     parser.add_argument("-s", "--split_file", default=splits_file_default, help="Path to split file")
-    parser.add_argument("-t", "--types", type=str, nargs='+', default=['Car'], choices=all_types, help="Object type (category)")
+    parser.add_argument("-c", "--categories", type=str, nargs='+', default=['Car'], choices=all_categories, help="Object type (category)")
     args = parser.parse_args()
 
     print "------------- Config ------------------"
@@ -72,7 +72,7 @@ def main():
 
         filtered_objects = []
         for obj in objects:
-            if obj['type'] not in args.types:
+            if obj['type'] not in args.categories:
                 continue
 
             bbx = np.asarray(obj['bbox'])
@@ -117,11 +117,13 @@ def main():
             obj_center = np.array(obj['location']) - np.array([0, obj['dimension'][0] / 2.0, 0])
             obj_center_cam2 = obj_center - cam2_center
             obj_center_cam2_xz_proj = np.array([obj_center_cam2[0], 0, obj_center_cam2[2]])
-            elevation_angle = np.arctan2(np.linalg.norm(np.cross(obj_center_cam2, obj_center_cam2_xz_proj)), np.dot(obj_center_cam2, obj_center_cam2_xz_proj))
+            elevation = np.arctan2(np.linalg.norm(np.cross(obj_center_cam2, obj_center_cam2_xz_proj)), np.dot(obj_center_cam2, obj_center_cam2_xz_proj))
             if obj_center_cam2[1] < 0:
-                elevation_angle = -elevation_angle
-            elevation = math.degrees(elevation_angle) % 360
+                elevation = -elevation
             distance = np.linalg.norm(obj_center_cam2)
+
+            assert -np.pi <= azimuth <= np.pi
+            assert -np.pi <= elevation <= np.pi
 
             # projection of obj_center on image_2
             obj_center_img2 = P2.dot(np.append(obj_center, 1))

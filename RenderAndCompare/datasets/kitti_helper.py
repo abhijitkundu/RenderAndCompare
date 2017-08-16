@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def write_kitti_object_labels(objects, filepath):
     """
     Given a list of object and  a filename, it writes the list of objects in
@@ -90,8 +89,6 @@ def read_kitti_object_labels(filepath):
         objects.append(obj)
     return objects
 
-    return objects
-
 
 def read_kitti_calib_file(filepath):
     """Read in a calibration file and parse into a dictionary."""
@@ -132,6 +129,7 @@ def get_kitti_3D_bbox_corners(object):
 
 
 def get_kitti_amodal_bbx(object, P):
+    """Get amodal box by back projecting 3D bounding box of the object"""
     corners3D = get_kitti_3D_bbox_corners(object)
     corners2D = P.dot(np.vstack((corners3D, np.ones(8))))
     corners2D[0, :] = corners2D[0, :] / corners2D[2, :]
@@ -139,3 +137,25 @@ def get_kitti_amodal_bbx(object, P):
     corners2D = corners2D[:2, :]
     amodal_bbx = np.hstack((corners2D.min(axis=1), corners2D.max(axis=1)))
     return amodal_bbx
+
+
+def azimuth_to_alpha(azimuth):
+    """Convert azimuth [-pi, pi] to kitti alpha"""
+    assert -np.pi <= azimuth <= np.pi
+    # add offset
+    alpha = azimuth + np.pi/2
+    # wrap to [-pi, pi]
+    alpha = np.mod(alpha + np.pi, 2*np.pi)- np.pi
+    assert -np.pi <= alpha <= np.pi
+    return alpha
+
+
+def alpha_to_azimuth(alpha):
+    """Convert kitti alpha [-pi, pi] to azimuth [-pi, pi]"""
+    assert -np.pi <= alpha <= np.pi
+    # substract offset
+    azimuth = alpha - np.pi/2
+    #wrap to [-pi, pi]
+    azimuth = np.mod(azimuth + np.pi, 2*np.pi)-np.pi
+    assert -np.pi <= azimuth <= np.pi
+    return azimuth

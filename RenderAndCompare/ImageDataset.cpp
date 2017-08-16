@@ -41,15 +41,15 @@ template<typename Derived>
 void to_json(nlohmann::json& json, const Eigen::MatrixBase<Derived>& mat) {
 
   if (mat.rows() == 1 || mat.cols() == 1) {
-    for (Index j = 0; j < mat.rows(); ++j) {
-      for (Index i = 0; i < mat.cols(); ++i) {
+    for (Index i = 0; i < mat.rows(); ++i) {
+      for (Index j = 0; j < mat.cols(); ++j) {
         json.push_back(mat(i, j));
       }
     }
   } else {
-    for (Index j = 0; j < mat.rows(); ++j) {
+    for (Index i = 0; i < mat.rows(); ++i) {
       nlohmann::json row = nlohmann::json::array();
-      for (Index i = 0; i < mat.cols(); ++i) {
+      for (Index j = 0; j < mat.cols(); ++j) {
         row.push_back(mat(i, j));
       }
       json.push_back(row);
@@ -79,9 +79,9 @@ void from_json(const nlohmann::json& json, MatrixBase<Derived> const &mat_) {
     const Index cols = vec_of_vec.at(0).size();
 
     mat.resize(rows, cols);
-    for (Index j = 0; j < rows; ++j) {
-      for (Index i = 0; i < cols; ++i) {
-        mat(i, j) = vec_of_vec[j][i];
+    for (Index i = 0; i < rows; ++i) {
+      for (Index j = 0; j < cols; ++j) {
+        mat(i, j) = vec_of_vec[i][j];
       }
     }
   }

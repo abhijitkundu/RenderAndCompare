@@ -6,12 +6,87 @@
  */
 
 #include "RenderAndCompare/ImageDataset.h"
+#include "CuteGL/Core/PoseUtils.h"
 #include <boost/program_options.hpp>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+template <class DerivedV, class DerivedO, class DerivedK>
+Eigen::Transform<typename DerivedV::Scalar, 3, Eigen::Isometry>
+computeObjectPose(const Eigen::MatrixBase<DerivedV>& viewpoint,
+                  const Eigen::MatrixBase<DerivedO>& origin_proj,
+                  const Eigen::MatrixBase<DerivedK>& K) {
+  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(DerivedV, 4);
+  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(DerivedO, 2);
+  EIGEN_STATIC_ASSERT_MATRIX_SPECIFIC_SIZE(DerivedK, 3, 3);
+
+  using Scalar = typename DerivedV::Scalar;
+  using Vector3 = Eigen::Matrix<Scalar, 3, 1>;
+  using Isometry3 = Eigen::Transform<Scalar, 3, Eigen::Isometry>;
+
+  Isometry3 pose = CuteGL::getExtrinsicsFromViewPoint(viewpoint);
+  Vector3 object_origin_ray = K.inverse() * origin_proj.homogeneous();
+  pose = Eigen::Quaternion<Scalar>::FromTwoVectors(Vector3::UnitZ(), object_origin_ray) * pose;
+  return pose;
+}
+
+template <class Derived>
+Eigen::Matrix<typename Derived::Scalar, 3, 8>
+createCorners(const Eigen::MatrixBase<Derived>& bbx_size) {
+  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(Derived, 3);
+
+  using Scalar = typename Derived::Scalar;
+  using Vector3 = Eigen::Matrix<Scalar, 3, 1>;
+  using AlignedBox3 = Eigen::AlignedBox<Scalar, 3>;
+
+  const Vector3 bbx_half_size = bbx_size / 2;
+  const AlignedBox3 bbx(-bbx_half_size , bbx_half_size);
+
+  Eigen::Matrix<Scalar, 3, 8> obj_corners;
+  obj_corners.col(0) = bbx.corner(AlignedBox3::BottomLeftFloor);
+  obj_corners.col(1) = bbx.corner(AlignedBox3::BottomRightFloor);
+  obj_corners.col(2) = bbx.corner(AlignedBox3::TopLeftFloor);
+  obj_corners.col(3) = bbx.corner(AlignedBox3::TopRightFloor);
+  obj_corners.col(4) = bbx.corner(AlignedBox3::BottomLeftCeil);
+  obj_corners.col(5) = bbx.corner(AlignedBox3::BottomRightCeil);
+  obj_corners.col(6) = bbx.corner(AlignedBox3::TopLeftCeil);
+  obj_corners.col(7) = bbx.corner(AlignedBox3::TopRightCeil);
+
+  return obj_corners;
+}
+
+template <class Derived>
+cv::Point vec2point(const Eigen::DenseBase<Derived>& vec) {
+  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(Derived, 2);
+ return cv::Point(vec.x(), vec.y());
+}
+
+template <class Derived>
+void draw3DBoxOnImage(cv::Mat& image, const Eigen::MatrixBase<Derived>& img_corners) {
+  EIGEN_STATIC_ASSERT_MATRIX_SPECIFIC_SIZE(Derived, 2, 8);
+  using Scalar = typename Derived::Scalar;
+  using AlignedBox3 = Eigen::AlignedBox<Scalar, 3>;
+
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), CV_RGB(255, 0, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopRightFloor)), CV_RGB(255, 0, 0), 1);
+
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), CV_RGB(0, 0, 255), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 0, 255), 1);
+
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), CV_RGB(0, 255, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), CV_RGB(0, 255, 0), 1);
+
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), CV_RGB(0, 255, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopRightFloor)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(255, 0, 0), 1);
+
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), CV_RGB(255, 0, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), vec2point(img_corners.col(AlignedBox3::TopRightFloor)), CV_RGB(255, 0, 0), 1);
+
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), CV_RGB(0, 0, 255), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 0, 255), 1);
+}
 
 int main(int argc, char **argv) {
   namespace po = boost::program_options;
@@ -102,6 +177,18 @@ int main(int argc, char **argv) {
         if(obj_info.origin_proj) {
           auto origin_proj = obj_info.origin_proj.value();
           cv::circle(cv_image, cv::Point(origin_proj[0], origin_proj[1]), 5, cv::Scalar( 0, 0, 255 ), -1);
+
+          if (obj_info.viewpoint && obj_info.dimension && image_info.image_intrinsic) {
+            auto viewpoint = obj_info.viewpoint.value();
+
+            const Eigen::Matrix3d K = image_info.image_intrinsic.value();
+
+            std::cout << "K = \n " << K << "\n";
+
+            auto obj_pose = computeObjectPose(viewpoint, origin_proj, K);
+            const Eigen::Matrix<double, 2, 8> img_corners = (K * obj_pose * createCorners(obj_info.dimension.value())).colwise().hnormalized();
+            draw3DBoxOnImage(cv_image, img_corners);
+          }
         }
 
       }
