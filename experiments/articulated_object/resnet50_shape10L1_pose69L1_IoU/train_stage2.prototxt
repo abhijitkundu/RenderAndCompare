@@ -10,7 +10,7 @@ layer {
   top: "gt_camera_extrinsic"
   top: "gt_model_pose"
   string_param {
-    param_str: "-b 32 -w 224 -h 224 -m 103.0626238 115.90288257 123.15163084 -s 10 -p 69 -t input_image segm_image shape_param pose_param camera_extrinsic model_pose"
+    param_str: "-b 36 -w 224 -h 224 -m 103.0626238 115.90288257 123.15163084 -s 10 -p 69 -t input_image segm_image shape_param pose_param camera_extrinsic model_pose"
   }
 }
 
@@ -20,6 +20,13 @@ layer {
 #   bottom: "gt_segm_image"
 #   bottom: "gt_camera_extrinsic"
 #   bottom: "gt_model_pose"
+# }
+
+# layer {
+#   name: "silence_layer"
+#   type: "Silence"
+#   bottom: "gt_shape_param"
+#   bottom: "gt_pose_param"
 # }
 
 #------------- conv1 (freezed) --------------#
@@ -3654,7 +3661,7 @@ layer {
   # propagate_down: false
   top: "loss_segm"
   top: "rendered_image"
-  loss_weight: 20
+  loss_weight: 2
 }
 
 layer {

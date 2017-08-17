@@ -1,14 +1,14 @@
-from RenderAndCompare.datasets import BatchImageLoader
-from random import shuffle
 import os.path as osp
-import numpy as np
-import caffe
 import argparse
+from random import shuffle
+import caffe
+import numpy as np
+from RenderAndCompare.datasets import BatchImageLoader
 
 
 class AbstractDataLayer(caffe.Layer):
     """
-    Generic Data layer for caffe
+    Generic python Data layer for caffe
     """
 
     def parse_param_str(self, param_str):
@@ -17,8 +17,7 @@ class AbstractDataLayer(caffe.Layer):
         """
         parser = argparse.ArgumentParser(description='AbstractDataLayer')
         parser.add_argument("-b", "--batch_size", default=50, type=int, help="Batch Size")
-        parser.add_argument("-wh", "--im_size", nargs=2, default=[227, 227], type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
-        parser.add_argument("-m", "--mean_bgr", nargs=3, default=[104.00698793, 116.66876762, 122.67891434], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
+        parser.add_argument("-m", "--mean_bgr", nargs=3, default=[103.0626238, 115.90288257, 123.15163084], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
         params = parser.parse_args(param_str.split())
 
         print "------------- AbstractDataLayer Config ------------------"
@@ -29,20 +28,15 @@ class AbstractDataLayer(caffe.Layer):
         return params
 
     def setup(self, bottom, top):
+        """Reimplement Layer setup in this method"""
         # params is expected as argparse style string
         self.params = self.parse_param_str(self.param_str)
-
-        # ----- Reshape tops -----#
-        # data_shape = B x C x H x W
-        # label_shape = B x
-
-        top[0].reshape(self.params.batch_size, 3, self.params.im_size[1], self.params.im_size[0])
-        top[1].reshape(self.params.batch_size,)
 
         # create mean bgr to directly operate on image data blob
         self.mean_bgr = np.array(self.params.mean_bgr).reshape(1, 3, 1, 1)
 
         print "AbstractDataLayer has been setup."
+        pass
 
     def reshape(self, bottom, top):
         """
@@ -64,9 +58,11 @@ class AbstractDataLayer(caffe.Layer):
         pass
 
     def generate_datum_ids(self):
+        """Reimplement this"""
         pass
 
     def number_of_datapoints(self):
+        """Number of data points (samples)"""
         if hasattr(self, 'data_ids'):
             return len(self.data_ids)
         else:
@@ -95,10 +91,16 @@ class AbstractDataLayer(caffe.Layer):
 class DataLayer(AbstractDataLayer):
 
     def parse_param_str(self, param_str):
+        top_names_choices = ['input_image', 'viewpoint', 'bbx_amodal', 'bbx_crop']
+        default_mean_bgr = [103.0626238, 115.90288257, 123.15163084] # ResNet
+        default_im_size = 224 # ResNet
+
         parser = argparse.ArgumentParser(description='Data Layer')
-        parser.add_argument("-b", "--batch_size", default=50, type=int, help="Batch Size")
-        parser.add_argument("-wh", "--im_size", nargs=2, default=[227, 227], type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
-        parser.add_argument("-m", "--mean_bgr", nargs=3, default=[104.00698793, 116.66876762, 122.67891434], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
+        parser.add_argument("-b", "--batch_size", default=32, type=int, help="Batch Size")
+        parser.add_argument("-w", "--width", default=default_im_size, type=int, help="Image Width")
+        parser.add_argument("-h", "--height", default=default_im_size, type=int, help="Image Height")
+        parser.add_argument("-m", "--mean_bgr", nargs=3, default=default_mean_bgr, type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
+        parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True, type=str, help="ordered list of top names e.g input_image azimuth shape")
         params = parser.parse_args(param_str.split())
 
         print "-------------------- DataLayer Config ----------------------"
@@ -110,14 +112,34 @@ class DataLayer(AbstractDataLayer):
 
     def setup(self, bottom, top):
         print "Setting up DataLayer ..."
-        assert len(top) >= 7, 'requires atleas one data, viewpoint tops, and box tops'
-
+        
         # params is expected as argparse style string
-        self.params = self.parse_param_str(self.param_str)
+        params = self.parse_param_str(self.param_str)
+
+        # Store the ordered list of top_names
+        self.top_names = params.top_names
+        # Store batch size as member variable for use in other methods
+        self.batch_size = params.batch_size
+        # create mean bgr to directly operate on image data blob
+        self.mean_bgr = np.array(params.mean_bgr).reshape(1, 3, 1, 1)
+
+        assert len(top) == len(self.top_names), 'Number of tops do not match specified top_names'
 
         # ----- Reshape tops -----#
-        # data_shape = B x C x H x W
-        # azimuth_shape = B x
+
+        # Reshape image data top (B, C, H, W)
+        if 'input_image' in self.top_names:
+            top[self.top_names.index('input_image')].reshape(self.batch_size, 3, params.height, params.width)  # Image Data
+        
+        # Reshape viewpoint tops (B, 3)
+        if 'viewpoint' in self.top_names:
+            top[self.top_names.index('viewpoint')].reshape(self.batch_size, 3)  # viewpoint Data (a, e, t)
+        
+        # Reshape bbx tops (B, 4)
+        if 'bbx_amodal' in self.top_names:
+            top[self.top_names.index('bbx_amodal')].reshape(self.batch_size, 4)
+
+
 
         top[0].reshape(self.params.batch_size, 3, self.params.im_size[1], self.params.im_size[0])  # Image Data
 
@@ -218,8 +240,8 @@ class JointDataLayer(AbstractDataLayer):
 
     def parse_param_str(self, param_str):
         top_names_choices = ['data', 'azimuth', 'elevation', 'tilt', 'distance', 'bbx_amodal', 'bbx_crop', 'shape']
-        default_mean_bgr = [104.00698793, 116.66876762, 122.67891434] # CaffeNet
-        default_im_size = [227, 227] # CaffeNet
+        default_mean_bgr = [103.0626238, 115.90288257, 123.15163084] # ResNet
+        default_im_size = [224, 224] # ResNet
 
         parser = argparse.ArgumentParser(description='Joint Data Layer')
 
