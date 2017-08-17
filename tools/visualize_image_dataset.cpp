@@ -13,22 +13,19 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-template <class DerivedV, class DerivedO, class DerivedK>
+template <class DerivedV, class DerivedO>
 Eigen::Transform<typename DerivedV::Scalar, 3, Eigen::Isometry>
 computeObjectPose(const Eigen::MatrixBase<DerivedV>& viewpoint,
-                  const Eigen::MatrixBase<DerivedO>& origin_proj,
-                  const Eigen::MatrixBase<DerivedK>& K) {
-  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(DerivedV, 4);
-  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(DerivedO, 2);
-  EIGEN_STATIC_ASSERT_MATRIX_SPECIFIC_SIZE(DerivedK, 3, 3);
+                  const Eigen::MatrixBase<DerivedO>& object_center) {
+  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(DerivedV, 3);
+  EIGEN_STATIC_ASSERT_VECTOR_SPECIFIC_SIZE(DerivedO, 3);
 
   using Scalar = typename DerivedV::Scalar;
   using Vector3 = Eigen::Matrix<Scalar, 3, 1>;
   using Isometry3 = Eigen::Transform<Scalar, 3, Eigen::Isometry>;
 
-  Isometry3 pose = CuteGL::getExtrinsicsFromViewPoint(viewpoint);
-  Vector3 object_origin_ray = K.inverse() * origin_proj.homogeneous();
-  pose = Eigen::Quaternion<Scalar>::FromTwoVectors(Vector3::UnitZ(), object_origin_ray) * pose;
+  Isometry3 pose = CuteGL::getExtrinsicsFromViewPoint(viewpoint.x(), viewpoint.y(), viewpoint.z(), object_center.norm());
+  pose = Eigen::Quaternion<Scalar>::FromTwoVectors(Vector3::UnitZ(), object_center) * pose;
   return pose;
 }
 
@@ -174,18 +171,17 @@ int main(int argc, char **argv) {
           cv::rectangle(cv_image, cv::Point(bbx_amodal[0], bbx_amodal[1]), cv::Point(bbx_amodal[2], bbx_amodal[3]), cv::Scalar( 255, 255, 0));
         }
 
-        if(obj_info.origin_proj) {
-          auto origin_proj = obj_info.origin_proj.value();
-          cv::circle(cv_image, cv::Point(origin_proj[0], origin_proj[1]), 5, cv::Scalar( 0, 0, 255 ), -1);
+        if(image_info.image_intrinsic && obj_info.location) {
+          const Eigen::Matrix3d K = image_info.image_intrinsic.value();
+          const Eigen::Vector3d object_center = obj_info.location.value();
 
-          if (obj_info.viewpoint && obj_info.dimension && image_info.image_intrinsic) {
+          // project object_center to image
+          const Eigen::Vector2d object_center_image = (K * object_center).hnormalized();
+          cv::circle(cv_image, cv::Point(object_center_image.x(), object_center_image.y()), 5, cv::Scalar( 0, 0, 255 ), -1);
+
+          if (obj_info.viewpoint && obj_info.dimension) {
             auto viewpoint = obj_info.viewpoint.value();
-
-            const Eigen::Matrix3d K = image_info.image_intrinsic.value();
-
-            std::cout << "K = \n " << K << "\n";
-
-            auto obj_pose = computeObjectPose(viewpoint, origin_proj, K);
+            auto obj_pose = computeObjectPose(viewpoint, object_center);
             const Eigen::Matrix<double, 2, 8> img_corners = (K * obj_pose * createCorners(obj_info.dimension.value())).colwise().hnormalized();
             draw3DBoxOnImage(cv_image, img_corners);
           }

@@ -116,22 +116,20 @@ def main():
             elevation = np.arctan2(np.linalg.norm(np.cross(obj_center_cam2, obj_center_cam2_xz_proj)), np.dot(obj_center_cam2, obj_center_cam2_xz_proj))
             if obj_center_cam2[1] < 0:
                 elevation = -elevation
-            distance = np.linalg.norm(obj_center_cam2)
+            tilt = 0
 
             assert -np.pi <= azimuth <= np.pi
             assert -np.pi <= elevation <= np.pi
-
-            # projection of obj_center on image_2
-            obj_center_img2 = P2.dot(np.append(obj_center, 1))
-            obj_center_img2 = obj_center_img2[:-1]/obj_center_img2[-1]
+            assert -np.pi <= tilt <= np.pi
 
             obj_info = OrderedDict()
+
             obj_info['category'] = obj['type']
+            obj_info['dimension'] = NoIndent(obj['dimension'][::-1]) # [length, width, height]
             obj_info['bbx_visible'] = NoIndent(bbx_visible.astype(np.float).tolist())
             obj_info['bbx_amodal'] = NoIndent(bbx_amodal.astype(np.float).tolist())
-            obj_info['origin_proj'] = NoIndent(obj_center_img2.astype(np.float).tolist())
-            obj_info['viewpoint'] = NoIndent([azimuth, elevation, 0, distance])            
-            obj_info['dimension'] = NoIndent(obj['dimension'][::-1])
+            obj_info['viewpoint'] = NoIndent([azimuth, elevation, tilt])
+            obj_info['location'] = NoIndent(obj_center_cam2.astype(np.float).tolist()) 
 
             obj_infos.append(obj_info)
         annotation['objects'] = obj_infos

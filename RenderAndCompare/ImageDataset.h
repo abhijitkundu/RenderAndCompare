@@ -31,9 +31,11 @@ struct ImageObjectInfo {
   boost::optional<Eigen::Vector4d> bbx_visible;
   boost::optional<Eigen::Vector4d> bbx_amodal;
 
-  // model pose can be computed from origin_proj and viewpoint
-  boost::optional<Eigen::Vector2d> origin_proj;
-  boost::optional<Eigen::Vector4d> viewpoint;
+  // viewpoint (azimuth, elevation, tilt)
+  boost::optional<Eigen::Vector3d> viewpoint;
+
+  // location of object center (origin) in camera frame
+  boost::optional<Eigen::Vector3d> location;
 
   // Additional pose params (for articulated objects)
   boost::optional<Eigen::VectorXd> pose_param;
