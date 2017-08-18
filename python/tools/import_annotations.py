@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import _init_paths
 import os.path as osp
+import _init_paths
 import RenderAndCompare as rac
 
 if __name__ == '__main__':

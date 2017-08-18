@@ -12,5 +12,4 @@ def add_path(path):
 
 # Add root_dir to PYTHONPATH
 root_dir = osp.join(osp.dirname(__file__), '..', '..')
-add_path(root_dir)
 add_path(osp.join(root_dir, 'python'))
