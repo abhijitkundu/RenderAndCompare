@@ -2,63 +2,45 @@ name: "resnet50_aet96"
 layer {
   name: "data"
   type: "Python"
-  top: "data"
-  top: "gt_vp_azimuth"
-  top: "gt_vp_elevation"
-  top: "gt_vp_tilt"
-  top: "gt_vp_distance"
+  top: "input_image"
+  top: "gt_viewpoint"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "ViewpoinPredictionDataLayer"
-    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084"
+    layer: "DataLayer"
+    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -t input_image viewpoint"
   }
-}
-layer {
-  name: "silence_layer"
-  type: "Silence"
-  bottom: "gt_vp_distance"
 }
 
 layer {
-  name:"azimuth_quantizer"
+  name:"viewpoint_quantizer"
   type: "Python"
-  bottom: "gt_vp_azimuth"
+  bottom: "gt_viewpoint"
+  top: "gt_viewpoint_label"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "QuantizeViewPoint"
+    param_str: "--num_of_bins 96"
+  }
+}
+
+layer {
+  name: "slicer_label"
+  type: "Slice"
+  bottom: "gt_viewpoint_label"
   top: "gt_vp_azimuth_label"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "QuantizeViewPoint"
-    param_str: "--num_of_bins 96"
-  }
-}
-
-layer {
-  name:"elevation_quantizer"
-  type: "Python"
-  bottom: "gt_vp_elevation"
   top: "gt_vp_elevation_label"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "QuantizeViewPoint"
-    param_str: "--num_of_bins 96"
-  }
-}
-
-layer {
-  name:"tilt_quantizer"
-  type: "Python"
-  bottom: "gt_vp_tilt"
   top: "gt_vp_tilt_label"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "QuantizeViewPoint"
-    param_str: "--num_of_bins 96"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
   }
 }
 
 #------------- conv1 (freezed) --------------#
 
 layer {
-  bottom: "data"
+  bottom: "input_image"
   top: "conv1"
   name: "conv1"
   type: "Convolution"

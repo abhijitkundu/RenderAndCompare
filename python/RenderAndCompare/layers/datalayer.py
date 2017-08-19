@@ -174,6 +174,8 @@ class DataLayer(AbstractDataLayer):
                 data_sample['bbx_amodal'] =  np.array(obj_info['bbx_amodal'], dtype=np.float32)
                 data_sample['bbx_visible'] =  np.array(obj_info['bbx_visible'], dtype=np.float32)
 
+                assert (data_sample['bbx_visible'] >= -np.pi).all() and (data_sample['bbx_visible'] < np.pi).all()
+
                 # Add data_sample
                 self.data_samples.append(data_sample)
 

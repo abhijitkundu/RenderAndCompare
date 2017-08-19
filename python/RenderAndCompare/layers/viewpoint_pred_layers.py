@@ -139,7 +139,7 @@ class AngleToCosSin(caffe.Layer):
 class QuantizeViewPoint(caffe.Layer):
     """
     Converts continious ViewPoint measurement to quantized discrete labels
-    Note the original viewpoint is asumed to lie in [0, 360)
+    Note the original viewpoint is asumed to lie in [-pi, +pi]
     """
 
     def parse_param_str(self, param_str):
@@ -160,14 +160,14 @@ class QuantizeViewPoint(caffe.Layer):
 
         # params is expected as argparse style string
         params = self.parse_param_str(self.param_str)
-        self.degrees_per_bin = 360.0 / params.num_of_bins
+        self.radians_per_bin = 2 * np.pi / params.num_of_bins
 
     def reshape(self, bottom, top):
         # Copy shape from bottom
         top[0].reshape(*bottom[0].data.shape)
 
     def forward(self, bottom, top):
-        top[0].data[...] = np.floor_divide(bottom[0].data, self.degrees_per_bin)
+        top[0].data[...] = np.floor_divide(bottom[0].data + np.pi, self.radians_per_bin)
 
     def backward(self, top, propagate_down, bottom):
         pass
@@ -197,14 +197,14 @@ class DeQuantizeViewPoint(caffe.Layer):
 
         # params is expected as argparse style string
         params = self.parse_param_str(self.param_str)
-        self.degrees_per_bin = 360.0 / params.num_of_bins
+        self.radians_per_bin = 2 * np.pi / params.num_of_bins
 
     def reshape(self, bottom, top):
         # Copy shape from bottom
         top[0].reshape(*bottom[0].data.shape)
 
     def forward(self, bottom, top):
-        top[0].data[...] = (self.degrees_per_bin * bottom[0].data) + self.degrees_per_bin / 2.0
+        top[0].data[...] = (self.radians_per_bin * bottom[0].data) + self.radians_per_bin / 2.0 - np.pi
 
     def backward(self, top, propagate_down, bottom):
         pass
