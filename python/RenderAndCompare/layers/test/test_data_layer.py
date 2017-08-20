@@ -59,8 +59,8 @@ if __name__ == '__main__':
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
             # aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]
 
-            bbx_a = np.array(data_sample['bbx_amodal'], dtype=np.float32)
-            bbx_v = np.array(data_sample['bbx_visible'], dtype=np.float32)
+            bbx_a = data_sample['bbx_amodal']
+            bbx_v = data_sample['bbx_visible']
 
             assert np.allclose(bbx_amodal_blob, bbx_a)
             assert np.allclose(bbx_crop_blob, bbx_v)
@@ -69,6 +69,16 @@ if __name__ == '__main__':
             cv2.rectangle(full_image, (bbx_a[0], bbx_a[1]), (bbx_a[2], bbx_a[3]), (0, 255, 0), 1)
             cv2.rectangle(full_image, (bbx_crop_blob[0], bbx_crop_blob[1]), (bbx_crop_blob[2], bbx_crop_blob[3]), (0, 0, 255), 1)
             cv2.imshow('full_image', full_image)
+
+            viewpoint = data_sample['viewpoint']
+            viewpoint_blob = net.blobs['gt_viewpoint'].data[i - start_idx]
+            assert np.allclose(viewpoint, viewpoint_blob)
+
+            viewpoint_label = net.blobs['gt_viewpoint_label'].data[i - start_idx]
+            assert (viewpoint_label >= 0).all() and (viewpoint_label < 96).all()
+            assert viewpoint_label[0] == net.blobs['gt_vp_azimuth_label'].data[i - start_idx]
+            assert viewpoint_label[1] == net.blobs['gt_vp_elevation_label'].data[i - start_idx]
+            assert viewpoint_label[2] == net.blobs['gt_vp_tilt_label'].data[i - start_idx]
 
             # # Only for testing perfect transformation
             # pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
