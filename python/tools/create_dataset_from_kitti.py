@@ -55,6 +55,8 @@ def main():
     max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
     max_truncation = 0.6  # maximum truncation level of the groundtruth used for evaluation
 
+    total_num_of_objects = 0
+
     print 'Generating images. May take long time'
     for image_name in tqdm(image_names):
         image_file_path = osp.join(image_dir, image_name + '.png')
@@ -87,6 +89,8 @@ def main():
 
         if len(filtered_objects) == 0:
             continue
+
+        total_num_of_objects += len(filtered_objects)
 
         image = cv2.imread(image_file_path)
         W = image.shape[1]
@@ -135,7 +139,15 @@ def main():
         annotation['objects'] = obj_infos
         dataset.add_annotation(annotation)
 
-    print 'Finished creating dataset with {} annotations'.format(dataset.num_of_annotations())
+    print 'Finished creating dataset with {} images and {} objects.'.format(dataset.num_of_annotations(), total_num_of_objects)
+
+    metainfo = OrderedDict()    
+    metainfo['total_num_of_objects'] = total_num_of_objects
+    metainfo['categories'] = NoIndent(args.categories)
+    metainfo['min_height'] = min_height
+    metainfo['max_occlusion'] = max_occlusion
+    metainfo['max_truncation'] = max_truncation
+    dataset.set_metainfo(metainfo)
 
     out_json_filename = dataset_name + '.json'
     print 'Saving annotations to {}'.format(out_json_filename)

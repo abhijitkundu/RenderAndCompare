@@ -93,12 +93,13 @@ class DatasetJSONEncoder(json.JSONEncoder):
 
     def default(self, o):
         if isinstance(o, NoIndent):
-            return "@@" + repr(o.value).replace(' ', '') + "@@"
+            return "@@" + repr(o.value).replace(' ', '').replace("'", '"') + "@@"
         return DatasetJSONEncoder(self, o)
 
     def iterencode(self, o, _one_shot=False):
         for chunk in super(DatasetJSONEncoder, self).iterencode(o, _one_shot=_one_shot):
             if chunk.startswith("\"@@"):
-                chunk = chunk.replace("@@", '')
-                chunk = chunk.replace('"', '')
+                chunk = chunk.replace("\"@@", '')
+                chunk = chunk.replace('@@\"', '')
+                chunk = chunk.replace('\\"', '"')
             yield chunk

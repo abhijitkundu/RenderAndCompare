@@ -154,8 +154,8 @@ int main(int argc, char **argv) {
       std::cout << image_info_json.dump(2) << std::endl;
     }
 
-    const std::string image_path = (dataset.rootdir / image_info.image_file.value()).string();
-    cv::Mat cv_image = cv::imread(image_path, cv::IMREAD_COLOR);
+    const fs::path image_path = dataset.rootdir / image_info.image_file.value();
+    cv::Mat cv_image = cv::imread(image_path.string(), cv::IMREAD_COLOR);
 
     if (image_info.objects) {
       // Loop over all objects
@@ -190,6 +190,7 @@ int main(int argc, char **argv) {
       }
     }
 
+    cv::displayOverlay(windowname, image_path.stem().string());
     cv::imshow(windowname, cv_image);
     const int key = cv::waitKey(!paused) % 256;
 
