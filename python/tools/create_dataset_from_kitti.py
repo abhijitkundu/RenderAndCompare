@@ -37,7 +37,7 @@ def main():
     print 'Using Split {} with {} images'.format(osp.basename(args.split_file), num_of_images)
 
     root_dir = osp.join(args.root_dir, 'training')
-    label_dir = osp.join(root_dir, 'label_2')
+    label_dir = osp.join(root_dir, 'label_2_updated')
     image_dir = osp.join(root_dir, 'image_2')
     calib_dir = osp.join(root_dir, 'calib')
 
@@ -51,9 +51,9 @@ def main():
     dataset.set_rootdir(root_dir)
 
     # Using a slight harder settings thank standard kitti hardness
-    min_height = 22  # minimum height for evaluated groundtruth/detections
+    min_height = 20  # minimum height for evaluated groundtruth/detections
     max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
-    max_truncation = 0.6  # maximum truncation level of the groundtruth used for evaluation
+    max_truncation = 0.7  # maximum truncation level of the groundtruth used for evaluation
 
     total_num_of_objects = 0
 

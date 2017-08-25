@@ -10,7 +10,7 @@ import RenderAndCompare as rac
 kitti_object_dir = osp.join(_init_paths.root_dir, 'data', 'kitti', 'KITTI-Object')
 assert osp.exists(kitti_object_dir), 'KITTI-Object dir "{}" dsoes not exist'.format(kitti_object_dir)
 
-label_dir = osp.join(kitti_object_dir, 'training', 'label_2')
+label_dir = osp.join(kitti_object_dir, 'training', 'label_2_updated')
 image_dir = osp.join(kitti_object_dir, 'training', 'image_2')
 calib_dir = osp.join(kitti_object_dir, 'training', 'calib')
 
@@ -25,12 +25,12 @@ assert osp.exists(calib_dir)
 # num_of_images = 7481
 num_of_images = 7481
 
-min_height = 22  # minimum height for evaluated groundtruth/detections
+min_height = 20  # minimum height for evaluated groundtruth/detections
 max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
-max_truncation = 0.5  # maximum truncation level of the groundtruth used for evaluation
+max_truncation = 0.7  # maximum truncation level of the groundtruth used for evaluation
 
 
-cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
+cv2.namedWindow('image', cv2.WINDOW_NORMAL)
 
 i = 0
 while True:
@@ -99,7 +99,7 @@ while True:
     if key == 27:
         cv2.destroyAllWindows()
         break
-    elif key in [82, 83, 100, 119]:
+    elif key in [82, 83, 100, 119, 61, 43]:
         i += 1
-    elif key in [81, 84, 97, 115]:
+    elif key in [81, 84, 97, 115, 45]:
         i -= 1
