@@ -14,25 +14,28 @@ label_dir = osp.join(kitti_object_dir, 'training', 'label_2')
 image_dir = osp.join(kitti_object_dir, 'training', 'image_2')
 calib_dir = osp.join(kitti_object_dir, 'training', 'calib')
 
+# categories = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
+categories = ['Car', 'Van']
+
 
 assert osp.exists(label_dir)
 assert osp.exists(image_dir)
 assert osp.exists(calib_dir)
 
-
 # num_of_images = 7481
 num_of_images = 7481
 
-
-min_height = 25  # minimum height for evaluated groundtruth/detections
+min_height = 22  # minimum height for evaluated groundtruth/detections
 max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
 max_truncation = 0.5  # maximum truncation level of the groundtruth used for evaluation
 
 
 cv2.namedWindow('image', cv2.WINDOW_AUTOSIZE)
 
-for i in xrange(num_of_images):
-    print 'Working on image: {} / {}'.format(i, num_of_images)
+i = 0
+while True:
+    i = max(0, min(i, num_of_images-1))
+    cv2.displayOverlay('image', 'Image: {} / {}'.format(i, num_of_images-1))
 
     base_name = '%06d' % (i)
     image_file_path = osp.join(image_dir, base_name + '.png')
@@ -56,7 +59,7 @@ for i in xrange(num_of_images):
 
     filtered_objects = []
     for obj in objects:
-        if obj['type'] != 'Car':
+        if obj['type'] not in categories:
             continue
 
         bbx = np.asarray(obj['bbox'])
@@ -79,8 +82,8 @@ for i in xrange(num_of_images):
                       (bbx[0], bbx[1]),
                       (bbx[2], bbx[3]),
                       (0, 255, 0), 1)
-        bbx_str = '{} Occ:{} Trunc{:0.2f}'.format(obj['type'], obj['occlusion'], obj['truncation'])
-        cv2.putText(image, bbx_str, (bbx[0] + 5, bbx[1] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
+        # bbx_str = '{} Occ:{} Trunc{:0.2f}'.format(obj['type'], obj['occlusion'], obj['truncation'])
+        # cv2.putText(image, bbx_str, (bbx[0] + 5, bbx[1] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
 
         amodal_bbx = rac.datasets.get_kitti_amodal_bbx(obj, P2)
         amodal_bbx = np.floor(amodal_bbx).astype(int)
@@ -88,7 +91,7 @@ for i in xrange(num_of_images):
         cv2.rectangle(image,
                       (amodal_bbx[0], amodal_bbx[1]),
                       (amodal_bbx[2], amodal_bbx[3]),
-                      (255, 0, 255), 1)
+                      (255, 0, 255), 1) 
 
     cv2.imshow('image', image)
 
@@ -96,3 +99,7 @@ for i in xrange(num_of_images):
     if key == 27:
         cv2.destroyAllWindows()
         break
+    elif key in [82, 83, 100, 119]:
+        i += 1
+    elif key in [81, 84, 97, 115]:
+        i -= 1
