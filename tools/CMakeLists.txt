@@ -40,6 +40,9 @@ target_link_libraries(check_render_layer_diff RenderAndCompare)
 add_executable(visualize_smpl_loss_map visualize_smpl_loss_map.cpp)
 target_link_libraries(visualize_smpl_loss_map RenderAndCompare)
 
+add_executable(evaluate_kitti_object evaluate_kitti_object.cpp)
+target_link_libraries(evaluate_kitti_object RenderAndCompare)
+
 cuda_include_directories(
   ${EIGEN_INCLUDE_DIRS}
   ${Caffe_INCLUDE_DIRS}
