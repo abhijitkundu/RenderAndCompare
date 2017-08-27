@@ -860,7 +860,24 @@ bool eval(const string& gt_dir, const string& result_dir, const vector<string>& 
         saveAndPlotPlots(plot_dir, CLASS_NAMES[c] + "_orientation", CLASS_NAMES[c], aos, 1);
         fclose(fp_ori);
       }
-      cout << " done.\n";
+
+      vector<DIFFICULTY> difficulty_levels {EASY, MODERATE, HARD};
+      for (auto difficulty : difficulty_levels) {
+        cout << "Difficulty: " << difficulty;
+        const vector<double>& prec_vec = precision[difficulty];
+        double average_ap = accumulate( prec_vec.begin(), prec_vec.end(), 0.0)/ prec_vec.size();
+        cout << " mAP = " << average_ap;
+        if(compute_aos) {
+          const vector<double>& aos_vec = aos[difficulty];
+          double average_aos = accumulate( aos_vec.begin(), aos_vec.end(), 0.0)/ aos_vec.size();
+          cout << " mAOS = " << average_aos;
+
+          double mAAE =  (acos(2.0 * (average_aos / average_ap) - 1)) * 180.0 / M_PI;
+          cout << " mAAE = " << mAAE;
+        }
+        cout << "\n";
+      }
+      cout << "Done.\n";
     }
   }
 
