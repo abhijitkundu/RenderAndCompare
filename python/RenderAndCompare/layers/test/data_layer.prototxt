@@ -12,3 +12,29 @@ layer {
     param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -t input_image viewpoint bbx_amodal bbx_crop"
   }
 }
+
+layer {
+  name:"viewpoint_quantizer"
+  type: "Python"
+  bottom: "gt_viewpoint"
+  top: "gt_viewpoint_label"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "QuantizeViewPoint"
+    param_str: "--num_of_bins 96"
+  }
+}
+
+layer {
+  name: "slicer_label"
+  type: "Slice"
+  bottom: "gt_viewpoint_label"
+  top: "gt_vp_azimuth_label"
+  top: "gt_vp_elevation_label"
+  top: "gt_vp_tilt_label"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
+}

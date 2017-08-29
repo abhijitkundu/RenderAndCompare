@@ -2,16 +2,17 @@
 
 import os.path as osp
 from collections import OrderedDict
-import numpy as np
+
 import cv2
+import numpy as np
 from tqdm import tqdm
+
 import _init_paths
-from RenderAndCompare.datasets import Dataset
-from RenderAndCompare.datasets import NoIndent
-from RenderAndCompare.datasets import read_kitti_calib_file
-from RenderAndCompare.datasets import read_kitti_object_labels
-from RenderAndCompare.datasets import get_kitti_amodal_bbx
-from RenderAndCompare.datasets import alpha_to_azimuth
+from RenderAndCompare.datasets import (Dataset, NoIndent, alpha_to_azimuth,
+                                       get_kitti_amodal_bbx,
+                                       read_kitti_calib_file,
+                                       read_kitti_object_labels)
+
 
 def main():
     root_dir_default = osp.join(_init_paths.root_dir, 'data', 'kitti', 'KITTI-Object')
@@ -96,7 +97,7 @@ def main():
         W = image.shape[1]
         H = image.shape[0]
         calib_data = read_kitti_calib_file(calib_file_path)
-        P0 = calib_data['P0'].reshape((3, 4))      
+        P0 = calib_data['P0'].reshape((3, 4))
         P2 = calib_data['P2'].reshape((3, 4))
         K = P0[:3, :3]
         assert np.all(P2[:3, :3] == K)
@@ -129,11 +130,11 @@ def main():
             obj_info = OrderedDict()
 
             obj_info['category'] = obj['type']
-            obj_info['dimension'] = NoIndent(obj['dimension'][::-1]) # [length, width, height]
+            obj_info['dimension'] = NoIndent(obj['dimension'][::-1])  # [length, width, height]
             obj_info['bbx_visible'] = NoIndent(bbx_visible.astype(np.float).tolist())
             obj_info['bbx_amodal'] = NoIndent(bbx_amodal.astype(np.float).tolist())
             obj_info['viewpoint'] = NoIndent([azimuth, elevation, tilt])
-            obj_info['location'] = NoIndent(obj_center_cam2.astype(np.float).tolist()) 
+            obj_info['location'] = NoIndent(obj_center_cam2.astype(np.float).tolist())
 
             obj_infos.append(obj_info)
         annotation['objects'] = obj_infos
@@ -141,7 +142,7 @@ def main():
 
     print 'Finished creating dataset with {} images and {} objects.'.format(dataset.num_of_annotations(), total_num_of_objects)
 
-    metainfo = OrderedDict()    
+    metainfo = OrderedDict()
     metainfo['total_num_of_objects'] = total_num_of_objects
     metainfo['categories'] = NoIndent(args.categories)
     metainfo['min_height'] = min_height

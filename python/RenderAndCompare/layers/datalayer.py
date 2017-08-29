@@ -1,8 +1,10 @@
-import os.path as osp
 import argparse
+import os.path as osp
 from random import shuffle
-import caffe
+
 import numpy as np
+
+import caffe
 from RenderAndCompare.datasets import BatchImageLoader, crop_and_resize_image
 
 
@@ -170,11 +172,12 @@ class DataLayer(AbstractDataLayer):
             for obj_info in image_info['objects']:
                 data_sample = {}
                 data_sample['image_id'] = image_id
-                data_sample['viewpoint'] = np.array(obj_info['viewpoint'], dtype=np.float32)
-                data_sample['bbx_amodal'] =  np.array(obj_info['bbx_amodal'], dtype=np.float32)
-                data_sample['bbx_visible'] =  np.array(obj_info['bbx_visible'], dtype=np.float32)
+                for field in ['viewpoint', 'bbx_amodal', 'bbx_visible']:
+                    if field in obj_info:
+                        data_sample[field] = np.array(obj_info[field])
 
-                assert (data_sample['viewpoint'] >= -np.pi).all() and (data_sample['viewpoint'] < np.pi).all()
+                if 'viewpoint' in data_sample:
+                    assert (data_sample['viewpoint'] >= -np.pi).all() and (data_sample['viewpoint'] < np.pi).all()
 
                 # Add data_sample
                 self.data_samples.append(data_sample)

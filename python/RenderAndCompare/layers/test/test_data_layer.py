@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-import _init_paths
-import RenderAndCompare as rac
 import os.path as osp
-import numpy as np
-import caffe
+
 import cv2
+import numpy as np
+
+import _init_paths
+import caffe
+import RenderAndCompare as rac
 
 if __name__ == '__main__':
     import argparse
@@ -54,13 +56,12 @@ if __name__ == '__main__':
             image_blob = net.blobs['input_image'].data[i - start_idx]
             cv2.imshow('blob_image', net.layers[0].make_bgr8_from_blob(image_blob))
             
-
             bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data[i - start_idx]
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
             # aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]
 
-            bbx_a = data_sample['bbx_amodal']
-            bbx_v = data_sample['bbx_visible']
+            bbx_a = data_sample['bbx_amodal'].astype(np.float32)
+            bbx_v = data_sample['bbx_visible'].astype(np.float32)
 
             assert np.allclose(bbx_amodal_blob, bbx_a)
             assert np.allclose(bbx_crop_blob, bbx_v)
