@@ -169,7 +169,8 @@ void to_json(nlohmann::json& j, const ImageObjectInfo& p) {
     { "bbx_visible", p.bbx_visible },
     { "bbx_amodal", p.bbx_amodal },
     { "viewpoint", p.viewpoint },
-    { "location", p.location },
+    { "center_proj", p.center_proj },
+    { "center_dist", p.center_dist },
     { "pose_param", p.pose_param }
   };
 }
@@ -181,7 +182,8 @@ void from_json(const nlohmann::json& j, ImageObjectInfo& p) {
   from_json_if_present(j, "bbx_visible", p.bbx_visible);
   from_json_if_present(j, "bbx_amodal", p.bbx_amodal);
   from_json_if_present(j, "viewpoint", p.viewpoint);
-  from_json_if_present(j, "location", p.location);
+  from_json_if_present(j, "center_proj", p.center_proj);
+  from_json_if_present(j, "center_dist", p.center_dist);
   from_json_if_present(j, "pose_param", p.pose_param);
 }
 

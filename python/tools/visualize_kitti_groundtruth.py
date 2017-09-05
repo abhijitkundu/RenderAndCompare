@@ -34,8 +34,8 @@ cv2.namedWindow('image', cv2.WINDOW_NORMAL)
 
 i = 0
 while True:
-    i = max(0, min(i, num_of_images-1))
-    cv2.displayOverlay('image', 'Image: {} / {}'.format(i, num_of_images-1))
+    i = max(0, min(i, num_of_images - 1))
+    cv2.displayOverlay('image', 'Image: {} / {}'.format(i, num_of_images - 1))
 
     base_name = '%06d' % (i)
     image_file_path = osp.join(image_dir, base_name + '.png')
@@ -55,7 +55,7 @@ while True:
 
     K = P1[:3, :3]
     assert np.all(P2[:3, :3] == K)
-    camera_center = -np.linalg.inv(K).dot(P2[:, 3])
+    cam_center = -np.linalg.inv(K).dot(P2[:, 3])
 
     filtered_objects = []
     for obj in objects:
@@ -85,13 +85,25 @@ while True:
         # bbx_str = '{} Occ:{} Trunc{:0.2f}'.format(obj['type'], obj['occlusion'], obj['truncation'])
         # cv2.putText(image, bbx_str, (bbx[0] + 5, bbx[1] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
 
-        amodal_bbx = rac.datasets.get_kitti_amodal_bbx(obj, P2)
+        R, t = rac.datasets.get_kitti_object_pose(obj, cam_center)
+        obj_center_proj = rac.geometry.project_point(K, R.dot(np.array([0., 0., 0.])) + t).astype(int)
+        obj_x_proj = rac.geometry.project_point(K, R.dot(np.array([1., 0., 0.])) + t).astype(int)
+        obj_y_proj = rac.geometry.project_point(K, R.dot(np.array([0., 1., 0.])) + t).astype(int)
+        obj_z_proj = rac.geometry.project_point(K, R.dot(np.array([0., 0., 1.])) + t).astype(int)
+
+        cv2.line(image, tuple(obj_center_proj), tuple(obj_x_proj), (0, 0, 255), 2)
+        cv2.line(image, tuple(obj_center_proj), tuple(obj_y_proj), (0, 255, 0), 2)
+        cv2.line(image, tuple(obj_center_proj), tuple(obj_z_proj), (255, 0, 0), 2)
+
+        cv2.circle(image, tuple(obj_center_proj), 4, (0, 255, 255), -1)
+
+        amodal_bbx = rac.datasets.get_kitti_amodal_bbx(obj, K, cam_center)
         amodal_bbx = np.floor(amodal_bbx).astype(int)
 
         cv2.rectangle(image,
                       (amodal_bbx[0], amodal_bbx[1]),
                       (amodal_bbx[2], amodal_bbx[3]),
-                      (255, 0, 255), 1) 
+                      (255, 0, 255), 1)
 
     cv2.imshow('image', image)
 

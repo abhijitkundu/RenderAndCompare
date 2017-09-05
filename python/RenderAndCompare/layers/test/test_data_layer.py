@@ -29,11 +29,11 @@ if __name__ == '__main__':
     print 'Loading dataset from {}'.format(args.dataset)
     dataset = rac.datasets.Dataset.from_json(args.dataset)
     print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
-    
+
     net.layers[0].add_dataset(dataset)
     net.layers[0].generate_datum_ids()
 
-    data_samples =  net.layers[0].data_samples
+    data_samples = net.layers[0].data_samples
 
     cv2.namedWindow('blob_image', cv2.WINDOW_AUTOSIZE)
     cv2.namedWindow('full_image', cv2.WINDOW_AUTOSIZE)
@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
             image_blob = net.blobs['input_image'].data[i - start_idx]
             cv2.imshow('blob_image', net.layers[0].make_bgr8_from_blob(image_blob))
-            
+
             bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data[i - start_idx]
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
             # aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]

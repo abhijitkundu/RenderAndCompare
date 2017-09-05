@@ -2,14 +2,16 @@
 """
 Trains a model using one GPU.
 """
-import _init_paths
-import RenderAndCompare as rac
-import caffe
 import os.path as osp
 import warnings
 
+import _init_paths
+import caffe
+import RenderAndCompare as rac
+
 
 def train(solver_proto, datasets, initialization, gpu_id):
+    """Train a network"""
     caffe.set_mode_gpu()
     caffe.set_device(gpu_id)
 
@@ -24,11 +26,9 @@ def train(solver_proto, datasets, initialization, gpu_id):
             print 'Initializing weights from {}'.format(initialization)
             solver.net.copy_from(initialization)
         else:
-            raise ValueError(
-                'ERROR: {} is not supported for initailization'.format(initialization))
+            raise ValueError('ERROR: {} is not supported for initailization'.format(initialization))
     else:
-        warnings.warn(
-            "Warning: No initialization provided. Training from scratch.")
+        warnings.warn("Warning: No initialization provided. Training from scratch.")
 
     for dataset in datasets:
         solver.net.layers[0].add_dataset(dataset)
@@ -38,7 +38,8 @@ def train(solver_proto, datasets, initialization, gpu_id):
     solver.solve()
 
 
-if __name__ == '__main__':
+def main():
+    """Mian function"""
     import argparse
     parser = argparse.ArgumentParser()
 
@@ -56,3 +57,7 @@ if __name__ == '__main__':
         print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
     train(args.solver, datasets, args.init, args.gpu)
+
+
+if __name__ == '__main__':
+    main()

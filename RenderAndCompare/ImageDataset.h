@@ -34,8 +34,11 @@ struct ImageObjectInfo {
   // viewpoint (azimuth, elevation, tilt)
   boost::optional<Eigen::Vector3d> viewpoint;
 
-  // location of object center (origin) in camera frame
-  boost::optional<Eigen::Vector3d> location;
+  // projection of object center (origin) in image frame
+  boost::optional<Eigen::Vector2d> center_proj;
+
+  // distance of object center (origin)
+  boost::optional<double> center_dist;
 
   // Additional pose params (for articulated objects)
   boost::optional<Eigen::VectorXd> pose_param;

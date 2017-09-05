@@ -1,4 +1,9 @@
+"""
+KITTI Helper functions
+"""
+
 import numpy as np
+
 
 def write_kitti_object_labels(objects, filepath):
     """
@@ -107,31 +112,53 @@ def read_kitti_calib_file(filepath):
     return data
 
 
-def get_kitti_3D_bbox_corners(object):
-    """Get the 3D corners of the oriented bounding box for a kitti object"""
-    c = np.cos(object['rotation_y'])
-    s = np.sin(object['rotation_y'])
-    R = np.array([[c, 0, s],
-                  [0, 1, 0],
-                  [-s, 0, c]])
+def get_kitti_object_rotation(obj):
+    """Get the Object rotation matrix"""
+    c = np.cos(obj['rotation_y'])
+    s = np.sin(obj['rotation_y'])
+    Ry = np.array([[c, 0, s],
+                   [0, 1, 0],
+                   [-s, 0, c]])
 
-    H = object['dimension'][0]
-    W = object['dimension'][1]    
-    L = object['dimension'][2]
+    Rx = np.array([[1, 0, 0],
+                   [0, 0, -1],
+                   [0, 1, 0]])
 
-    x_corners = np.array([L / 2, L / 2, -L / 2, -L / 2, L / 2, L / 2, -L / 2, -L / 2])
-    y_corners = np.array([0, 0, 0, 0, -H, -H, -H, -H])
-    z_corners = np.array([W / 2, -W / 2, -W / 2, W / 2, W / 2, -W / 2, -W / 2, W / 2])
+    R = np.matmul(Ry, Rx)
+    return R
+
+
+def get_kitti_object_pose(obj, cam_center):
+    """Get object pose (rotation and translation)"""
+    assert cam_center.shape == (3,)
+    R = get_kitti_object_rotation(obj)
+    t = R.dot(np.array([0, 0, obj['dimension'][0] / 2.0])) + np.array(obj['location']) - cam_center
+    return R, t
+
+
+def get_kitti_3D_bbox_corners(obj, R, t):
+    """Get the 3D corners of the bounding box for a kitti object"""
+    assert R.shape == (3, 3)
+    assert t.shape == (3,)
+
+    H = obj['dimension'][0]
+    W = obj['dimension'][1]
+    L = obj['dimension'][2]
+
+    x_corners = np.array([-L / 2, L / 2, -L / 2, L / 2, -L / 2, L / 2, -L / 2, L / 2])
+    y_corners = np.array([-W / 2, -W / 2, W / 2, W / 2, -W / 2, -W / 2, W / 2, W / 2])
+    z_corners = np.array([-H / 2, -H / 2, -H / 2, -H / 2, H / 2, H / 2, H / 2, H / 2])
 
     corners3D = R.dot(np.vstack((x_corners, y_corners, z_corners)))
-    corners3D = corners3D + np.array(object['location']).reshape((3, 1))
+    corners3D = corners3D + t.reshape((3, 1))
     return corners3D
 
 
-def get_kitti_amodal_bbx(object, P):
+def get_kitti_amodal_bbx(obj, K, cam_center):
     """Get amodal box by back projecting 3D bounding box of the object"""
-    corners3D = get_kitti_3D_bbox_corners(object)
-    corners2D = P.dot(np.vstack((corners3D, np.ones(8))))
+    R, t = get_kitti_object_pose(obj, cam_center)
+    corners3D = get_kitti_3D_bbox_corners(obj, R, t)
+    corners2D = K.dot(corners3D)
     corners2D[0, :] = corners2D[0, :] / corners2D[2, :]
     corners2D[1, :] = corners2D[1, :] / corners2D[2, :]
     corners2D = corners2D[:2, :]
@@ -143,9 +170,9 @@ def azimuth_to_alpha(azimuth):
     """Convert azimuth [-pi, pi] to kitti alpha"""
     assert -np.pi <= azimuth <= np.pi
     # add offset
-    alpha = azimuth + np.pi/2
+    alpha = azimuth + np.pi / 2
     # wrap to [-pi, pi]
-    alpha = np.mod(alpha + np.pi, 2*np.pi)- np.pi
+    alpha = np.mod(alpha + np.pi, 2 * np.pi) - np.pi
     assert -np.pi <= alpha <= np.pi
     return alpha
 
@@ -154,8 +181,8 @@ def alpha_to_azimuth(alpha):
     """Convert kitti alpha [-pi, pi] to azimuth [-pi, pi]"""
     assert -np.pi <= alpha <= np.pi
     # substract offset
-    azimuth = alpha - np.pi/2
-    #wrap to [-pi, pi]
-    azimuth = np.mod(azimuth + np.pi, 2*np.pi)-np.pi
+    azimuth = alpha - np.pi / 2
+    # wrap to [-pi, pi]
+    azimuth = np.mod(azimuth + np.pi, 2 * np.pi) - np.pi
     assert -np.pi <= azimuth <= np.pi
     return azimuth

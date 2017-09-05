@@ -8,10 +8,16 @@ import numpy as np
 from tqdm import tqdm
 
 import _init_paths
-from RenderAndCompare.datasets import (Dataset, NoIndent, alpha_to_azimuth,
+from RenderAndCompare.datasets import (Dataset,
+                                       NoIndent,
+                                       alpha_to_azimuth,
                                        get_kitti_amodal_bbx,
+                                       get_kitti_object_pose,
                                        read_kitti_calib_file,
                                        read_kitti_object_labels)
+from RenderAndCompare.geometry import (project_point,
+                                       rotation_from_two_vectors,
+                                       get_viewpoint_from_rotation)
 
 
 def main():
@@ -88,7 +94,7 @@ def main():
             if not too_hard:
                 filtered_objects.append(obj)
 
-        if len(filtered_objects) == 0:
+        if not filtered_objects:
             continue
 
         total_num_of_objects += len(filtered_objects)
@@ -112,29 +118,35 @@ def main():
         obj_infos = []
         for obj in filtered_objects:
             bbx_visible = np.array(obj['bbox'])
-            bbx_amodal = get_kitti_amodal_bbx(obj, P2)
+            bbx_amodal = get_kitti_amodal_bbx(obj, K, cam2_center)
 
-            azimuth = alpha_to_azimuth(obj['alpha'])
-            obj_center = np.array(obj['location']) - np.array([0, obj['dimension'][0] / 2.0, 0])
-            obj_center_cam2 = obj_center - cam2_center
-            obj_center_cam2_xz_proj = np.array([obj_center_cam2[0], 0, obj_center_cam2[2]])
-            elevation = np.arctan2(np.linalg.norm(np.cross(obj_center_cam2, obj_center_cam2_xz_proj)), np.dot(obj_center_cam2, obj_center_cam2_xz_proj))
-            if obj_center_cam2[1] < 0:
-                elevation = -elevation
-            tilt = 0
+            R, t = get_kitti_object_pose(obj, cam2_center)
 
-            assert -np.pi <= azimuth <= np.pi
-            assert -np.pi <= elevation <= np.pi
-            assert -np.pi <= tilt <= np.pi
+            obj_center_cam0 = np.array(obj['location']) - np.array([0, obj['dimension'][0] / 2.0, 0])
+            obj_center_cam2 = obj_center_cam0 - cam2_center
+
+            assert np.allclose(project_point(P2, obj_center_cam0), project_point(K, t))
+            assert np.allclose(np.linalg.norm(obj_center_cam2), np.linalg.norm(t))
+
+            obj_origin_proj = project_point(K, t)
+            distance = np.linalg.norm(t)
+
+            obj_rel_rot = np.matmul(rotation_from_two_vectors(obj_center_cam2, np.array([0., 0., 1.])), R)
+            viewpoint = get_viewpoint_from_rotation(obj_rel_rot)
+
+            assert -np.pi <= viewpoint[0] <= np.pi
+            assert -np.pi / 2 <= viewpoint[1] <= np.pi / 2
+            assert -np.pi <= viewpoint[2] <= np.pi
 
             obj_info = OrderedDict()
 
             obj_info['category'] = obj['type']
             obj_info['dimension'] = NoIndent(obj['dimension'][::-1])  # [length, width, height]
-            obj_info['bbx_visible'] = NoIndent(bbx_visible.astype(np.float).tolist())
-            obj_info['bbx_amodal'] = NoIndent(bbx_amodal.astype(np.float).tolist())
-            obj_info['viewpoint'] = NoIndent([azimuth, elevation, tilt])
-            obj_info['location'] = NoIndent(obj_center_cam2.astype(np.float).tolist())
+            obj_info['bbx_visible'] = NoIndent(bbx_visible.tolist())
+            obj_info['bbx_amodal'] = NoIndent(np.around(bbx_amodal, decimals=6).tolist())
+            obj_info['viewpoint'] = NoIndent(np.around(viewpoint, decimals=6).tolist())
+            obj_info['center_proj'] = NoIndent(np.around(obj_origin_proj, decimals=6).tolist())
+            obj_info['center_dist'] = distance
 
             obj_infos.append(obj_info)
         annotation['objects'] = obj_infos

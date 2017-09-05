@@ -171,15 +171,15 @@ int main(int argc, char **argv) {
           cv::rectangle(cv_image, cv::Point(bbx_amodal[0], bbx_amodal[1]), cv::Point(bbx_amodal[2], bbx_amodal[3]), cv::Scalar( 255, 255, 0));
         }
 
-        if(image_info.image_intrinsic && obj_info.location) {
-          const Eigen::Matrix3d K = image_info.image_intrinsic.value();
-          const Eigen::Vector3d object_center = obj_info.location.value();
-
+        if(obj_info.center_proj) {
           // project object_center to image
-          const Eigen::Vector2d object_center_image = (K * object_center).hnormalized();
+          const Eigen::Vector2d object_center_image = obj_info.center_proj.value();
           cv::circle(cv_image, cv::Point(object_center_image.x(), object_center_image.y()), 5, cv::Scalar( 0, 0, 255 ), -1);
 
-          if (obj_info.viewpoint && obj_info.dimension) {
+          if (image_info.image_intrinsic && obj_info.center_dist && obj_info.viewpoint && obj_info.dimension) {
+            const Eigen::Matrix3d K = image_info.image_intrinsic.value();
+            const Eigen::Vector3d object_center = obj_info.center_dist.value() * (K.inverse() * object_center_image.homogeneous()).normalized();
+
             auto viewpoint = obj_info.viewpoint.value();
             auto obj_pose = computeObjectPose(viewpoint, object_center);
             const Eigen::Matrix<double, 2, 8> img_corners = (K * obj_pose * createCorners(obj_info.dimension.value())).colwise().hnormalized();

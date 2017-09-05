@@ -1,6 +1,11 @@
-import numpy as np
+"""
+Image Loaders
+"""
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import cv2
+import numpy as np
 import tqdm
 
 
@@ -22,13 +27,13 @@ class BatchImageLoader(object):
 
     def preload_images(self, image_files):
         print "BatchImageLoader: Preloading {:,} images".format(len(image_files))
-        self.preloaded_images += parallel_read_resize_transpose_images(image_files, self.im_size,  self.transpose)
+        self.preloaded_images += parallel_read_resize_transpose_images(image_files, self.im_size, self.transpose)
         print "BatchImageLoader now has {:,} images".format(len(self.preloaded_images))
 
     def crop_and_preload_images(self, image_files, cropping_boxes):
         assert len(image_files) == len(cropping_boxes), 'Number of images ({}) need to be same as numbe of boxes ({})'.format(len(image_files), len(cropping_boxes))
         print "BatchImageLoader: Crop + Preloading {:,} images".format(len(image_files))
-        self.preloaded_images += parallel_read_crop_resize_transpose_images(image_files, cropping_boxes, self.im_size,  self.transpose)
+        self.preloaded_images += parallel_read_crop_resize_transpose_images(image_files, cropping_boxes, self.im_size, self.transpose)
         print "BatchImageLoader now has {:,} images".format(len(self.preloaded_images))
 
     def __getitem__(self, index):
@@ -47,6 +52,7 @@ def makeRGB8image(image):
 def makeBGR8image(image):
     rgb8_image = image.transpose(1, 2, 0)
     return np.uint8(rgb8_image)
+
 
 def crop_and_resize_image(image, cropping_box, im_size):
     assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)
