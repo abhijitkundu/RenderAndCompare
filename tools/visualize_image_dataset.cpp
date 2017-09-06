@@ -69,20 +69,20 @@ void draw3DBoxOnImage(cv::Mat& image, const Eigen::MatrixBase<Derived>& img_corn
   cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), CV_RGB(255, 0, 0), 1);
   cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopRightFloor)), CV_RGB(255, 0, 0), 1);
 
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), CV_RGB(0, 0, 255), 1);
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 0, 255), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), CV_RGB(255, 0, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(255, 0, 0), 1);
 
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), CV_RGB(0, 255, 0), 1);
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), CV_RGB(0, 255, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), CV_RGB(0, 0, 255), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), CV_RGB(0, 0, 255), 1);
 
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), CV_RGB(0, 255, 0), 1);
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopRightFloor)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(255, 0, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), CV_RGB(0, 0, 255), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::TopRightFloor)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 0, 255), 1);
 
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), CV_RGB(255, 0, 0), 1);
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), vec2point(img_corners.col(AlignedBox3::TopRightFloor)), CV_RGB(255, 0, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftFloor)), vec2point(img_corners.col(AlignedBox3::TopLeftFloor)), CV_RGB(0, 255, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightFloor)), vec2point(img_corners.col(AlignedBox3::TopRightFloor)), CV_RGB(0, 255, 0), 1);
 
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), CV_RGB(0, 0, 255), 1);
-  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 0, 255), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomLeftCeil)), vec2point(img_corners.col(AlignedBox3::TopLeftCeil)), CV_RGB(0, 255, 0), 1);
+  cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 255, 0), 1);
 }
 
 int main(int argc, char **argv) {
