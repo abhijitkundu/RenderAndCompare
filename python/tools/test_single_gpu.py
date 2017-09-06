@@ -23,6 +23,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
     input_num_of_objects = sum([len(image_info['objects']) for image_info in input_dataset.annotations()])
     assert net.layers[0].curr_data_ids_idx == 0
     assert net.layers[0].number_of_datapoints() == input_num_of_objects
+    assert net.layers[0].data_ids == range(input_num_of_objects)
 
     data_samples = net.layers[0].data_samples
     num_of_data_samples = len(data_samples)
