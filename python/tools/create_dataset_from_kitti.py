@@ -17,7 +17,8 @@ from RenderAndCompare.datasets import (Dataset,
                                        read_kitti_object_labels)
 from RenderAndCompare.geometry import (project_point,
                                        rotation_from_two_vectors,
-                                       get_viewpoint_from_rotation)
+                                       rotation_from_viewpoint,
+                                       viewpoint_from_rotation)
 
 
 def main():
@@ -131,12 +132,14 @@ def main():
             obj_origin_proj = project_point(K, t)
             distance = np.linalg.norm(t)
 
-            obj_rel_rot = np.matmul(rotation_from_two_vectors(obj_center_cam2, np.array([0., 0., 1.])), R)
-            viewpoint = get_viewpoint_from_rotation(obj_rel_rot)
+            delta_rot = rotation_from_two_vectors(t, np.array([0., 0., 1.]))
+            obj_rel_rot = np.matmul(delta_rot, R)
+            assert np.allclose(delta_rot.dot(t), np.array([0., 0., distance]))
 
-            assert -np.pi <= viewpoint[0] <= np.pi
-            assert -np.pi / 2 <= viewpoint[1] <= np.pi / 2
-            assert -np.pi <= viewpoint[2] <= np.pi
+            viewpoint = viewpoint_from_rotation(obj_rel_rot)
+
+            R_vp = rotation_from_viewpoint(viewpoint)
+            assert np.allclose(R_vp, obj_rel_rot), "R_vp = \n{}\nobj_rel_rot = \n{}\n".format(R_vp, obj_rel_rot)
 
             obj_info = OrderedDict()
 

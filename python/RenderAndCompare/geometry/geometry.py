@@ -8,7 +8,7 @@ from math import sqrt, atan2
 def wrapToPi(radians):
     """Wrap an angle (in radians) to [-pi, pi)"""
     # wrap to [0..2*pi]
-    wrapped = radians % np.pi
+    wrapped = radians % (2 * np.pi)
     # wrap to [-pi..pi]
     if wrapped > np.pi:
         wrapped -= 2 * np.pi
@@ -53,7 +53,48 @@ def rotation_from_two_vectors(a, b):
     return R
 
 
-def get_viewpoint_from_rotation(R):
+def rotationX(angle):
+    """Get the rotation matrix for rotation around X"""
+    c = np.cos(angle)
+    s = np.sin(angle)
+    Rx = np.array([[1, 0, 0],
+                   [0, c, -s],
+                   [0, s, c]])
+    return Rx
+
+
+def rotationY(angle):
+    """Get the rotation matrix for rotation around X"""
+    c = np.cos(angle)
+    s = np.sin(angle)
+    Ry = np.array([[c, 0, s],
+                   [0, 1, 0],
+                   [-s, 0, c]])
+    return Ry
+
+
+def rotationZ(angle):
+    """Get the rotation matrix for rotation around X"""
+    c = np.cos(angle)
+    s = np.sin(angle)
+    Rz = np.array([[c, -s, 0],
+                   [s, c, 0],
+                   [0, 0, 1]])
+    return Rz
+
+
+def rotation_from_viewpoint(vp):
+    """Get rotation matrix from viewpoint [azimuth, elevation, tilt]"""
+    assert vp.shape == (3,)
+    assert -np.pi <= vp[0] <= np.pi
+    assert -np.pi / 2 <= vp[1] <= np.pi / 2
+    assert -np.pi <= vp[2] <= np.pi
+
+    R = rotationZ(-vp[2] - np.pi/2).dot(rotationY(vp[1] + np.pi/2)).dot(rotationZ(-vp[0]))
+    return R
+
+
+def viewpoint_from_rotation(R):
     """Returns viewpoint [azimuth, elevation, tilt] from rotation matrix"""
     assert R.shape == (3, 3)
 
