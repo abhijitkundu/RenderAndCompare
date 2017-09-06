@@ -140,6 +140,7 @@ def main():
 
             R_vp = rotation_from_viewpoint(viewpoint)
             assert np.allclose(R_vp, obj_rel_rot), "R_vp = \n{}\nobj_rel_rot = \n{}\n".format(R_vp, obj_rel_rot)
+            assert np.allclose(np.matmul(delta_rot.T, R_vp), R)
 
             obj_info = OrderedDict()
 

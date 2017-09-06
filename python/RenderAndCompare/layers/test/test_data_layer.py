@@ -47,7 +47,7 @@ if __name__ == '__main__':
     for b in xrange(num_of_batches):
         start_idx = batch_size * b
         end_idx = min(batch_size * (b + 1), len(data_samples))
-        print 'Working on batch: %d/%d (Image# %d - %d)' % (b, num_of_batches, start_idx, end_idx)
+        print 'Working on batch: %d/%d (DataSample# %d - %d)' % (b, num_of_batches, start_idx, end_idx)
         output = net.forward()
 
         for i in xrange(start_idx, end_idx):
