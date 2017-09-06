@@ -147,11 +147,6 @@ class QuantizeViewPoint(caffe.Layer):
         parser.add_argument("-b", "--num_of_bins", default=24, type=int, help="Number of bins")
         params = parser.parse_args(param_str.split())
 
-        print "------------- Quantize Layer Config ------------------"
-        for arg in vars(params):
-            print "\t{} \t= {}".format(arg, getattr(params, arg))
-        print "------------------------------------------------------------"
-
         return params
 
     def setup(self, bottom, top):
@@ -183,11 +178,6 @@ class DeQuantizeViewPoint(caffe.Layer):
         parser = argparse.ArgumentParser(description='Quantize Layer')
         parser.add_argument("-b", "--num_of_bins", default=24, type=int, help="Number of bins")
         params = parser.parse_args(param_str.split())
-
-        print "------------- Quantize Layer Config ------------------"
-        for arg in vars(params):
-            print "\t{} \t= {}".format(arg, getattr(params, arg))
-        print "------------------------------------------------------------"
 
         return params
 

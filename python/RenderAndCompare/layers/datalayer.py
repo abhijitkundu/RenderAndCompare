@@ -158,6 +158,7 @@ class DataLayer(AbstractDataLayer):
     def add_dataset(self, dataset):
         """Add annotations from a json dataset"""
         print '---- Adding data from {} datatset -----'.format(dataset.name())
+        print 'Number of data points (annotations) = {:,}'.format(len(self.data_samples))
 
         prev_num_of_images = len(self.image_loader)
 
@@ -177,12 +178,14 @@ class DataLayer(AbstractDataLayer):
                         data_sample[field] = np.array(obj_info[field])
 
                 if 'viewpoint' in data_sample:
-                    assert (data_sample['viewpoint'] >= -np.pi).all() and (data_sample['viewpoint'] < np.pi).all()
+                    vp = data_sample['viewpoint']
+                    assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
 
                 # Add data_sample
                 self.data_samples.append(data_sample)
 
         self.image_loader.preload_images(image_files)
+        print 'Number of data points (annotations) = {:,}'.format(len(self.data_samples))
         print "--------------------------------------------------------------------"
 
     def generate_datum_ids(self):
