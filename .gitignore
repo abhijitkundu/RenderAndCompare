@@ -5,6 +5,9 @@
 # Ignore H5 files
 *.h5
 
+# Ignore archive dirs
+archive_*/
+
 # Ignore Log files and log dirs
 logs/
 *.log

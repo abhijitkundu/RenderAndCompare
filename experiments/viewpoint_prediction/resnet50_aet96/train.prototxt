@@ -7,7 +7,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "DataLayer"
-    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -t input_image viewpoint"
+    param_str: "-b 32 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -t input_image viewpoint"
   }
 }
 
@@ -3585,10 +3585,10 @@ layer {
   bottom: "pool5"
   top: "fc_azimuth96"
   param {
-    lr_mult: 2
+    lr_mult: 1
   }
   param {
-    lr_mult: 4
+    lr_mult: 2
   }
   inner_product_param {
     num_output: 96
@@ -3625,10 +3625,10 @@ layer {
   bottom: "pool5"
   top: "fc_elevation96"
   param {
-    lr_mult: 2
+    lr_mult: 1
   }
   param {
-    lr_mult: 4
+    lr_mult: 2
   }
   inner_product_param {
     num_output: 96
@@ -3664,10 +3664,10 @@ layer {
   bottom: "pool5"
   top: "fc_tilt96"
   param {
-    lr_mult: 2
+    lr_mult: 1
   }
   param {
-    lr_mult: 4
+    lr_mult: 2
   }
   inner_product_param {
     num_output: 96
