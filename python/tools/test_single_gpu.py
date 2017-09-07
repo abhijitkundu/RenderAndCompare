@@ -59,10 +59,12 @@ def test_single_weights_file(weights_file, net, input_dataset):
 
         # store all accuracy outputs
         for key in [key for key in output if "accuracy" in key]:
+            assert output[key].shape == (), "Expects {} output to be scalar but got {}".format(key, output[key].shape)
+            current_batch_accuracy = float(output[key])
             if key in accuracy_outputs:
-                accuracy_outputs[key].append(output[key])
+                accuracy_outputs[key].append(current_batch_accuracy)
             else:
-                accuracy_outputs[key] = [output[key]]
+                accuracy_outputs[key] = [current_batch_accuracy]
 
         for i in xrange(start_idx, end_idx):
             image_id = data_samples[i]['image_id']
