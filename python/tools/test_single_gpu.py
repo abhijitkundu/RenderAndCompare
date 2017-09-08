@@ -4,16 +4,17 @@ Trains a model using one GPU.
 """
 
 import os.path as osp
+import re
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 import tqdm
 
 import _init_paths
-import os
-os.environ['GLOG_minloglevel'] = '2'
 import caffe
 from RenderAndCompare.datasets import Dataset, NoIndent
+
 
 def test_single_weights_file(weights_file, net, input_dataset):
     """Test already initalized net with a new set of weights"""
@@ -40,7 +41,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
     # Set the image level fields
     for input_im_info in input_dataset.annotations():
         result_im_info = OrderedDict()
-        result_im_info['image_file'] = input_im_info['image_size']
+        result_im_info['image_file'] = input_im_info['image_file']
         result_im_info['image_size'] = NoIndent(input_im_info['image_size'])
         result_im_info['image_intrinsic'] = NoIndent(input_im_info['image_intrinsic'])
         result_im_info['objects'] = []
@@ -80,12 +81,15 @@ def test_single_weights_file(weights_file, net, input_dataset):
             image_info['objects'].append(object_info)
 
     for key in accuracy_outputs:
-        accuracy = np.mean(accuracy_outputs[key])
-        print 'Test set {}: {:.2f}'.format(key, (100. * accuracy))
+        accuracy_outputs[key] = 100. * np.mean(accuracy_outputs[key])
+        print 'Test set {}: {:.2f}'.format(key, accuracy_outputs[key])
+
+    regex = re.compile('iter_([0-9]*).caffemodel')
+    accuracy_outputs['iter'] = int(regex.findall(weights_file)[0])
 
     result_num_of_objects = sum([len(image_info['objects']) for image_info in result_dataset.annotations()])
     assert result_num_of_objects == num_of_data_samples
-    return result_dataset
+    return result_dataset, accuracy_outputs
 
 
 def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
@@ -99,13 +103,23 @@ def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     # Add dataset to datalayer
     net.layers[0].add_dataset(input_dataset)
 
+    # store accuracies for each weight file here
+    accuracies = []
+
     for weights_file in weights_files:
         weight_name = osp.splitext(osp.basename(weights_file))[0]
         print 'Working with weights_file: {}'.format(weight_name)
-        result_dataset = test_single_weights_file(weights_file, net, input_dataset)
+        result_dataset, accuracy_outputs = test_single_weights_file(weights_file, net, input_dataset)
+        accuracies.append(accuracy_outputs)
         out_json_filename = "{}_{}_result.json".format(result_dataset.name(), weight_name)
         result_dataset.write_data_to_json(out_json_filename)
         print '--------------------------------------------------'
+
+    accuracies_df = pd.DataFrame(accuracies).set_index('iter')
+    accuracies_filename = input_dataset.name() + '_results'
+    print 'Saving accuracies to {}.{{csv|png}}'.format(accuracies_filename)
+    accuracies_df.to_csv(accuracies_filename + '.csv')
+    accuracies_df.plot().get_figure().savefig(accuracies_filename + '.png')
 
 
 def main():
@@ -115,7 +129,7 @@ def main():
 
     parser.add_argument("-w", "--weights_files", nargs='+', required=True, help="trained weights")
     parser.add_argument("-n", "--net_file", required=True, help="Deploy network")
-    parser.add_argument("-d", "--dataset_file", required=True, help="Path to RenderAndCompare JSON dataset file")   
+    parser.add_argument("-d", "--dataset_file", required=True, help="Path to RenderAndCompare JSON dataset file")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
     args = parser.parse_args()
 
