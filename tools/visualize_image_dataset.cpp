@@ -85,6 +85,46 @@ void draw3DBoxOnImage(cv::Mat& image, const Eigen::MatrixBase<Derived>& img_corn
   cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 255, 0), 1);
 }
 
+
+cv::Mat visualizeObjects(const cv::Mat& cv_image, const RaC::ImageInfo& image_info) {
+  cv::Mat image = cv_image.clone();
+  if (image_info.objects) {
+    // Loop over all objects
+    for (const RaC::ImageObjectInfo& obj_info : image_info.objects.value()) {
+
+      if (obj_info.bbx_visible) {
+        auto bbx_visible = obj_info.bbx_visible.value();
+        cv::rectangle(image, cv::Point(bbx_visible[0], bbx_visible[1]), cv::Point(bbx_visible[2], bbx_visible[3]), cv::Scalar(255, 0, 0));
+      }
+
+      if (obj_info.bbx_amodal) {
+        auto bbx_amodal = obj_info.bbx_amodal.value();
+        cv::rectangle(image, cv::Point(bbx_amodal[0], bbx_amodal[1]), cv::Point(bbx_amodal[2], bbx_amodal[3]),
+                      cv::Scalar(255, 255, 0));
+      }
+
+      if (obj_info.center_proj) {
+        // project object_center to image
+        const Eigen::Vector2d object_center_image = obj_info.center_proj.value();
+        cv::circle(image, cv::Point(object_center_image.x(), object_center_image.y()), 5, cv::Scalar(0, 0, 255), -1);
+
+        if (image_info.image_intrinsic && obj_info.center_dist && obj_info.viewpoint && obj_info.dimension) {
+          const Eigen::Matrix3d K = image_info.image_intrinsic.value();
+          const Eigen::Vector3d object_center = obj_info.center_dist.value()
+              * (K.inverse() * object_center_image.homogeneous()).normalized();
+
+          auto viewpoint = obj_info.viewpoint.value();
+          auto obj_pose = computeObjectPose(viewpoint, object_center);
+          const Eigen::Matrix<double, 2, 8> img_corners = (K * obj_pose
+              * createCorners(obj_info.dimension.value())).colwise().hnormalized();
+          draw3DBoxOnImage(image, img_corners);
+        }
+      }
+    }
+  }
+  return image;
+}
+
 int main(int argc, char **argv) {
   namespace po = boost::program_options;
   namespace fs = boost::filesystem;
@@ -157,41 +197,10 @@ int main(int argc, char **argv) {
     const fs::path image_path = dataset.rootdir / image_info.image_file.value();
     cv::Mat cv_image = cv::imread(image_path.string(), cv::IMREAD_COLOR);
 
-    if (image_info.objects) {
-      // Loop over all objects
-      for (const RaC::ImageObjectInfo& obj_info : image_info.objects.value()) {
+    cv::Mat image = visualizeObjects(cv_image, image_info);
 
-        if(obj_info.bbx_visible) {
-          auto bbx_visible = obj_info.bbx_visible.value();
-          cv::rectangle(cv_image, cv::Point(bbx_visible[0], bbx_visible[1]), cv::Point(bbx_visible[2], bbx_visible[3]), cv::Scalar( 255, 0, 0));
-        }
-
-        if(obj_info.bbx_amodal) {
-          auto bbx_amodal = obj_info.bbx_amodal.value();
-          cv::rectangle(cv_image, cv::Point(bbx_amodal[0], bbx_amodal[1]), cv::Point(bbx_amodal[2], bbx_amodal[3]), cv::Scalar( 255, 255, 0));
-        }
-
-        if(obj_info.center_proj) {
-          // project object_center to image
-          const Eigen::Vector2d object_center_image = obj_info.center_proj.value();
-          cv::circle(cv_image, cv::Point(object_center_image.x(), object_center_image.y()), 5, cv::Scalar( 0, 0, 255 ), -1);
-
-          if (image_info.image_intrinsic && obj_info.center_dist && obj_info.viewpoint && obj_info.dimension) {
-            const Eigen::Matrix3d K = image_info.image_intrinsic.value();
-            const Eigen::Vector3d object_center = obj_info.center_dist.value() * (K.inverse() * object_center_image.homogeneous()).normalized();
-
-            auto viewpoint = obj_info.viewpoint.value();
-            auto obj_pose = computeObjectPose(viewpoint, object_center);
-            const Eigen::Matrix<double, 2, 8> img_corners = (K * obj_pose * createCorners(obj_info.dimension.value())).colwise().hnormalized();
-            draw3DBoxOnImage(cv_image, img_corners);
-          }
-        }
-
-      }
-    }
-
+    cv::imshow(windowname, image);
     cv::displayOverlay(windowname, image_path.stem().string());
-    cv::imshow(windowname, cv_image);
     const int key = cv::waitKey(!paused) % 256;
 
     if (key == 27 || key == 'q')  // Esc or Q or q
