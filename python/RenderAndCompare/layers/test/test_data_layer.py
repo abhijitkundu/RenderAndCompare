@@ -63,17 +63,25 @@ if __name__ == '__main__':
             bbx_a = data_sample['bbx_amodal'].astype(np.float32)
             bbx_v = data_sample['bbx_visible'].astype(np.float32)
 
-            assert np.allclose(bbx_amodal_blob, bbx_a)
-            assert np.allclose(bbx_crop_blob, bbx_v)
-
             full_image = net.layers[0].image_loader[data_sample['image_id']].copy()
             cv2.rectangle(full_image, (bbx_a[0], bbx_a[1]), (bbx_a[2], bbx_a[3]), (0, 255, 0), 1)
-            cv2.rectangle(full_image, (bbx_crop_blob[0], bbx_crop_blob[1]), (bbx_crop_blob[2], bbx_crop_blob[3]), (0, 0, 255), 1)
+            cv2.rectangle(full_image, (bbx_v[0], bbx_v[1]), (bbx_v[2], bbx_v[3]), (0, 0, 255), 1)
             cv2.imshow('full_image', full_image)
 
-            viewpoint = data_sample['viewpoint']
+            vp = data_sample['viewpoint']
             viewpoint_blob = net.blobs['gt_viewpoint'].data[i - start_idx]
-            assert np.allclose(viewpoint, viewpoint_blob)
+
+            if np.allclose(bbx_amodal_blob, bbx_a):
+                cv2.displayOverlay('blob_image', 'Original')
+                assert np.allclose(bbx_amodal_blob, bbx_a)
+                assert np.allclose(bbx_crop_blob, bbx_v)
+                assert np.allclose(viewpoint_blob, vp)
+            else:
+                cv2.displayOverlay('blob_image', 'Flipped')
+                W = full_image.shape[1]
+                assert np.allclose(bbx_amodal_blob, np.array([W - bbx_a[0], bbx_a[1], W - bbx_a[2], bbx_a[3]]))
+                assert np.allclose(bbx_crop_blob, np.array([W - bbx_v[0], bbx_v[1], W - bbx_v[2], bbx_v[3]]))
+                assert np.allclose(viewpoint_blob, np.array([-vp[0], vp[1], -vp[2]]))
 
             viewpoint_label = net.blobs['gt_viewpoint_label'].data[i - start_idx]
             assert (viewpoint_label >= 0).all() and (viewpoint_label < 96).all()
