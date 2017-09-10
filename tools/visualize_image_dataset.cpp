@@ -251,6 +251,11 @@ int main(int argc, char **argv) {
     const fs::path image_path = dataset.rootdir / image_info.image_file.value();
     cv::Mat cv_image = cv::imread(image_path.string(), cv::IMREAD_COLOR);
 
+    if (image_info.image_size.value() != Eigen::Vector2i(cv_image.cols, cv_image.rows)) {
+      std::cout << "Bad image_size: " << cv_image.size << "\n";
+      return EXIT_FAILURE;
+    }
+
     cv::Mat original_view = visualizeObjects(cv_image, image_info, false);
     cv::Mat flipped_view = visualizeObjects(cv_image, image_info, true);
 
