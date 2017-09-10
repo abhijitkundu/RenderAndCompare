@@ -85,28 +85,79 @@ void draw3DBoxOnImage(cv::Mat& image, const Eigen::MatrixBase<Derived>& img_corn
   cv::line(image, vec2point(img_corners.col(AlignedBox3::BottomRightCeil)), vec2point(img_corners.col(AlignedBox3::TopRightCeil)), CV_RGB(0, 255, 0), 1);
 }
 
+RaC::ImageInfo flip(const RaC::ImageInfo& image_info_) {
+  RaC::ImageInfo image_info = image_info_;
 
-cv::Mat visualizeObjects(const cv::Mat& cv_image, const RaC::ImageInfo& image_info) {
-  cv::Mat image = cv_image.clone();
+  const int W = image_info.image_size.value().x();
+
+  if (image_info.image_intrinsic) {
+    image_info.image_intrinsic.value()(0, 2) = W - image_info.image_intrinsic.value()(0, 2);
+  }
+
+  if (image_info.objects) {
+    for (RaC::ImageObjectInfo& obj_info : image_info.objects.value()) {
+      if (obj_info.bbx_visible) {
+        Eigen::Vector4d& bbx_visible = obj_info.bbx_visible.value();
+        bbx_visible[0] = W - bbx_visible[0];
+        bbx_visible[2] = W - bbx_visible[2];
+      }
+
+      if (obj_info.bbx_amodal) {
+        Eigen::Vector4d& bbx_amodal = obj_info.bbx_amodal.value();
+        bbx_amodal[0] = W - bbx_amodal[0];
+        bbx_amodal[2] = W - bbx_amodal[2];
+      }
+
+      if (obj_info.center_proj) {
+        Eigen::Vector2d& center_proj = obj_info.center_proj.value();
+        center_proj[0] = W - center_proj[0];
+      }
+
+      if (obj_info.viewpoint) {
+        Eigen::Vector3d& viewpoint = obj_info.viewpoint.value();
+        viewpoint[0] = -viewpoint[0]; // azimuth = -azimuth
+        viewpoint[2] = -viewpoint[2]; // tilt = -tilt
+      }
+
+    }
+  }
+
+  return image_info;
+}
+
+
+cv::Mat visualizeObjects(const cv::Mat& cv_image_, const RaC::ImageInfo& image_info_, bool do_flipping = false) {
+  cv::Mat cv_image;
+  RaC::ImageInfo image_info;
+
+  if (do_flipping) {
+    cv::flip(cv_image_, cv_image, 1);
+    image_info = flip(image_info_);
+  } else {
+    cv_image_.copyTo(cv_image);
+    image_info = image_info_;
+  }
+
+
   if (image_info.objects) {
     // Loop over all objects
     for (const RaC::ImageObjectInfo& obj_info : image_info.objects.value()) {
 
       if (obj_info.bbx_visible) {
         auto bbx_visible = obj_info.bbx_visible.value();
-        cv::rectangle(image, cv::Point(bbx_visible[0], bbx_visible[1]), cv::Point(bbx_visible[2], bbx_visible[3]), cv::Scalar(255, 0, 0));
+        cv::rectangle(cv_image, cv::Point(bbx_visible[0], bbx_visible[1]), cv::Point(bbx_visible[2], bbx_visible[3]), cv::Scalar(255, 0, 0));
       }
 
       if (obj_info.bbx_amodal) {
         auto bbx_amodal = obj_info.bbx_amodal.value();
-        cv::rectangle(image, cv::Point(bbx_amodal[0], bbx_amodal[1]), cv::Point(bbx_amodal[2], bbx_amodal[3]),
+        cv::rectangle(cv_image, cv::Point(bbx_amodal[0], bbx_amodal[1]), cv::Point(bbx_amodal[2], bbx_amodal[3]),
                       cv::Scalar(255, 255, 0));
       }
 
       if (obj_info.center_proj) {
         // project object_center to image
         const Eigen::Vector2d object_center_image = obj_info.center_proj.value();
-        cv::circle(image, cv::Point(object_center_image.x(), object_center_image.y()), 5, cv::Scalar(0, 0, 255), -1);
+        cv::circle(cv_image, cv::Point(object_center_image.x(), object_center_image.y()), 5, cv::Scalar(0, 0, 255), -1);
 
         if (image_info.image_intrinsic && obj_info.center_dist && obj_info.viewpoint && obj_info.dimension) {
           const Eigen::Matrix3d K = image_info.image_intrinsic.value();
@@ -117,12 +168,12 @@ cv::Mat visualizeObjects(const cv::Mat& cv_image, const RaC::ImageInfo& image_in
           auto obj_pose = computeObjectPose(viewpoint, object_center);
           const Eigen::Matrix<double, 2, 8> img_corners = (K * obj_pose
               * createCorners(obj_info.dimension.value())).colwise().hnormalized();
-          draw3DBoxOnImage(image, img_corners);
+          draw3DBoxOnImage(cv_image, img_corners);
         }
       }
     }
   }
-  return image;
+  return cv_image;
 }
 
 int main(int argc, char **argv) {
@@ -177,8 +228,11 @@ int main(int argc, char **argv) {
 
   const int num_of_annotations = dataset.annotations.size();
 
-  const std::string windowname = "ImageViewer";
-  cv::namedWindow(windowname, CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+  const std::string img_window_original = "Original Image";
+  const std::string img_window_flipped = "Flipped Image";
+
+  cv::namedWindow(img_window_original, CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
+  cv::namedWindow(img_window_flipped, CV_WINDOW_AUTOSIZE | CV_WINDOW_KEEPRATIO | CV_GUI_EXPANDED);
 
   std::cout << "Press \"P\" to PAUSE/UNPAUSE\n";
   std::cout << "Use Arrow keys or WASD keys for prev/next images\n";
@@ -197,10 +251,15 @@ int main(int argc, char **argv) {
     const fs::path image_path = dataset.rootdir / image_info.image_file.value();
     cv::Mat cv_image = cv::imread(image_path.string(), cv::IMREAD_COLOR);
 
-    cv::Mat image = visualizeObjects(cv_image, image_info);
+    cv::Mat original_view = visualizeObjects(cv_image, image_info, false);
+    cv::Mat flipped_view = visualizeObjects(cv_image, image_info, true);
 
-    cv::imshow(windowname, image);
-    cv::displayOverlay(windowname, image_path.stem().string());
+    cv::imshow(img_window_original, original_view);
+    cv::imshow(img_window_flipped, flipped_view);
+
+    cv::displayOverlay(img_window_original, image_path.stem().string());
+    cv::displayOverlay(img_window_flipped, image_path.stem().string());
+
     const int key = cv::waitKey(!paused) % 256;
 
     if (key == 27 || key == 'q')  // Esc or Q or q
