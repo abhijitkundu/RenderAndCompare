@@ -136,6 +136,41 @@ class AngleToCosSin(caffe.Layer):
         pass
 
 
+class AverageAngularError(caffe.Layer):
+    """Caffe layer Computes average angular error"""
+
+    def parse_param_str(self, param_str):
+        parser = argparse.ArgumentParser(description='AverageAngularError Layer')
+        parser.add_argument('--degrees_out', dest='degrees_out', action='store_true')
+        parser.add_argument('--radians_out', dest='degrees_out', action='store_false')
+        parser.set_defaults(degrees_out=True)
+        params = parser.parse_args(param_str.split())
+
+        return params
+
+    def setup(self, bottom, top):
+        """Setup AverageAngularError Layer"""
+        assert len(bottom) == 2, 'requires a single layer.bottom'
+        assert len(top) == 1, 'requires a single layer.top'
+        assert bottom[0].data.shape == bottom[1].data.shape, "bottom[0].shape = {}, but bottom[1].shape = {}".format(bottom[0].data.shape, bottom[1].data.shape)
+        params = self.parse_param_str(self.param_str)
+        self.degrees_out = params.degrees_out
+
+    def reshape(self, bottom, top):
+        bottom_shape = list(bottom[0].data.shape)
+        bottom_shape[0] = 1
+        top[0].reshape(*bottom_shape)
+
+    def forward(self, bottom, top):
+        angle_error = (bottom[1].data - bottom[0].data + np.pi) % (2 * np.pi) - np.pi
+        if self.degrees_out:
+            angle_error = np.degrees(angle_error)
+        top[0].data[...] = np.mean(np.fabs(angle_error), axis=0)
+
+    def backward(self, top, propagate_down, bottom):
+        pass
+
+
 class QuantizeViewPoint(caffe.Layer):
     """
     Converts continious ViewPoint measurement to quantized discrete labels

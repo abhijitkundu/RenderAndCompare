@@ -1,0 +1,14 @@
+train_net: "train.prototxt"
+# lr for fine-tuning should be lower than when starting from scratch
+base_lr: 0.001
+lr_policy: "step"
+gamma: 0.1
+# stepsize should also be lower, as we're closer to being done e.g 20k, 50k
+stepsize: 40000
+display: 20
+# average_loss: 100
+momentum: 0.9
+weight_decay: 0.0005
+snapshot: 10000
+snapshot_prefix: "resnet50_aet96_kitti_3dop"
+max_iter: 200000
