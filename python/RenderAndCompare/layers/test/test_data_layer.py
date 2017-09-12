@@ -69,19 +69,22 @@ if __name__ == '__main__':
             cv2.imshow('full_image', full_image)
 
             vp = data_sample['viewpoint']
-            viewpoint_blob = net.blobs['gt_viewpoint'].data[i - start_idx]
+            vp_blob = net.blobs['gt_viewpoint'].data[i - start_idx]
+
+            assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
+            assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all(), "Bad viewpoint = {}".format(vp_blob)
 
             if np.allclose(bbx_amodal_blob, bbx_a):
                 cv2.displayOverlay('blob_image', 'Original')
                 assert np.allclose(bbx_amodal_blob, bbx_a)
                 assert np.allclose(bbx_crop_blob, bbx_v)
-                assert np.allclose(viewpoint_blob, vp)
+                assert np.allclose(vp_blob, vp)
             else:
                 cv2.displayOverlay('blob_image', 'Flipped')
                 W = full_image.shape[1]
                 assert np.allclose(bbx_amodal_blob, np.array([W - bbx_a[0], bbx_a[1], W - bbx_a[2], bbx_a[3]]))
                 assert np.allclose(bbx_crop_blob, np.array([W - bbx_v[0], bbx_v[1], W - bbx_v[2], bbx_v[3]]))
-                assert np.allclose(viewpoint_blob, np.array([-vp[0], vp[1], -vp[2]]))
+                assert np.allclose(vp_blob, np.array([-vp[0], vp[1], -vp[2]]))
 
             viewpoint_label = net.blobs['gt_viewpoint_label'].data[i - start_idx]
             assert (viewpoint_label >= 0).all() and (viewpoint_label < 96).all()

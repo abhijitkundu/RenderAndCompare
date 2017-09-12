@@ -6,134 +6,41 @@ import os.path as osp
 import argparse
 import caffe
 
+def softmax(x, t=1.0):
+    if x.ndim == 1:
+        x = x.reshape((1, -1))
+    assert x.ndim == 2
+    max_x = np.max(x, axis=1).reshape((-1, 1))
+    exp_x = np.exp((x - max_x) / t)
+    out = exp_x / np.sum(exp_x, axis=1).reshape((-1, 1))
+    return out
 
-class ViewpoinPredictionDataLayer(AbstractDataLayer):
-
-    def parse_param_str(self, param_str):
-        parser = argparse.ArgumentParser(description='View Prediction Data Layer')
-        parser.add_argument("-b", "--batch_size", default=50, type=int, help="Batch Size")
-        parser.add_argument("-wh", "--im_size", nargs=2, default=[227, 227], type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
-        parser.add_argument("-m", "--mean_bgr", nargs=3, default=[104.00698793, 116.66876762, 122.67891434], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
-        params = parser.parse_args(param_str.split())
-
-        print "------------- ViewpoinPredictionDataLayer Config ------------------"
-        for arg in vars(params):
-            print "\t{} \t= {}".format(arg, getattr(params, arg))
-        print "------------------------------------------------------------"
-
-        return params
+class AngularL1LossLayer(caffe.Layer):
+    """Compute the L1 Loss for angles (in radians)"""
 
     def setup(self, bottom, top):
-        print "Setting up ViewpoinPredictionDataLayer ..."
-        assert len(top) >= 5, 'requires atleas one data and viewpoint tops'
-
-        # params is expected as argparse style string
-        self.params = self.parse_param_str(self.param_str)
-
-        # ----- Reshape tops -----#
-        # data_shape = B x C x H x W
-        # azimuth_shape = B x
-
-        top[0].reshape(self.params.batch_size, 3, self.params.im_size[1], self.params.im_size[0])  # Image Data
-        top[1].reshape(self.params.batch_size,)  # AzimuthTarget
-        top[2].reshape(self.params.batch_size,)  # ElevationTarget
-        top[3].reshape(self.params.batch_size,)  # TiltTarget
-        top[4].reshape(self.params.batch_size,)  # distanceTarget
-
-        # create mean bgr to directly operate on image data blob
-        self.mean_bgr = np.array(self.params.mean_bgr).reshape(1, 3, 1, 1)
-
-        # Create a loader to load the images.
-        self.image_loader = BatchImageLoader(self.params.im_size)
-
-        # Create placeholder for GT annotations
-        self.viewpoints = []
-
-        print 'ViewpoinPredictionDataLayer has been setup.'
-
-    def add_dataset(self, dataset):
-        print '---- Adding data from {} datatset -----'.format(dataset.name())
-
-        image_files = []
-        for i in xrange(dataset.num_of_annotations()):
-            annotation = dataset.annotations()[i]
-            img_path = osp.join(dataset.rootdir(), annotation['image_file'])
-            image_files.append(img_path)
-
-            viewpoint = annotation['viewpoint']
-            self.viewpoints.append(viewpoint)
-
-        self.image_loader.preload_images(image_files)
-        print "--------------------------------------------------------------------"
-
-    def generate_datum_ids(self):
-        num_of_data_points = len(self.viewpoints)
-
-        # set of data indices in [0, num_of_data_points)
-        self.data_ids = range(num_of_data_points)
-        self.curr_data_ids_idx = 0
-
-        # Shuffle from the begining if in the train phase
-        if (self.phase == caffe.TRAIN):
-            shuffle(self.data_ids)
-
-        print 'Total number of data points (annotations) = {:,}'.format(num_of_data_points)
-        return num_of_data_points
-
-    def forward(self, bottom, top):
-        """
-        Load current batch of data and labels to caffe blobs
-        """
-
-        assert hasattr(self, 'data_ids'), 'Most likely data has not been initialized before calling forward()'
-        assert len(self.data_ids) > self.params.batch_size, 'batch size cannot be smaller than total number of data points'
-
-        # For Debug
-        # print "{} -- {}".format(self.data_ids[self.curr_data_ids_idx],
-        # self.data_ids[self.curr_data_ids_idx + 100])
-
-        for i in xrange(self.params.batch_size):
-            # Did we finish an epoch?
-            if self.curr_data_ids_idx == len(self.data_ids):
-                self.curr_data_ids_idx = 0
-                shuffle(self.data_ids)
-
-            # Add directly to the caffe data layer
-            data_idx = self.data_ids[self.curr_data_ids_idx]
-            top[0].data[i, ...] = self.image_loader[data_idx]
-
-            viewpoint = self.viewpoints[data_idx]
-            top[1].data[i, ...] = viewpoint[0]
-            top[2].data[i, ...] = viewpoint[1]
-            top[3].data[i, ...] = viewpoint[2]
-            top[4].data[i, ...] = viewpoint[3]
-
-            self.curr_data_ids_idx += 1
-
-        # subtarct mean from image data blob
-        top[0].data[...] -= self.mean_bgr
-
-
-class AngleToCosSin(caffe.Layer):
-    """
-    Converts continious ViewPoint measurement to cos , sin represenatation
-    """
-    def setup(self, bottom, top):
-        assert len(bottom) == 1, 'requires a single layer.bottom'
-        assert len(top) == 1, 'requires a single layer.top'
-        assert bottom[0].data.ndim == 1, 'requires a bottom to be a vector'
-        top[0].reshape(bottom[0].data.shape[0], 2)
+        assert len(bottom) == 2, "Need two bottoms to compute distance"
+        assert len(top) == 1, "Requires a single top layer"
+        assert bottom[0].data.shape == bottom[1].data.shape, \
+            "bottom[0].shape={}, but bottom[1].shape={}".format(bottom[0].data.shape, bottom[1].data.shape)
 
     def reshape(self, bottom, top):
-        pass
+        # difference is shape of inputs
+        self.diff = np.zeros_like(bottom[0].data, dtype=np.float32)
+        # loss output is scalar
+        top[0].reshape(1)
 
     def forward(self, bottom, top):
-        angles = np.radians(bottom[0].data)
-        # No need to normalize since cos^2 + sin^2 = 1
-        top[0].data[...] = np.hstack((np.cos(angles).reshape(-1, 1), np.sin(angles).reshape(-1, 1)))
+        self.diff[...] = (bottom[0].data - bottom[1].data + np.pi) % (2 * np.pi) - np.pi
+        top[0].data[...] = np.sum(np.fabs(self.diff)) / bottom[0].num
 
     def backward(self, top, propagate_down, bottom):
-        pass
+        for i in range(2):
+            if not propagate_down[i]:
+                continue
+            sign = 1 if i == 0 else -1
+            alpha = sign * top[0].diff[0] / bottom[i].num
+            bottom[i].diff[...] = alpha * np.sign(self.diff)
 
 
 class AverageAngularError(caffe.Layer):
@@ -169,6 +76,44 @@ class AverageAngularError(caffe.Layer):
 
     def backward(self, top, propagate_down, bottom):
         pass
+
+
+class AngularExpectation(caffe.Layer):
+    """
+    Takes probs over set of bins and computes the complex (angular) expectation.
+    Lets say we have K bins
+    bottom[0] (N,K) probs for N samples
+    top[0] (N,) is gives the expected angle in degress in [-np.pi, np.pi)
+    """
+
+    def setup(self, bottom, top):
+        assert len(bottom) == 1, "requires a single bottom layer"
+        assert len(top) == 1, "requires a single top layer"
+        assert bottom[0].data.ndim == 2, "expects bottom of shape (N, K)"
+
+        num_of_bins = bottom[0].data.shape[1]
+        angles = (2 * np.pi / num_of_bins) * (np.arange(0.5, num_of_bins))
+        self.cs = np.hstack((np.cos(angles)[:, np.newaxis], np.sin(angles)[:, np.newaxis]))
+
+    def reshape(self, bottom, top):
+        N = bottom[0].data.shape[0]
+        self.prob_dot_cs = np.zeros((N, 2), dtype=np.float32)
+        # top is resized to (N,)
+        top[0].reshape(N,)
+
+    def forward(self, bottom, top):
+        """Take angular (complex) expectation and then return the angle"""
+        # prob_dot_cs = prob * cs
+        self.prob_dot_cs = bottom[0].data.dot(self.cs)
+        # output = atan2(s, c)
+        top[0].data[...] = np.arctan2(self.prob_dot_cs[:, 1], self.prob_dot_cs[:, 0])
+
+    def backward(self, top, propagate_down, bottom):
+        if propagate_down[0]:
+            c2_plus_s2 = np.sum(self.prob_dot_cs**2, axis=-1)
+            d_atan2 = top[0].diff[:, np.newaxis] * np.hstack(((-self.prob_dot_cs[:, 1] / c2_plus_s2)[:, np.newaxis],
+                                                             (self.prob_dot_cs[:, 0] / c2_plus_s2)[:, np.newaxis]))
+            bottom[0].diff[...] = d_atan2.dot(self.cs.T)
 
 
 class QuantizeViewPoint(caffe.Layer):
@@ -235,20 +180,13 @@ class DeQuantizeViewPoint(caffe.Layer):
         pass
 
 
-def softmax(x, t=1.0):
-    if x.ndim == 1:
-        x = x.reshape((1, -1))
-    assert x.ndim == 2
-    max_x = np.max(x, axis=1).reshape((-1, 1))
-    exp_x = np.exp((x - max_x) / t)
-    out = exp_x / np.sum(exp_x, axis=1).reshape((-1, 1))
-    return out
+
 
 
 class ViewpointExpectation(caffe.Layer):
     """
     Takes probs over set of bins and computes the complex (angular) expectation
-    of a viewpoint angle. Combines AngularExpecation and L2Normalization layer
+    of a viewpoint angle. Combines AngularExpectation and L2Normalization layer
     Lets say we have K bins
     bottom[0] (N,K) probs for N samples
     top[0] (N,2) where each row is [cos, sin] of the expected angle
