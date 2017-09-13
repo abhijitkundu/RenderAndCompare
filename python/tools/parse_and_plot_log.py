@@ -140,63 +140,87 @@ def parse_args():
     return args
 
 
-fig, (train_axes, test_axes) = plt.subplots(2, 2, figsize=(20, 15))
+def init_plots(logfile_path):
+    train_df, test_df = parse_log(logfile_path)
 
+    num_of_axes = 2 - train_df.empty - test_df.empty
+    assert num_of_axes != 0 , "Both train_df and test_df are empty"
 
-def init_plots():
-    train_axes[0].set_title('Training Loss')
-    train_axes[1].set_title('Training Accuracy')
-    test_axes[0].set_title('Testing Loss')
-    test_axes[1].set_title('Testing Accuracy')
+    fig, axes = plt.subplots(num_of_axes, 3, squeeze=False, figsize=(30, 7 * num_of_axes))
+    row = 0
+    if not train_df.empty:
+        axes[row, 0].set_title('Training Loss')
+        axes[row, 1].set_title('Training Accuracy')
+        axes[row, 2].set_title('Training Error Metrics')
+        row += 1
+    
+    if not test_df.empty:
+        axes[row, 0].set_title('Testing Loss')
+        axes[row, 1].set_title('Testing Accuracy')
+        axes[row, 2].set_title('Testing Error Metrics')
+
+    return fig, axes
     
 
-def draw_plot(data_frame, axes):
+def draw_plot(data_frame, fig, axes, row):
     all_column_names = list(data_frame.columns.values)
     outputs = [e for e in all_column_names if e not in ('NumIters', 'TotalLoss', 'LearningRate')]
     loss_outputs = [output for output in outputs if "loss" in output]
     acc_outputs = [output for output in outputs if any(x in output for x in ["acc", "iou"])]
+    error_outputs = [output for output in outputs if any(x in output for x in ["error"])]
 
     # Plot loss outputs
-    axes[0].clear()
-    axes[0].plot(data_frame['NumIters'], data_frame['TotalLoss'], color="red", alpha=0.6, label="TotalLoss")
+    axes[row, 0].clear()
+    axes[row, 0].plot(data_frame['NumIters'], data_frame['TotalLoss'], color="red", alpha=0.6, label="TotalLoss")
     # axes[0].plot(data_frame['NumIters'], data_frame['LearningRate'], color="blue", alpha=0.5, label="LearningRate")
     for output in loss_outputs:
-        axes[0].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
-    axes[0].legend(loc='upper right')
+        axes[row, 0].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
+    axes[row, 0].legend(loc='upper right')
 
     # Plot accuracy outputs
     if acc_outputs:
-        axes[1].clear()
+        axes[row, 1].clear()
         for output in acc_outputs:
-            axes[1].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
-        axes[1].axhline(1.0, color='b', linestyle='dashed', linewidth=2)
-        axes[1].legend(loc='lower right')
+            axes[row, 1].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
+        axes[row, 1].axhline(1.0, color='b', linestyle='dashed', linewidth=2)
+        axes[row, 1].legend(loc='lower right')
+    
+    # Plot error metrics outputs
+    if error_outputs:
+        axes[row, 2].clear()
+        for output in error_outputs:
+            axes[row, 2].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
+        axes[row, 2].legend(loc='upper right')
 
     current_iters = int(data_frame['NumIters'].iloc[-1])
     fig.suptitle('Stats after Iteration# {}'.format(current_iters), fontsize=14)
     
 
-def update_plots(frame, logfile_path):
+def update_plots(frame, logfile_path, fig, axes):
     train_df, test_df = parse_log(logfile_path)
 
+    row = 0
     if not train_df.empty:
-        draw_plot(train_df, train_axes)
-        train_axes[0].set_title('Training Loss')
-        train_axes[1].set_title('Training Accuracy')
+        draw_plot(train_df, fig, axes, row)
+        axes[row, 0].set_title('Training Loss')
+        axes[row, 1].set_title('Training Accuracy')
+        axes[row, 2].set_title('Training Error Metrics')
+        row += 1
         
     if not test_df.empty:
-        draw_plot(test_df, test_axes)
-        test_axes[0].set_title('Testing Loss')
-        test_axes[1].set_title('Testing Accuracy')
+        draw_plot(test_df, fig, axes, row)
+        axes[row, 0].set_title('Testing Loss')
+        axes[row, 1].set_title('Testing Accuracy')
+        axes[row, 2].set_title('Testing Error Metrics')
 
 def main():
     args = parse_args()
 
-    init_plots()
-    update_plots(0, args.logfile_path)
+    fig, axes = init_plots(args.logfile_path)
+    update_plots(0, args.logfile_path, fig, axes)
 
     if args.update_interval > 0:
-         ani = FuncAnimation(fig, update_plots, fargs=(args.logfile_path, ), interval = args.update_interval)
+         ani = FuncAnimation(fig, update_plots, fargs=(args.logfile_path, fig, axes), interval = args.update_interval)
     
     plt.show()
 
