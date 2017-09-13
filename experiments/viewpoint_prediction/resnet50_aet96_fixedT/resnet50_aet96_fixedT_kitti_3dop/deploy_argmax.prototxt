@@ -3732,11 +3732,11 @@ layer {
 }
 
 layer {
-  name: "error_angular"
+  name: "error_angular_deg"
   type: "Python"
   bottom: "pred_viewpoint"
   bottom: "gt_viewpoint"
-  top: "error_angular"
+  top: "error_angular_deg"
   python_param {
     module: "RenderAndCompare.layers"
     layer: "AverageAngularError"
@@ -3747,10 +3747,10 @@ layer {
 layer {
   name: "slicer_error_angular"
   type: "Slice"
-  bottom: "error_angular"
-  top: "error_azimuth"
-  top: "error_elevation"
-  top: "error_tilt"
+  bottom: "error_angular_deg"
+  top: "error_azimuth_deg"
+  top: "error_elevation_deg"
+  top: "error_tilt_deg"
   slice_param {
     axis: 1
     slice_point: 1

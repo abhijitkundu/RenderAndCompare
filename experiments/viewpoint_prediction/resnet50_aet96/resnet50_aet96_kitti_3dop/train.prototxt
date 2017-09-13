@@ -1,4 +1,5 @@
 name: "resnet50_aet96"
+
 layer {
   name: "data"
   type: "Python"
@@ -27,9 +28,9 @@ layer {
   name: "slicer_label"
   type: "Slice"
   bottom: "gt_viewpoint_label"
-  top: "gt_vp_azimuth_label"
-  top: "gt_vp_elevation_label"
-  top: "gt_vp_tilt_label"
+  top: "gt_azimuth_label"
+  top: "gt_elevation_label"
+  top: "gt_tilt_label"
   slice_param {
     axis: 1
     slice_point: 1
@@ -3577,7 +3578,9 @@ layer {
   }
 }
 
-#-------------- Loss/Output Layers -------------#
+#-------------------------------------------------#
+#-------------- FC Viewpoint Layers --------------#
+#-------------------------------------------------#
 
 layer {
   name: "fc_azimuth96"
@@ -3602,22 +3605,6 @@ layer {
     }
   }
 }
-layer {
-  name: "accuracy_azimuth"
-  type: "Accuracy"
-  bottom: "fc_azimuth96"
-  bottom: "gt_vp_azimuth_label"
-  top: "accuracy_azimuth"
-}
-layer {
-  name: "loss_azimuth"
-  type: "SoftmaxWithLoss"
-  bottom: "fc_azimuth96"
-  bottom: "gt_vp_azimuth_label"
-  top: "loss_azimuth"
-  loss_weight: 1
-}
-
 
 layer {
   name: "fc_elevation96"
@@ -3641,21 +3628,6 @@ layer {
       value: 0
     }
   }
-}
-layer {
-  name: "accuracy_elevation"
-  type: "Accuracy"
-  bottom: "fc_elevation96"
-  bottom: "gt_vp_elevation_label"
-  top: "accuracy_elevation"
-}
-layer {
-  name: "loss_elevation"
-  type: "SoftmaxWithLoss"
-  bottom: "fc_elevation96"
-  bottom: "gt_vp_elevation_label"
-  top: "loss_elevation"
-  loss_weight: 1
 }
 
 layer {
@@ -3682,18 +3654,137 @@ layer {
   }
 }
 
+#-------------------------------------------------#
+#----------- Discrete Viewpoint Loss -------------#
+#-------------------------------------------------#
+
 layer {
-  name: "accuracy_tilt"
-  type: "Accuracy"
-  bottom: "fc_tilt96"
-  bottom: "gt_vp_tilt_label"
-  top: "accuracy_tilt"
+  name: "loss_azimuth"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_azimuth96"
+  bottom: "gt_azimuth_label"
+  top: "loss_azimuth"
+  loss_weight: 1
 }
+
+layer {
+  name: "loss_elevation"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_elevation96"
+  bottom: "gt_elevation_label"
+  top: "loss_elevation"
+  loss_weight: 1
+}
+
 layer {
   name: "loss_tilt"
   type: "SoftmaxWithLoss"
   bottom: "fc_tilt96"
-  bottom: "gt_vp_tilt_label"
+  bottom: "gt_tilt_label"
   top: "loss_tilt"
   loss_weight: 1
+}
+
+#-------------------------------------------------#
+#-------------- Continious Viewpoint -------------#
+#-------------------------------------------------#
+
+layer {
+  name:"pred_azimuth_label"
+  type: "ArgMax"
+  bottom: "fc_azimuth96"
+  top: "pred_azimuth_label"
+}
+
+layer {
+  name:"pred_elevation_label"
+  type: "ArgMax"
+  bottom: "fc_elevation96"
+  top: "pred_elevation_label"
+}
+
+layer {
+  name:"pred_tilt_label"
+  type: "ArgMax"
+  bottom: "fc_tilt96"
+  top: "pred_tilt_label"
+}
+
+layer {
+  name: "pred_viewpoint_label"
+  bottom: "pred_azimuth_label"
+  bottom: "pred_elevation_label"
+  bottom: "pred_tilt_label"
+  top: "pred_viewpoint_label"
+  type: "Concat"
+  concat_param {
+    axis: 1
+  }
+}
+
+layer {
+  name: "pred_viewpoint"
+  type: "Python"
+  bottom: "pred_viewpoint_label"
+  top: "pred_viewpoint"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "DeQuantizeViewPoint"
+    param_str: "-b 96"
+  }
+}
+
+#-------------------------------------------------#
+#------------------ Accuracy Layers --------------#
+#-------------------------------------------------#
+
+layer {
+  name: "accuracy_azimuth"
+  type: "Accuracy"
+  bottom: "fc_azimuth96"
+  bottom: "gt_azimuth_label"
+  top: "accuracy_azimuth"
+}
+
+layer {
+  name: "accuracy_elevation"
+  type: "Accuracy"
+  bottom: "fc_elevation96"
+  bottom: "gt_elevation_label"
+  top: "accuracy_elevation"
+}
+
+layer {
+  name: "accuracy_tilt"
+  type: "Accuracy"
+  bottom: "fc_tilt96"
+  bottom: "gt_tilt_label"
+  top: "accuracy_tilt"
+}
+
+layer {
+  name: "error_angular_deg"
+  type: "Python"
+  bottom: "pred_viewpoint"
+  bottom: "gt_viewpoint"
+  top: "error_angular_deg"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AverageAngularError"
+    param_str: "--degrees_out"
+  }
+}
+
+layer {
+  name: "slicer_error_angular"
+  type: "Slice"
+  bottom: "error_angular_deg"
+  top: "error_azimuth_deg"
+  top: "error_elevation_deg"
+  top: "error_tilt_deg"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
 }
