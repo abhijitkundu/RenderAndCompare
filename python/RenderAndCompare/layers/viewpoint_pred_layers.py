@@ -59,17 +59,18 @@ class AverageAngularError(caffe.Layer):
         """Setup AverageAngularError Layer"""
         assert len(bottom) == 2, 'requires a single layer.bottom'
         assert len(top) == 1, 'requires a single layer.top'
-        assert bottom[0].data.shape == bottom[1].data.shape, "bottom[0].shape = {}, but bottom[1].shape = {}".format(bottom[0].data.shape, bottom[1].data.shape)
+        assert bottom[0].count == bottom[1].count, "bottom[0].shape = {}, but bottom[1].shape = {}".format(bottom[0].data.shape, bottom[1].data.shape)
         params = self.parse_param_str(self.param_str)
         self.degrees_out = params.degrees_out
 
     def reshape(self, bottom, top):
-        bottom_shape = list(bottom[0].data.shape)
+        assert np.squeeze(bottom[0].data).shape == np.squeeze(bottom[1].data).shape
+        bottom_shape = list(np.squeeze(bottom[0].data).shape)       
         bottom_shape[0] = 1
         top[0].reshape(*bottom_shape)
 
     def forward(self, bottom, top):
-        angle_error = (bottom[1].data - bottom[0].data + np.pi) % (2 * np.pi) - np.pi
+        angle_error = (np.squeeze(bottom[1].data) - np.squeeze(bottom[0].data) + np.pi) % (2 * np.pi) - np.pi
         if self.degrees_out:
             angle_error = np.degrees(angle_error)
         top[0].data[...] = np.mean(np.fabs(angle_error), axis=0)

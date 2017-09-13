@@ -49,7 +49,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
 
     assert result_dataset.num_of_annotations() == input_dataset.num_of_annotations()
 
-    accuracy_outputs = {}
+    performance_metric = {}
 
     print 'Evaluating for {} batches with {} imaes per batch.'.format(num_of_batches, batch_size)
     for b in tqdm.trange(num_of_batches):
@@ -59,13 +59,13 @@ def test_single_weights_file(weights_file, net, input_dataset):
         output = net.forward()
 
         # store all accuracy outputs
-        for key in [key for key in output if "accuracy" in key]:
-            assert output[key].shape == (), "Expects {} output to be scalar but got {}".format(key, output[key].shape)
-            current_batch_accuracy = float(output[key])
-            if key in accuracy_outputs:
-                accuracy_outputs[key].append(current_batch_accuracy)
+        for key in [key for key in output if any(x in key for x in ["accuracy", "error"])]:
+            assert np.squeeze(output[key]).shape == (), "Expects {} output to be scalar but got {}".format(key, output[key].shape)
+            current_batch_accuracy = float(np.squeeze(output[key]))
+            if key in performance_metric:
+                performance_metric[key].append(current_batch_accuracy)
             else:
-                accuracy_outputs[key] = [current_batch_accuracy]
+                performance_metric[key] = [current_batch_accuracy]
 
         for i in xrange(start_idx, end_idx):
             image_id = data_samples[i]['image_id']
@@ -73,23 +73,23 @@ def test_single_weights_file(weights_file, net, input_dataset):
 
             object_info = {}
 
-            viewpoint_pred = np.squeeze(output['viewpoint_pred'][i - start_idx, ...])
-            assert (viewpoint_pred >= -np.pi).all() and (viewpoint_pred < np.pi).all()
-            object_info['viewpoint'] = NoIndent(viewpoint_pred.tolist())
+            pred_viewpoint = np.squeeze(net.blobs['pred_viewpoint'].data[i - start_idx, ...])
+            assert (pred_viewpoint >= -np.pi).all() and (pred_viewpoint < np.pi).all()
+            object_info['viewpoint'] = NoIndent(pred_viewpoint.tolist())
             object_info['bbx_visible'] = NoIndent(data_samples[i]['bbx_visible'].tolist())
 
             image_info['objects'].append(object_info)
 
-    for key in accuracy_outputs:
-        accuracy_outputs[key] = 100. * np.mean(accuracy_outputs[key])
-        print 'Test set {}: {:.2f}'.format(key, accuracy_outputs[key])
+    for key in sorted(performance_metric):
+        performance_metric[key] = np.mean(performance_metric[key])
+        print 'Test set {}: {:.4f}'.format(key, performance_metric[key])
 
     regex = re.compile('iter_([0-9]*).caffemodel')
-    accuracy_outputs['iter'] = int(regex.findall(weights_file)[0])
+    performance_metric['iter'] = int(regex.findall(weights_file)[0])
 
     result_num_of_objects = sum([len(image_info['objects']) for image_info in result_dataset.annotations()])
     assert result_num_of_objects == num_of_data_samples
-    return result_dataset, accuracy_outputs
+    return result_dataset, performance_metric
 
 
 def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
@@ -104,22 +104,30 @@ def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     net.layers[0].add_dataset(input_dataset)
 
     # store accuracies for each weight file here
-    accuracies = []
+    performance_metrics = []
 
     for weights_file in weights_files:
         weight_name = osp.splitext(osp.basename(weights_file))[0]
         print 'Working with weights_file: {}'.format(weight_name)
-        result_dataset, accuracy_outputs = test_single_weights_file(weights_file, net, input_dataset)
-        accuracies.append(accuracy_outputs)
+        result_dataset, performance_metric = test_single_weights_file(weights_file, net, input_dataset)
+        performance_metrics.append(performance_metric)
         out_json_filename = "{}_{}_result.json".format(result_dataset.name(), weight_name)
         result_dataset.write_data_to_json(out_json_filename)
         print '--------------------------------------------------'
 
-    accuracies_df = pd.DataFrame(accuracies).set_index('iter')
-    accuracies_filename = input_dataset.name() + '_results'
-    print 'Saving accuracies to {}.{{csv|png}}'.format(accuracies_filename)
-    accuracies_df.to_csv(accuracies_filename + '.csv')
-    accuracies_df.plot().get_figure().savefig(accuracies_filename + '.png')
+    perf_metrics_df = pd.DataFrame(performance_metrics).set_index('iter')
+    print 'Saving performance metrics to {}.csv'.format(input_dataset.name() + '_all_metrics')
+    perf_metrics_df.to_csv(input_dataset.name() + '_all_metrics' + '.csv')
+
+    if len(weights_files) > 1:
+        accuracy_df = perf_metrics_df.filter(regex='accuracy')
+        error_df = perf_metrics_df.filter(regex='error')
+        if not accuracy_df.empty:
+            print 'Saving accuracy plot to {}.png'.format(input_dataset.name() + '_accuracy')
+            accuracy_df.plot().get_figure().savefig(input_dataset.name() + '_accuracy' + '.png')
+        if not error_df.empty:
+            print 'Saving error plot to {}.png'.format(input_dataset.name() + '_error')
+            error_df.plot().get_figure().savefig(input_dataset.name() + '_error' + '.png')
 
 
 def main():
