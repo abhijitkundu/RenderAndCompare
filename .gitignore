@@ -8,6 +8,9 @@
 # Ignore archive dirs
 archive_*/
 
+#Ignore image files
+*.png
+
 # Ignore Log files and log dirs
 logs/
 *.log
@@ -27,6 +30,7 @@ cmake_build/
 .cproject
 .settings/
 .idea/
+.vscode/
 
 # Distribution / packaging
 .Python
