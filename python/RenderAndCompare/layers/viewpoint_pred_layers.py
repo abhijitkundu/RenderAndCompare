@@ -83,8 +83,8 @@ class AngularExpectation(caffe.Layer):
     """
     Takes probs over set of bins and computes the complex (angular) expectation.
     Lets say we have K bins
-    bottom[0] (N,K) probs for N samples
-    top[0] (N,) is gives the expected angle in degress in [-np.pi, np.pi)
+    bottom[0] (N, K) probs for N samples
+    top[0] (N, 1) is gives the expected angle in degress in [-np.pi, np.pi)
     """
 
     def setup(self, bottom, top):
@@ -93,26 +93,27 @@ class AngularExpectation(caffe.Layer):
         assert bottom[0].data.ndim == 2, "expects bottom of shape (N, K)"
 
         num_of_bins = bottom[0].data.shape[1]
-        angles = (2 * np.pi / num_of_bins) * (np.arange(0.5, num_of_bins))
+        angles = (2 * np.pi / num_of_bins) * (np.arange(0.5, num_of_bins)) - np.pi
+        assert (angles >= -np.pi).all() and (angles < np.pi).all()
         self.cs = np.hstack((np.cos(angles)[:, np.newaxis], np.sin(angles)[:, np.newaxis]))
 
     def reshape(self, bottom, top):
         N = bottom[0].data.shape[0]
         self.prob_dot_cs = np.zeros((N, 2), dtype=np.float32)
         # top is resized to (N,)
-        top[0].reshape(N,)
+        top[0].reshape(N, 1)
 
     def forward(self, bottom, top):
         """Take angular (complex) expectation and then return the angle"""
         # prob_dot_cs = prob * cs
         self.prob_dot_cs = bottom[0].data.dot(self.cs)
         # output = atan2(s, c)
-        top[0].data[...] = np.arctan2(self.prob_dot_cs[:, 1], self.prob_dot_cs[:, 0])
+        top[0].data[...] = np.arctan2(self.prob_dot_cs[:, 1], self.prob_dot_cs[:, 0])[:, np.newaxis]
 
     def backward(self, top, propagate_down, bottom):
         if propagate_down[0]:
             c2_plus_s2 = np.sum(self.prob_dot_cs**2, axis=-1)
-            d_atan2 = top[0].diff[:, np.newaxis] * np.hstack(((-self.prob_dot_cs[:, 1] / c2_plus_s2)[:, np.newaxis],
+            d_atan2 = top[0].diff * np.hstack(((-self.prob_dot_cs[:, 1] / c2_plus_s2)[:, np.newaxis],
                                                              (self.prob_dot_cs[:, 0] / c2_plus_s2)[:, np.newaxis]))
             bottom[0].diff[...] = d_atan2.dot(self.cs.T)
 
