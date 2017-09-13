@@ -3708,27 +3708,27 @@ layer {
 #-------------------------------------------------#
 
 layer {
-  name: "accuracy_azimuth"
+  name: "accuracy_azimuth_label"
   type: "Accuracy"
   bottom: "fc_azimuth96"
   bottom: "gt_azimuth_label"
-  top: "accuracy_azimuth"
+  top: "accuracy_azimuth_label"
 }
 
 layer {
-  name: "accuracy_elevation"
+  name: "accuracy_elevation_label"
   type: "Accuracy"
   bottom: "fc_elevation96"
   bottom: "gt_elevation_label"
-  top: "accuracy_elevation"
+  top: "accuracy_elevation_label"
 }
 
 layer {
-  name: "accuracy_tilt"
+  name: "accuracy_tilt_label"
   type: "Accuracy"
   bottom: "fc_tilt96"
   bottom: "gt_tilt_label"
-  top: "accuracy_tilt"
+  top: "accuracy_tilt_label"
 }
 
 layer {
