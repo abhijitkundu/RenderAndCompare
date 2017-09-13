@@ -6,14 +6,12 @@ Parse caffe training log and plot them
 Evolved from caffe's parse_log.py
 """
 
-import os
 import re
 import argparse
 from collections import OrderedDict
-import pandas as pd
-import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-
+import matplotlib.pyplot as plt
+import pandas as pd
 
 def parse_log(path_to_log):
     """Parse log file
@@ -130,6 +128,7 @@ def fix_initial_nan_learning_rate(dict_list):
 
 
 def parse_args():
+    """Parse commandline options and return the arguments as dict"""
     description = ('Parse a Caffe training log and plot them')
     parser = argparse.ArgumentParser(description=description)
 
@@ -141,10 +140,11 @@ def parse_args():
 
 
 def init_plots(logfile_path):
+    """Initialize the plots"""
     train_df, test_df = parse_log(logfile_path)
 
     num_of_axes = 2 - train_df.empty - test_df.empty
-    assert num_of_axes != 0 , "Both train_df and test_df are empty"
+    assert num_of_axes != 0, "Both train_df and test_df are empty"
 
     fig, axes = plt.subplots(num_of_axes, 3, squeeze=False, figsize=(30, 7 * num_of_axes))
     row = 0
@@ -153,16 +153,17 @@ def init_plots(logfile_path):
         axes[row, 1].set_title('Training Accuracy')
         axes[row, 2].set_title('Training Error Metrics')
         row += 1
-    
+
     if not test_df.empty:
         axes[row, 0].set_title('Testing Loss')
         axes[row, 1].set_title('Testing Accuracy')
         axes[row, 2].set_title('Testing Error Metrics')
 
     return fig, axes
-    
+
 
 def draw_plot(data_frame, fig, axes, row):
+    """Draw a pandas data_frame"""
     all_column_names = list(data_frame.columns.values)
     outputs = [e for e in all_column_names if e not in ('NumIters', 'TotalLoss', 'LearningRate')]
     loss_outputs = [output for output in outputs if "loss" in output]
@@ -184,7 +185,7 @@ def draw_plot(data_frame, fig, axes, row):
             axes[row, 1].plot(data_frame['NumIters'], data_frame[output], alpha=0.5, label=output)
         axes[row, 1].axhline(1.0, color='b', linestyle='dashed', linewidth=2)
         axes[row, 1].legend(loc='lower right')
-    
+
     # Plot error metrics outputs
     if error_outputs:
         axes[row, 2].clear()
@@ -194,9 +195,10 @@ def draw_plot(data_frame, fig, axes, row):
 
     current_iters = int(data_frame['NumIters'].iloc[-1])
     fig.suptitle('Stats after Iteration# {}'.format(current_iters), fontsize=14)
-    
+
 
 def update_plots(frame, logfile_path, fig, axes):
+    """Parse log file and update the plots"""
     train_df, test_df = parse_log(logfile_path)
 
     row = 0
@@ -206,22 +208,24 @@ def update_plots(frame, logfile_path, fig, axes):
         axes[row, 1].set_title('Training Accuracy')
         axes[row, 2].set_title('Training Error Metrics')
         row += 1
-        
+
     if not test_df.empty:
         draw_plot(test_df, fig, axes, row)
         axes[row, 0].set_title('Testing Loss')
         axes[row, 1].set_title('Testing Accuracy')
         axes[row, 2].set_title('Testing Error Metrics')
 
+
 def main():
+    """Main Funstion"""
     args = parse_args()
 
     fig, axes = init_plots(args.logfile_path)
     update_plots(0, args.logfile_path, fig, axes)
 
     if args.update_interval > 0:
-         ani = FuncAnimation(fig, update_plots, fargs=(args.logfile_path, fig, axes), interval = args.update_interval)
-    
+        ani = FuncAnimation(fig, update_plots, fargs=(args.logfile_path, fig, axes), interval=args.update_interval)
+
     plt.show()
 
 

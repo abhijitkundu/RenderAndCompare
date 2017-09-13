@@ -8,7 +8,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "DataLayer"
-    param_str: "-b 32 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -t input_image viewpoint"
+    param_str: "-b 32 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.5 -t input_image viewpoint"
   }
 }
 
@@ -25,7 +25,7 @@ layer {
 }
 
 layer {
-  name: "slicer_label"
+  name: "slice_viewpoint_label"
   type: "Slice"
   bottom: "gt_viewpoint_label"
   top: "gt_azimuth_label"
