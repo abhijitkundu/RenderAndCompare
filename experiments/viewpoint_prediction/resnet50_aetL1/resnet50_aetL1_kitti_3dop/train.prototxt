@@ -1,4 +1,4 @@
-name: "resnet50_aet96"
+name: "resnet50_aetL1"
 
 layer {
   name: "data"
@@ -8,29 +8,17 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "DataLayer"
-    param_str: "-b 48 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.0 -t input_image viewpoint"
+    param_str: "-b 32 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.5 -t input_image viewpoint"
   }
 }
 
 layer {
-  name:"viewpoint_quantizer"
-  type: "Python"
-  bottom: "gt_viewpoint"
-  top: "gt_viewpoint_label"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "QuantizeViewPoint"
-    param_str: "--num_of_bins 96"
-  }
-}
-
-layer {
-  name: "slice_viewpoint_label"
+  name: "slice_gt_viewpoint"
   type: "Slice"
-  bottom: "gt_viewpoint_label"
-  top: "gt_azimuth_label"
-  top: "gt_elevation_label"
-  top: "gt_tilt_label"
+  bottom: "gt_viewpoint"
+  top: "gt_azimuth"
+  top: "gt_elevation"
+  top: "gt_tilt"
   slice_param {
     axis: 1
     slice_point: 1
@@ -804,7 +792,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -861,7 +849,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -925,7 +913,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -989,7 +977,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1061,7 +1049,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1125,7 +1113,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1189,7 +1177,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1261,7 +1249,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1325,7 +1313,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1389,7 +1377,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1461,7 +1449,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1525,7 +1513,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1589,7 +1577,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1663,7 +1651,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1720,7 +1708,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1784,7 +1772,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1848,7 +1836,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1920,7 +1908,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1984,7 +1972,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2048,7 +2036,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2120,7 +2108,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2184,7 +2172,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2248,7 +2236,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2320,7 +2308,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2384,7 +2372,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2448,7 +2436,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2520,7 +2508,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2584,7 +2572,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2648,7 +2636,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2720,7 +2708,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2784,7 +2772,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2848,7 +2836,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2922,7 +2910,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2979,7 +2967,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3043,7 +3031,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3107,7 +3095,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3179,7 +3167,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3243,7 +3231,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3307,7 +3295,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3379,7 +3367,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3443,7 +3431,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3507,7 +3495,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3583,213 +3571,89 @@ layer {
 #-------------------------------------------------#
 
 layer {
-  name: "fc_azimuth96"
+  name: "fc_viewpoint"
   type: "InnerProduct"
   bottom: "pool5"
-  top: "fc_azimuth96"
-  param {
-    lr_mult: 0
-  }
-  param {
-    lr_mult: 0
-  }
-  inner_product_param {
-    num_output: 96
-    weight_filler {
-      type: "gaussian"
-      std: 0.01
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-
-layer {
-  name: "fc_elevation96"
-  type: "InnerProduct"
-  bottom: "pool5"
-  top: "fc_elevation96"
-  param {
-    lr_mult: 0
-  }
-  param {
-    lr_mult: 0
-  }
-  inner_product_param {
-    num_output: 96
-    weight_filler {
-      type: "gaussian"
-      std: 0.01
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-
-layer {
-  name: "fc_tilt96"
-  type: "InnerProduct"
-  bottom: "pool5"
-  top: "fc_tilt96"
-  param {
-    lr_mult: 0
-  }
-  param {
-    lr_mult: 0
-  }
-  inner_product_param {
-    num_output: 96
-    weight_filler {
-      type: "gaussian"
-      std: 0.01
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-
-#-------------------------------------------------#
-#-------------- Continious Viewpoint -------------#
-#-------------------------------------------------#
-
-layer {
-  type: "Scale"
-  name: "scale_azimuth"
-  bottom: "fc_azimuth96"
-  top: "fc_azimuth96_by_fixedT"
-  scale_param {
-    num_axes: 0
-    filler {  type: "constant"  value: 1.0}
-    bias_term: false
-  }
-  param {lr_mult: 0 decay_mult: 0}
-}
-
-layer {
-  type: "Scale"
-  name: "scale_elevation"
-  bottom: "fc_elevation96"
-  top: "fc_elevation96_by_fixedT"
-  scale_param {
-    num_axes: 0
-    filler {  type: "constant"  value: 1.0}
-    bias_term: false
-  }
-  param {lr_mult: 0 decay_mult: 0}
-}
-
-layer {
-  type: "Scale"
-  name: "scale_tilt"
-  bottom: "fc_tilt96"
-  top: "fc_tilt96_by_fixedT"
-  scale_param {
-    num_axes: 0
-    filler {  type: "constant"  value: 1.0}
-    bias_term: false
-  }
-  param {lr_mult: 0 decay_mult: 0}
-}
-
-layer {
-  type: "Softmax"
-  name: "prob_azimuth96"
-  bottom: "fc_azimuth96_by_fixedT"
-  top: "prob_azimuth96"
-}
-
-layer {
-  type: "Softmax"
-  name: "prob_elevation96"
-  bottom: "fc_elevation96_by_fixedT"
-  top: "prob_elevation96"
-}
-
-layer {
-  type: "Softmax"
-  name: "prob_tilt96"
-  bottom: "fc_tilt96_by_fixedT"
-  top: "prob_tilt96"
-}
-
-layer {
-  name: "angular_expectation_azimuth"
-  type: "Python"
-  bottom: "prob_azimuth96"
-  top: "pred_azimuth"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "AngularExpectation"
-  }
-}
-
-layer {
-  name: "angular_expectation_elevation"
-  type: "Python"
-  bottom: "prob_elevation96"
-  top: "pred_elevation"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "AngularExpectation"
-  }
-}
-
-layer {
-  name: "angular_expectation_tilt"
-  type: "Python"
-  bottom: "prob_tilt96"
-  top: "pred_tilt"
-  python_param {
-    module: "RenderAndCompare.layers"
-    layer: "AngularExpectation"
-  }
-}
-
-layer {
-  name: "pred_viewpoint"
-  bottom: "pred_azimuth"
-  bottom: "pred_elevation"
-  bottom: "pred_tilt"
   top: "pred_viewpoint"
-  type: "Concat"
-  concat_param {
-    axis: 1
+  param {
+    lr_mult: 1
   }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 3
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "slice_pred_viewpoint"
+  type: "Slice"
+  bottom: "pred_viewpoint"
+  top: "pred_azimuth"
+  top: "pred_elevation"
+  top: "pred_tilt"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
+}
+
+#-------------------------------------------------#
+#---------- Continious Viewpoint Loss ------------#
+#-------------------------------------------------#
+
+layer {
+  name: "loss_azimuth"
+  type: "Python"
+  bottom: "pred_azimuth"
+  bottom: "gt_azimuth"
+  top: "loss_azimuth"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularL1LossLayer"
+  }
+  loss_weight: 1
+}
+
+layer {
+  name: "loss_elevation"
+  type: "Python"
+  bottom: "pred_elevation"
+  bottom: "gt_elevation"
+  top: "loss_elevation"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularL1LossLayer"
+  }
+  loss_weight: 1
+}
+
+layer {
+  name: "loss_tilt"
+  type: "Python"
+  bottom: "pred_tilt"
+  bottom: "gt_tilt"
+  top: "loss_tilt"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularL1LossLayer"
+  }
+  loss_weight: 1
 }
 
 #-------------------------------------------------#
 #------------------ Accuracy Layers --------------#
 #-------------------------------------------------#
-
-layer {
-  name: "accuracy_azimuth_label"
-  type: "Accuracy"
-  bottom: "fc_azimuth96"
-  bottom: "gt_azimuth_label"
-  top: "accuracy_azimuth_label"
-}
-
-layer {
-  name: "accuracy_elevation_label"
-  type: "Accuracy"
-  bottom: "fc_elevation96"
-  bottom: "gt_elevation_label"
-  top: "accuracy_elevation_label"
-}
-
-layer {
-  name: "accuracy_tilt_label"
-  type: "Accuracy"
-  bottom: "fc_tilt96"
-  bottom: "gt_tilt_label"
-  top: "accuracy_tilt_label"
-}
 
 layer {
   name: "error_angular_deg"
