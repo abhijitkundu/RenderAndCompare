@@ -1,38 +1,61 @@
-name: "resnet50_shape10L1_pose69L1_IoU_stage2"
+name: "resnet50_aet96"
 
 layer {
-  name: "data_layer"
-  type: "ArticulatedObjectsData"
-  top: "data"
-  top: "gt_segm_image"
-  top: "gt_shape_param"
-  top: "gt_pose_param"
-  top: "gt_camera_extrinsic"
-  top: "gt_model_pose"
-  string_param {
-    param_str: "-b 36 -w 224 -h 224 -m 103.0626238 115.90288257 123.15163084 -s 10 -p 69 -t input_image segm_image shape_param pose_param camera_extrinsic model_pose"
+  name: "data"
+  type: "Python"
+  top: "input_image"
+  top: "gt_viewpoint"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "DataLayer"
+    param_str: "-b 32 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.5 -t input_image viewpoint"
   }
 }
 
-# layer {
-#   name: "silence_layer"
-#   type: "Silence"
-#   bottom: "gt_segm_image"
-#   bottom: "gt_camera_extrinsic"
-#   bottom: "gt_model_pose"
-# }
+layer {
+  name:"viewpoint_quantizer"
+  type: "Python"
+  bottom: "gt_viewpoint"
+  top: "gt_viewpoint_label"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "QuantizeViewPoint"
+    param_str: "--num_of_bins 96"
+  }
+}
 
-# layer {
-#   name: "silence_layer"
-#   type: "Silence"
-#   bottom: "gt_shape_param"
-#   bottom: "gt_pose_param"
-# }
+layer {
+  name: "slice_viewpoint_label"
+  type: "Slice"
+  bottom: "gt_viewpoint_label"
+  top: "gt_azimuth_label"
+  top: "gt_elevation_label"
+  top: "gt_tilt_label"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
+}
+
+layer {
+  name: "slice_viewpoint"
+  type: "Slice"
+  bottom: "gt_viewpoint"
+  top: "gt_azimuth"
+  top: "gt_elevation"
+  top: "gt_tilt"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
+}
 
 #------------- conv1 (freezed) --------------#
 
 layer {
-  bottom: "data"
+  bottom: "input_image"
   top: "conv1"
   name: "conv1"
   type: "Convolution"
@@ -3569,14 +3592,15 @@ layer {
   }
 }
 
-#-------------- Loss/Output Layers -------------#
+#-------------------------------------------------#
+#-------------- FC Viewpoint Layers --------------#
+#-------------------------------------------------#
 
-#-------------- Shape ----------------#
 layer {
-  name: "fc_shape"
+  name: "fc_azimuth96"
   type: "InnerProduct"
   bottom: "pool5"
-  top: "pred_shape_param"
+  top: "fc_azimuth96"
   param {
     lr_mult: 1
   }
@@ -3584,11 +3608,10 @@ layer {
     lr_mult: 2
   }
   inner_product_param {
-    num_output: 10
+    num_output: 96
     weight_filler {
-      # type: "gaussian"
-      # std: 0.001
-      type: "xavier"
+      type: "gaussian"
+      std: 0.01
     }
     bias_filler {
       type: "constant"
@@ -3598,24 +3621,10 @@ layer {
 }
 
 layer {
-  name: "loss_shape"
-  type: "L1Loss"
-  bottom: "pred_shape_param"
-  bottom: "gt_shape_param"
-  propagate_down: true
-  propagate_down: false
-  top: "loss_shape"
-  loss_weight: 0.5
-}
-
-
-#-------------- Pose ----------------#
-
-layer {
-  name: "fc_pose"
+  name: "fc_elevation96"
   type: "InnerProduct"
   bottom: "pool5"
-  top: "pred_pose_param"
+  top: "fc_elevation96"
   param {
     lr_mult: 1
   }
@@ -3623,11 +3632,10 @@ layer {
     lr_mult: 2
   }
   inner_product_param {
-    num_output: 69
+    num_output: 96
     weight_filler {
-      # type: "gaussian"
-      # std: 0.001
-      type: "xavier"
+      type: "gaussian"
+      std: 0.01
     }
     bias_filler {
       type: "constant"
@@ -3637,43 +3645,263 @@ layer {
 }
 
 layer {
-  name: "loss_pose"
-  type: "L1Loss"
-  bottom: "pred_pose_param"
-  bottom: "gt_pose_param"
-  propagate_down: true
-  propagate_down: false
-  top: "loss_pose"
+  name: "fc_tilt96"
+  type: "InnerProduct"
+  bottom: "pool5"
+  top: "fc_tilt96"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 96
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+#-------------------------------------------------#
+#----------- Discrete Viewpoint Loss -------------#
+#-------------------------------------------------#
+
+layer {
+  name: "loss_azimuth_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_azimuth96"
+  bottom: "gt_azimuth_label"
+  top: "loss_azimuth_label"
   loss_weight: 1
 }
 
-#-------------- Render ----------------#
-
 layer {
-  name: "smpl_render_with_loss_layer"
-  type: "SMPLRenderWithLoss"
-  bottom: "pred_shape_param"
-  bottom: "pred_pose_param"
-  bottom: "gt_camera_extrinsic"
-  bottom: "gt_model_pose"
-  bottom: "gt_segm_image"
-  # propagate_down: true
-  # propagate_down: false
-  top: "loss_segm"
-  top: "rendered_image"
-  loss_weight: 2
+  name: "loss_elevation_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_elevation96"
+  bottom: "gt_elevation_label"
+  top: "loss_elevation_label"
+  loss_weight: 1
 }
 
 layer {
-  name: "seg_acc_layer"
-  type: "SegmAccuracy"
-  bottom: "rendered_image"
-  bottom: "gt_segm_image"
-  top: ["segm_pixel_acc", "segm_class_acc", "segm_class_iou"]
-  segm_accuracy_param {
-    num_of_labels: 15
-    reset: true
-    metrics: [PixelAccuracy, ClassAccuracy, ClassIoU]
-    label_map: [0, 2, 3, 4, 2, 5, 6, 2, 13, 14, 2, 13, 14, 2, 2, 2, 1, 7, 8, 9, 10, 11, 12, 11, 12]
+  name: "loss_tilt_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_tilt96"
+  bottom: "gt_tilt_label"
+  top: "loss_tilt_label"
+  loss_weight: 1
+}
+
+#-------------------------------------------------#
+#-------------- Continious Viewpoint -------------#
+#-------------------------------------------------#
+
+layer {
+  type: "Scale"
+  name: "scale_azimuth"
+  bottom: "fc_azimuth96"
+  top: "fc_azimuth96_by_fixedT"
+  scale_param {
+    num_axes: 0
+    filler {  type: "constant"  value: 1.0}
+    bias_term: false
+  }
+  param {lr_mult: 0 decay_mult: 0}
+}
+
+layer {
+  type: "Scale"
+  name: "scale_elevation"
+  bottom: "fc_elevation96"
+  top: "fc_elevation96_by_fixedT"
+  scale_param {
+    num_axes: 0
+    filler {  type: "constant"  value: 1.0}
+    bias_term: false
+  }
+  param {lr_mult: 0 decay_mult: 0}
+}
+
+layer {
+  type: "Scale"
+  name: "scale_tilt"
+  bottom: "fc_tilt96"
+  top: "fc_tilt96_by_fixedT"
+  scale_param {
+    num_axes: 0
+    filler {  type: "constant"  value: 1.0}
+    bias_term: false
+  }
+  param {lr_mult: 0 decay_mult: 0}
+}
+
+layer {
+  type: "Softmax"
+  name: "prob_azimuth96"
+  bottom: "fc_azimuth96_by_fixedT"
+  top: "prob_azimuth96"
+}
+
+layer {
+  type: "Softmax"
+  name: "prob_elevation96"
+  bottom: "fc_elevation96_by_fixedT"
+  top: "prob_elevation96"
+}
+
+layer {
+  type: "Softmax"
+  name: "prob_tilt96"
+  bottom: "fc_tilt96_by_fixedT"
+  top: "prob_tilt96"
+}
+
+layer {
+  name: "angular_expectation_azimuth"
+  type: "Python"
+  bottom: "prob_azimuth96"
+  top: "pred_azimuth"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularExpectation"
+  }
+}
+
+layer {
+  name: "angular_expectation_elevation"
+  type: "Python"
+  bottom: "prob_elevation96"
+  top: "pred_elevation"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularExpectation"
+  }
+}
+
+layer {
+  name: "angular_expectation_tilt"
+  type: "Python"
+  bottom: "prob_tilt96"
+  top: "pred_tilt"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularExpectation"
+  }
+}
+
+layer {
+  name: "pred_viewpoint"
+  bottom: "pred_azimuth"
+  bottom: "pred_elevation"
+  bottom: "pred_tilt"
+  top: "pred_viewpoint"
+  type: "Concat"
+  concat_param {
+    axis: 1
+  }
+}
+
+#-------------------------------------------------#
+#---------- Continious Viewpoint Loss ------------#
+#-------------------------------------------------#
+
+layer {
+  name: "loss_azimuth"
+  type: "Python"
+  bottom: "pred_azimuth"
+  bottom: "gt_azimuth"
+  top: "loss_azimuth"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularL1LossLayer"
+  }
+  loss_weight: 1
+}
+
+layer {
+  name: "loss_elevation"
+  type: "Python"
+  bottom: "pred_elevation"
+  bottom: "gt_elevation"
+  top: "loss_elevation"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularL1LossLayer"
+  }
+  loss_weight: 1
+}
+
+layer {
+  name: "loss_tilt"
+  type: "Python"
+  bottom: "pred_tilt"
+  bottom: "gt_tilt"
+  top: "loss_tilt"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularL1LossLayer"
+  }
+  loss_weight: 1
+}
+
+#-------------------------------------------------#
+#------------------ Accuracy Layers --------------#
+#-------------------------------------------------#
+
+layer {
+  name: "accuracy_azimuth_label"
+  type: "Accuracy"
+  bottom: "fc_azimuth96"
+  bottom: "gt_azimuth_label"
+  top: "accuracy_azimuth_label"
+}
+
+layer {
+  name: "accuracy_elevation_label"
+  type: "Accuracy"
+  bottom: "fc_elevation96"
+  bottom: "gt_elevation_label"
+  top: "accuracy_elevation_label"
+}
+
+layer {
+  name: "accuracy_tilt_label"
+  type: "Accuracy"
+  bottom: "fc_tilt96"
+  bottom: "gt_tilt_label"
+  top: "accuracy_tilt_label"
+}
+
+layer {
+  name: "error_angular_deg"
+  type: "Python"
+  bottom: "pred_viewpoint"
+  bottom: "gt_viewpoint"
+  top: "error_angular_deg"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AverageAngularError"
+    param_str: "--degrees_out"
+  }
+}
+
+layer {
+  name: "slicer_error_angular"
+  type: "Slice"
+  bottom: "error_angular_deg"
+  top: "error_azimuth_deg"
+  top: "error_elevation_deg"
+  top: "error_tilt_deg"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
   }
 }

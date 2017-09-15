@@ -26,8 +26,8 @@ boost::program_options::variables_map parse_param_string(const std::string& para
         ("batch_size,b",  po::value<int>()->default_value(50), "Batch Size")
         ("width,w",  po::value<int>()->default_value(224), "Image Width")
         ("height,h",  po::value<int>()->default_value(224), "Image Height")
-        ("mean_bgr,m",  po::value<vector<float>>()->multitoken()->default_value({103.0626238, 115.90288257, 123.15163084}, "103.0626238 115.90288257 123.15163084"), "Mean BGR color value")
-        ("top_names,t", po::value<vector<string>>()->multitoken()->required(), "Top Names in Order")
+        ("mean_bgr,m",  po::value<std::vector<float>>()->multitoken()->default_value({103.0626238, 115.90288257, 123.15163084}, "103.0626238 115.90288257 123.15163084"), "Mean BGR color value")
+        ("top_names,t", po::value<std::vector<std::string>>()->multitoken()->required(), "Top Names in Order")
         ("shape_param_size,s", po::value<int>()->default_value(10)->required(), "Shape param Size")
         ("pose_param_size,p", po::value<int>()->default_value(10)->required(), "Pose param Size")
         ;
