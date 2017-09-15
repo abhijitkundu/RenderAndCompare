@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-import _init_paths
-import os.path as osp
-import RenderAndCompare as rac
-import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
-from scipy.stats import norm
+import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import norm
+
+import _init_paths
+import RenderAndCompare as rac
 
 
 def plot_param_statistics(datasets, param_key='body_shape'):

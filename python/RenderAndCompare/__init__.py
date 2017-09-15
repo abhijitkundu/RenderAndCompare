@@ -1,3 +1,7 @@
+"""
+RenderAndCompare module
+"""
+
 import RenderAndCompare.datasets
 import RenderAndCompare.prediction
 import RenderAndCompare.geometry

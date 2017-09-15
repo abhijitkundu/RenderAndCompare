@@ -10,7 +10,6 @@ from tqdm import tqdm
 import _init_paths
 from RenderAndCompare.datasets import (Dataset,
                                        NoIndent,
-                                       alpha_to_azimuth,
                                        get_kitti_amodal_bbx,
                                        get_kitti_object_pose,
                                        read_kitti_calib_file,

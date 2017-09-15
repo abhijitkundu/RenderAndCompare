@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
-import _init_paths
 import os.path as osp
-import RenderAndCompare as rac
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import _init_paths
+import RenderAndCompare as rac
 
 
 def compute_bbox_iou(bbxA, bbxB):
+    """Compute iou of two bounding boxes"""
     # overlapping bounds
     x1 = max(bbxA[0], bbxB[0])
     y1 = max(bbxA[1], bbxB[1])
@@ -88,5 +91,5 @@ if __name__ == '__main__':
     print np.mean(best_ious)
 
     plt.hist(np.asarray(best_ious), bins=30)
-    plt.xlabel('IOUs');
+    plt.xlabel('IOUs')
     plt.show()

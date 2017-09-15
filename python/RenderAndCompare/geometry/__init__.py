@@ -1,3 +1,7 @@
+"""
+Geometry sub-module of RenderAndCompare
+"""
+
 from boundingbox import *
 from viewpoint_metrics import *
 from geometry import *

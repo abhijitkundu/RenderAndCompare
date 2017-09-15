@@ -1,3 +1,7 @@
+"""
+Caffe Layers sub-module of RenderAndCompare
+"""
+
 from datalayer import *
 from viewpoint_pred_layers import *
 from crop_pred_layers import *
