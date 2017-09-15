@@ -2,7 +2,12 @@
 KITTI Helper functions
 """
 
+from math import atan
 import numpy as np
+from ..geometry import (Pose,
+                        wrap_to_pi,
+                        is_rotation_matrix,
+                        eulerZYX_from_rotation)
 
 
 def write_kitti_object_labels(objects, filepath):
@@ -112,6 +117,20 @@ def read_kitti_calib_file(filepath):
     return data
 
 
+def get_kitti_cam0_to_velo(calib_data):
+    """Get R, t for cam0 to velo s.t x_velo = [R | t] x_cam0"""
+    assert calib_data['R0_rect'].shape == (9,)
+    assert calib_data['Tr_velo_to_cam'].shape == (12,)
+    R0_rect = calib_data['R0_rect'].reshape((3, 3))
+    Tr_velo_to_cam = calib_data['Tr_velo_to_cam'].reshape((3, 4))
+    cam_R_velo = R0_rect.dot(Tr_velo_to_cam[:, :3])
+    cam_t_velo = R0_rect.dot(Tr_velo_to_cam[:, 3])
+    R = cam_R_velo.T
+    t = - cam_R_velo.T.dot(cam_t_velo)
+    assert is_rotation_matrix(R)
+    return Pose(R, t)
+
+
 def get_kitti_object_rotation(obj):
     """Get the Object rotation matrix"""
     c = np.cos(obj['rotation_y'])
@@ -133,13 +152,19 @@ def get_kitti_object_pose(obj, cam_center):
     assert cam_center.shape == (3,)
     R = get_kitti_object_rotation(obj)
     t = R.dot(np.array([0, 0, obj['dimension'][0] / 2.0])) + np.array(obj['location']) - cam_center
-    return R, t
+    return Pose(R, t)
 
 
-def get_kitti_3D_bbox_corners(obj, R, t):
+# def get_kitti_object_pose():
+#     """Get object pose (rotation and translation)"""
+#     R = np.eye(3)
+#     t = np.zeros(3)
+#     return Pose(R, t)
+
+
+def get_kitti_3D_bbox_corners(obj, pose):
     """Get the 3D corners of the bounding box for a kitti object"""
-    assert R.shape == (3, 3)
-    assert t.shape == (3,)
+    assert is_rotation_matrix(pose.R)
 
     H = obj['dimension'][0]
     W = obj['dimension'][1]
@@ -149,21 +174,42 @@ def get_kitti_3D_bbox_corners(obj, R, t):
     y_corners = np.array([-W / 2, -W / 2, W / 2, W / 2, -W / 2, -W / 2, W / 2, W / 2])
     z_corners = np.array([-H / 2, -H / 2, -H / 2, -H / 2, H / 2, H / 2, H / 2, H / 2])
 
-    corners3D = R.dot(np.vstack((x_corners, y_corners, z_corners)))
-    corners3D = corners3D + t.reshape((3, 1))
+    corners3D = pose * np.vstack((x_corners, y_corners, z_corners))
+
+    corners3D_d = pose.R.dot(np.vstack((x_corners, y_corners, z_corners)))
+    corners3D_d = corners3D_d + pose.t.reshape((3, 1))
+
+    assert np.allclose(corners3D_d, corners3D)
+
     return corners3D
 
 
 def get_kitti_amodal_bbx(obj, K, cam_center):
     """Get amodal box by back projecting 3D bounding box of the object"""
-    R, t = get_kitti_object_pose(obj, cam_center)
-    corners3D = get_kitti_3D_bbox_corners(obj, R, t)
+    obj_pose = get_kitti_object_pose(obj, cam_center)
+    corners3D = get_kitti_3D_bbox_corners(obj, obj_pose)
     corners2D = K.dot(corners3D)
     corners2D[0, :] = corners2D[0, :] / corners2D[2, :]
     corners2D[1, :] = corners2D[1, :] / corners2D[2, :]
     corners2D = corners2D[:2, :]
     amodal_bbx = np.hstack((corners2D.min(axis=1), corners2D.max(axis=1)))
     return amodal_bbx
+
+
+def get_kitti_alpha_from_object_pose(obj_to_cam, cam_to_velo):
+    """Get alpha from object_pose"""
+    assert is_rotation_matrix(obj_to_cam[0])
+    assert is_rotation_matrix(cam_to_velo[0])
+    assert obj_to_cam[1].shape == (3,)
+    assert cam_to_velo[1].shape == (3,)
+
+    obj_to_velo = (cam_to_velo[0].dot(obj_to_cam[0]), cam_to_velo[0].dot(obj_to_cam[1]) + cam_to_velo[1])
+    obj_location_velo = obj_to_velo[1]
+    beta = atan(obj_location_velo[1] / obj_location_velo[0])
+    phi_velo = eulerZYX_from_rotation(obj_to_velo[0])[2]
+    phi_cam = wrap_to_pi(-phi_velo - np.pi / 2)
+    alpha = wrap_to_pi(phi_cam + beta)
+    return alpha
 
 
 def azimuth_to_alpha(azimuth):

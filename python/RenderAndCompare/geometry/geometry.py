@@ -5,7 +5,7 @@ import numpy as np
 from math import sqrt, atan2
 
 
-def wrapToPi(radians):
+def wrap_to_pi(radians):
     """Wrap an angle (in radians) to [-pi, pi)"""
     # wrap to [0..2*pi]
     wrapped = radians % (2 * np.pi)
@@ -14,6 +14,16 @@ def wrapToPi(radians):
         wrapped -= 2 * np.pi
 
     return wrapped
+
+
+def is_rotation_matrix(R, atol=1e-6):
+    """Checks if a matrix is a valid rotation matrix"""
+    assert R.shape == (3, 3), "R is not a 3x3 matrix. R.shape = {}".format(R.shape)
+    Rt = np.transpose(R)
+    shouldBeIdentity = np.dot(Rt, R)
+    I = np.identity(3, dtype=R.dtype)
+    n = np.linalg.norm(I - shouldBeIdentity)
+    return n < atol
 
 
 def project_point(P, point_3D):
@@ -90,13 +100,14 @@ def rotation_from_viewpoint(vp):
     assert -np.pi / 2 <= vp[1] <= np.pi / 2
     assert -np.pi <= vp[2] <= np.pi
 
-    R = rotationZ(-vp[2] - np.pi/2).dot(rotationY(vp[1] + np.pi/2)).dot(rotationZ(-vp[0]))
+    R = rotationZ(-vp[2] - np.pi / 2).dot(rotationY(vp[1] + np.pi / 2)).dot(rotationZ(-vp[0]))
+    assert is_rotation_matrix(R)
     return R
 
 
 def viewpoint_from_rotation(R):
     """Returns viewpoint [azimuth, elevation, tilt] from rotation matrix"""
-    assert R.shape == (3, 3)
+    assert is_rotation_matrix(R)
 
     plusMinus = -1
     minusPlus = 1
@@ -130,6 +141,55 @@ def viewpoint_from_rotation(R):
 
     azimuth = -res[2]
     elevation = res[1] - np.pi / 2
-    tilt = wrapToPi(-res[0] - np.pi / 2)
+    tilt = wrap_to_pi(-res[0] - np.pi / 2)
 
     return np.array([azimuth, elevation, tilt])
+
+
+def eulerZYX_from_rotation(R):
+    """Calculates rotation matrix to euler angles (ZYX)"""
+
+    assert is_rotation_matrix(R)
+
+    sy = sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
+    singular = sy < 1e-6
+
+    if not singular:
+        x = atan2(R[2, 1], R[2, 2])
+        y = atan2(-R[2, 0], sy)
+        z = atan2(R[1, 0], R[0, 0])
+    else:
+        x = atan2(-R[1, 2], R[1, 1])
+        y = atan2(-R[2, 0], sy)
+        z = 0
+
+    return np.array([x, y, z])
+
+
+class Pose(object):
+    """Pose class [R | t]"""
+
+    def __init__(self, R=np.eye(3), t=np.zeros(3)):
+        """Initilize from 3x3 rotation matrix and vector3"""
+        assert R.shape == (3, 3)
+        assert t.shape == (3, )
+        self.R = R
+        self.t = t
+    
+    def __repr__(self):
+        """returns an unique string repr of self"""
+        repr_str = str(np.hstack((self.R, self.t.reshape((3, 1)))))
+        return 'Pose [R | t] = ' + '               '.join(repr_str.splitlines(True))
+
+    def __mul__(self, other):
+        """
+        Return the product of self with other i.e out = self * other
+        """
+        if isinstance(other, np.ndarray):
+            assert other.shape[0] == 3, "expects leading dimension of other to be 3. other.shape = {}".format(other.shape)
+            assert other.ndim == 1 or other.ndim == 2, "other.shape = {}".format(other.shape)
+            projected = self.R.dot(other.reshape(3, other.shape[1] if other.ndim == 2 else 1)) + self.t.reshape((3, 1))
+            return np.squeeze(projected)
+        elif isinstance(other, Pose):
+            return Pose(self.R.dot(other.R), self.R.dot(other.t) + self.t)
+        raise TypeError('This operation is only supported with numpy array or Pose objects')

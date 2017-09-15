@@ -2,6 +2,7 @@
 
 import os.path as osp
 from collections import OrderedDict
+from math import atan
 
 import cv2
 import numpy as np
@@ -13,8 +14,15 @@ from RenderAndCompare.datasets import (Dataset,
                                        get_kitti_amodal_bbx,
                                        get_kitti_object_pose,
                                        read_kitti_calib_file,
-                                       read_kitti_object_labels)
-from RenderAndCompare.geometry import (project_point,
+                                       read_kitti_object_labels,
+                                       get_kitti_cam0_to_velo,
+                                       get_kitti_alpha_from_object_pose)
+from RenderAndCompare.geometry import (Pose,
+                                       project_point,
+                                       wrap_to_pi,
+                                       rotationY,
+                                       rotationZ,
+                                       eulerZYX_from_rotation,
                                        rotation_from_two_vectors,
                                        rotation_from_viewpoint,
                                        viewpoint_from_rotation)
@@ -64,7 +72,7 @@ def main():
 
     total_num_of_objects = 0
 
-    print 'Generating images. May take long time'
+    print 'Creating Dataset. May take long time'
     for image_name in tqdm(image_names):
         image_file_path = osp.join(image_dir, image_name + '.png')
         label_file_path = osp.join(label_dir, image_name + '.txt')
@@ -110,6 +118,9 @@ def main():
 
         cam2_center = -np.linalg.inv(K).dot(P2[:, 3])
 
+        velo_T_cam0 = get_kitti_cam0_to_velo(calib_data)
+        velo_T_cam2 = velo_T_cam0 * Pose(t = cam2_center)
+
         annotation = OrderedDict()
         annotation['image_file'] = osp.relpath(image_file_path, root_dir)
         annotation['image_size'] = NoIndent([W, H])
@@ -120,26 +131,47 @@ def main():
             bbx_visible = np.array(obj['bbox'])
             bbx_amodal = get_kitti_amodal_bbx(obj, K, cam2_center)
 
-            R, t = get_kitti_object_pose(obj, cam2_center)
+            obj_pose_cam2 = get_kitti_object_pose(obj, cam2_center)
 
             obj_center_cam0 = np.array(obj['location']) - np.array([0, obj['dimension'][0] / 2.0, 0])
             obj_center_cam2 = obj_center_cam0 - cam2_center
 
-            assert np.allclose(project_point(P2, obj_center_cam0), project_point(K, t))
-            assert np.allclose(np.linalg.norm(obj_center_cam2), np.linalg.norm(t))
+            assert np.allclose(project_point(P2, obj_center_cam0), project_point(K, obj_pose_cam2.t))
+            assert np.allclose(np.linalg.norm(obj_center_cam2), np.linalg.norm(obj_pose_cam2.t))
 
-            obj_origin_proj = project_point(K, t)
-            distance = np.linalg.norm(t)
+            obj_origin_proj = project_point(K, obj_pose_cam2.t)
+            distance = np.linalg.norm(obj_pose_cam2.t)
 
-            delta_rot = rotation_from_two_vectors(t, np.array([0., 0., 1.]))
-            obj_rel_rot = np.matmul(delta_rot, R)
-            assert np.allclose(delta_rot.dot(t), np.array([0., 0., distance]))
+            delta_rot = rotation_from_two_vectors(obj_pose_cam2.t, np.array([0., 0., 1.]))
+            obj_rel_rot = np.matmul(delta_rot, obj_pose_cam2.R)
+            assert np.allclose(delta_rot.dot(obj_pose_cam2.t), np.array([0., 0., distance]))
 
             viewpoint = viewpoint_from_rotation(obj_rel_rot)
 
             R_vp = rotation_from_viewpoint(viewpoint)
             assert np.allclose(R_vp, obj_rel_rot), "R_vp = \n{}\nobj_rel_rot = \n{}\n".format(R_vp, obj_rel_rot)
-            assert np.allclose(np.matmul(delta_rot.T, R_vp), R)
+            assert np.allclose(np.matmul(delta_rot.T, R_vp), obj_pose_cam2.R)
+
+            # pred_alpha = get_kitti_alpha_from_object_pose(obj_center_cam2, (velo_R_cam2, velo_t_cam2))
+            # if np.abs(pred_alpha - obj['alpha']) > 0.01:
+            #     print np.abs(pred_alpha - obj['alpha'])
+            #     print obj
+            #     print image_file_path
+            #     print "-------------------------"
+            # # assert np.isclose(pred_alpha, obj['alpha'], atol=0.01), "{} vs {}".format(pred_alpha, obj['alpha'])
+
+            euler_zyx = eulerZYX_from_rotation(rotationZ(obj['rotation_y']))
+            assert np.isclose(euler_zyx[2], obj['rotation_y'])
+
+            obj_location_velo = velo_T_cam0 * np.array(obj['location'])
+            assert np.allclose(obj_location_velo, velo_T_cam0.R.dot(np.array(obj['location'])) + velo_T_cam0.t)
+
+            phi_cam = obj['rotation_y']
+            phi_velo = wrap_to_pi(-phi_cam - np.pi/2)
+            assert np.isclose(phi_cam, wrap_to_pi(-phi_velo - np.pi/2))
+            beta  = atan(obj_location_velo[1] / obj_location_velo[0])
+            alpha = wrap_to_pi(phi_cam + beta)
+            assert np.isclose(alpha, obj['alpha'], atol=0.01), "{} vs {}".format(alpha, obj['alpha'])
 
             obj_info = OrderedDict()
 
