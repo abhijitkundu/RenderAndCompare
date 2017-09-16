@@ -21,17 +21,17 @@ class AngularL1LossLayer(caffe.Layer):
     def setup(self, bottom, top):
         assert len(bottom) == 2, "Need two bottoms to compute distance"
         assert len(top) == 1, "Requires a single top layer"
-        assert bottom[0].data.shape == bottom[1].data.shape, \
+        assert np.squeeze(bottom[0].data).shape == np.squeeze(bottom[1].data).shape, \
             "bottom[0].shape={}, but bottom[1].shape={}".format(bottom[0].data.shape, bottom[1].data.shape)
 
     def reshape(self, bottom, top):
         # difference is shape of inputs
-        self.diff = np.zeros_like(bottom[0].data, dtype=np.float32)
+        self.diff = np.zeros_like(np.squeeze(bottom[0].data), dtype=np.float32)
         # loss output is scalar
         top[0].reshape(1)
 
     def forward(self, bottom, top):
-        self.diff[...] = (bottom[0].data - bottom[1].data + np.pi) % (2 * np.pi) - np.pi
+        self.diff[...] = (np.squeeze(bottom[0].data) - np.squeeze(bottom[1].data) + np.pi) % (2 * np.pi) - np.pi
         top[0].data[...] = np.sum(np.fabs(self.diff)) / bottom[0].num
 
     def backward(self, top, propagate_down, bottom):
@@ -40,7 +40,7 @@ class AngularL1LossLayer(caffe.Layer):
                 continue
             sign = 1 if i == 0 else -1
             alpha = sign * top[0].diff[0] / bottom[i].num
-            bottom[i].diff[...] = alpha * np.sign(self.diff)
+            bottom[i].diff[...] = alpha * np.sign(self.diff).reshape(bottom[i].diff.shape)
 
 
 class AverageAngularError(caffe.Layer):
@@ -94,7 +94,7 @@ class AngularExpectation(caffe.Layer):
         num_of_bins = bottom[0].data.shape[-1]
         angles = (2 * np.pi / num_of_bins) * (np.arange(0.5, num_of_bins)) - np.pi
         assert (angles >= -np.pi).all() and (angles < np.pi).all()
-        self.cs = np.hstack((np.cos(angles)[:, np.newaxis], np.sin(angles)[:, np.newaxis]))
+        self.cs = np.concatenate((np.cos(angles)[:, np.newaxis], np.sin(angles)[:, np.newaxis]), axis=-1)
 
     def reshape(self, bottom, top):
         shape = list(bottom[0].data.shape)
@@ -113,8 +113,10 @@ class AngularExpectation(caffe.Layer):
     def backward(self, top, propagate_down, bottom):
         if propagate_down[0]:
             c2_plus_s2 = np.sum(self.prob_dot_cs**2, axis=-1)
-            d_atan2 = top[0].diff * np.hstack(((-self.prob_dot_cs[..., 1] / c2_plus_s2)[..., np.newaxis],
-                                                             (self.prob_dot_cs[..., 0] / c2_plus_s2)[..., np.newaxis]))
+
+            d_atan2 = top[0].diff * np.concatenate(((-self.prob_dot_cs[..., 1] / c2_plus_s2)[..., np.newaxis],
+                                                     (self.prob_dot_cs[..., 0] / c2_plus_s2)[..., np.newaxis]),
+                                                     axis = -1)
             bottom[0].diff[...] = d_atan2.dot(self.cs.T)
 
 
