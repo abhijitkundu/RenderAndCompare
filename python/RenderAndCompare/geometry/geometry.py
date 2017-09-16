@@ -1,8 +1,8 @@
 """
 Standard Geometry routines
 """
+from math import atan2, sqrt
 import numpy as np
-from math import sqrt, atan2
 
 
 def wrap_to_pi(radians):
@@ -60,6 +60,7 @@ def rotation_from_two_vectors(a, b):
     c = au.dot(bu)
     assert c != -1.0, 'Cannot handle case when a and b are exactly opposite'
     R = np.eye(3) + ssv + np.matmul(ssv, ssv) / (1 + c)
+    assert is_rotation_matrix(R)
     return R
 
 
@@ -175,11 +176,19 @@ class Pose(object):
         assert t.shape == (3, )
         self.R = R
         self.t = t
-    
+
     def __repr__(self):
         """returns an unique string repr of self"""
-        repr_str = str(np.hstack((self.R, self.t.reshape((3, 1)))))
+        repr_str = str(self.matrix())
         return 'Pose [R | t] = ' + '               '.join(repr_str.splitlines(True))
+
+    def matrix(self):
+        """returns as 3x4 [R | t] matrix"""
+        return np.hstack((self.R, self.t.reshape((3, 1))))
+
+    def inverse(self):
+        """returns inverse of self"""
+        return Pose(self.R.T, - self.R.T.dot(self.t))
 
     def __mul__(self, other):
         """

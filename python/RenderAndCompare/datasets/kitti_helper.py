@@ -7,6 +7,7 @@ import numpy as np
 from ..geometry import (Pose,
                         wrap_to_pi,
                         is_rotation_matrix,
+                        rotationZ,
                         eulerZYX_from_rotation)
 
 
@@ -103,7 +104,6 @@ def read_kitti_object_labels(filepath):
 def read_kitti_calib_file(filepath):
     """Read in a calibration file and parse into a dictionary."""
     data = {}
-
     with open(filepath, 'r') as f:
         # Get non whitespace-only lines
         lines = filter(None, (line.rstrip() for line in f))
@@ -113,7 +113,6 @@ def read_kitti_calib_file(filepath):
                 data[key] = np.array([float(x) for x in value.split()])
             except ValueError:
                 pass
-
     return data
 
 
@@ -131,35 +130,26 @@ def get_kitti_cam0_to_velo(calib_data):
     return Pose(R, t)
 
 
-def get_kitti_object_rotation(obj):
-    """Get the Object rotation matrix"""
-    c = np.cos(obj['rotation_y'])
-    s = np.sin(obj['rotation_y'])
-    Ry = np.array([[c, 0, s],
-                   [0, 1, 0],
-                   [-s, 0, c]])
-
-    Rx = np.array([[1, 0, 0],
-                   [0, 0, -1],
-                   [0, 1, 0]])
-
-    R = np.matmul(Ry, Rx)
-    return R
+def get_kitti_velo_to_cam(calib_data, cam_center=np.zeros(3)):
+    """Get R, t for velo to cam s.t x_cam = [R | t] x_velo"""
+    assert calib_data['R0_rect'].shape == (9,)
+    assert calib_data['Tr_velo_to_cam'].shape == (12,)
+    R0_rect = calib_data['R0_rect'].reshape((3, 3))
+    Tr_velo_to_cam = calib_data['Tr_velo_to_cam'].reshape((3, 4))
+    cam_R_velo = R0_rect.dot(Tr_velo_to_cam[:, :3])
+    cam_t_velo = R0_rect.dot(Tr_velo_to_cam[:, 3]) - cam_center
+    assert is_rotation_matrix(cam_R_velo)
+    return Pose(cam_R_velo, cam_t_velo)
 
 
-def get_kitti_object_pose(obj, cam_center):
+def get_kitti_object_pose(obj, velo_T_cam0, cam_center=np.zeros(3)):
     """Get object pose (rotation and translation)"""
-    assert cam_center.shape == (3,)
-    R = get_kitti_object_rotation(obj)
-    t = R.dot(np.array([0, 0, obj['dimension'][0] / 2.0])) + np.array(obj['location']) - cam_center
-    return Pose(R, t)
-
-
-# def get_kitti_object_pose():
-#     """Get object pose (rotation and translation)"""
-#     R = np.eye(3)
-#     t = np.zeros(3)
-#     return Pose(R, t)
+    phi_cam = obj['rotation_y']
+    phi_velo = wrap_to_pi(-phi_cam - np.pi / 2)
+    velo_R_obj = rotationZ(phi_velo)
+    velo_t_obj = velo_T_cam0 * np.array(obj['location']) + np.array([0, 0, obj['dimension'][0] / 2.0])
+    cam_T_obj = Pose(t=-cam_center) * (velo_T_cam0.inverse() * Pose(velo_R_obj, velo_t_obj))
+    return cam_T_obj
 
 
 def get_kitti_3D_bbox_corners(obj, pose):
@@ -175,18 +165,11 @@ def get_kitti_3D_bbox_corners(obj, pose):
     z_corners = np.array([-H / 2, -H / 2, -H / 2, -H / 2, H / 2, H / 2, H / 2, H / 2])
 
     corners3D = pose * np.vstack((x_corners, y_corners, z_corners))
-
-    corners3D_d = pose.R.dot(np.vstack((x_corners, y_corners, z_corners)))
-    corners3D_d = corners3D_d + pose.t.reshape((3, 1))
-
-    assert np.allclose(corners3D_d, corners3D)
-
     return corners3D
 
 
-def get_kitti_amodal_bbx(obj, K, cam_center):
+def get_kitti_amodal_bbx(obj, K, obj_pose):
     """Get amodal box by back projecting 3D bounding box of the object"""
-    obj_pose = get_kitti_object_pose(obj, cam_center)
     corners3D = get_kitti_3D_bbox_corners(obj, obj_pose)
     corners2D = K.dot(corners3D)
     corners2D[0, :] = corners2D[0, :] / corners2D[2, :]
@@ -196,39 +179,14 @@ def get_kitti_amodal_bbx(obj, K, cam_center):
     return amodal_bbx
 
 
-def get_kitti_alpha_from_object_pose(obj_to_cam, cam_to_velo):
+def get_kitti_alpha_from_object_pose(cam_T_obj, velo_T_cam):
     """Get alpha from object_pose"""
-    assert is_rotation_matrix(obj_to_cam[0])
-    assert is_rotation_matrix(cam_to_velo[0])
-    assert obj_to_cam[1].shape == (3,)
-    assert cam_to_velo[1].shape == (3,)
+    assert is_rotation_matrix(cam_T_obj.R)
+    assert is_rotation_matrix(velo_T_cam.R)
 
-    obj_to_velo = (cam_to_velo[0].dot(obj_to_cam[0]), cam_to_velo[0].dot(obj_to_cam[1]) + cam_to_velo[1])
-    obj_location_velo = obj_to_velo[1]
-    beta = atan(obj_location_velo[1] / obj_location_velo[0])
-    phi_velo = eulerZYX_from_rotation(obj_to_velo[0])[2]
+    velo_T_obj = velo_T_cam * cam_T_obj
+    beta = atan(velo_T_obj.t[1] / velo_T_obj.t[0])
+    phi_velo = eulerZYX_from_rotation(velo_T_obj.R)[2]
     phi_cam = wrap_to_pi(-phi_velo - np.pi / 2)
     alpha = wrap_to_pi(phi_cam + beta)
     return alpha
-
-
-def azimuth_to_alpha(azimuth):
-    """Convert azimuth [-pi, pi] to kitti alpha"""
-    assert -np.pi <= azimuth <= np.pi
-    # add offset
-    alpha = azimuth + np.pi / 2
-    # wrap to [-pi, pi]
-    alpha = np.mod(alpha + np.pi, 2 * np.pi) - np.pi
-    assert -np.pi <= alpha <= np.pi
-    return alpha
-
-
-def alpha_to_azimuth(alpha):
-    """Convert kitti alpha [-pi, pi] to azimuth [-pi, pi]"""
-    assert -np.pi <= alpha <= np.pi
-    # substract offset
-    azimuth = alpha - np.pi / 2
-    # wrap to [-pi, pi]
-    azimuth = np.mod(azimuth + np.pi, 2 * np.pi) - np.pi
-    assert -np.pi <= azimuth <= np.pi
-    return azimuth
