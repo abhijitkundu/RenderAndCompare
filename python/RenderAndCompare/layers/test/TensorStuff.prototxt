@@ -1,0 +1,171 @@
+name: "Test For Tensor ops"
+layer {
+  name: "input_data"
+  type: "Input"
+  top: "input_data"
+  input_param { shape: { dim: 4 dim: 2048 dim: 1 dim: 1} }
+}
+
+layer {
+  name: "gt_viewpoint"
+  type: "Input"
+  top: "gt_viewpoint"
+  input_param { shape: { dim: 4 dim: 3} }
+}
+
+layer {
+  name:"viewpoint_quantizer"
+  type: "Python"
+  bottom: "gt_viewpoint"
+  top: "gt_viewpoint_label"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "QuantizeViewPoint"
+    param_str: "--num_of_bins 2"
+  }
+}
+
+layer {
+  name: "slice_gt_viewpoint_label"
+  type: "Slice"
+  bottom: "gt_viewpoint_label"
+  top: "gt_azimuth_label"
+  top: "gt_elevation_label"
+  top: "gt_tilt_label"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
+}
+
+layer {
+  name: "fc_viewpoint_6"
+  type: "InnerProduct"
+  bottom: "input_data"
+  top: "fc_viewpoint_6"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 6 # 288 = 3 x 2
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "reshape_fc_viewpoint"
+  type: "Reshape"
+  bottom: "fc_viewpoint_6"
+  top: "fc_viewpoint_3x2"
+  reshape_param {
+    shape {
+      dim: 0  # copy the dimension from below
+      dim: 3
+      dim: -1 # infer it from the other dimensions
+    }
+  }
+}
+
+layer {
+  name: "loss_viewpoint_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_viewpoint_3x2"
+  bottom: "gt_viewpoint_label"
+  top: "loss_viewpoint_label"
+  softmax_param {
+    axis: 2
+  }
+  loss_param {
+    normalization: BATCH_SIZE
+  }
+  loss_weight: 1
+}
+
+
+layer {
+  name: "slice_fc_viewpoint_3x2"
+  type: "Slice"
+  bottom: "fc_viewpoint_3x2"
+  top: "fc_azimuth2"
+  top: "fc_elevation2"
+  top: "fc_tilt2"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
+}
+
+layer {
+  name: "loss_azimuth_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_azimuth2"
+  bottom: "gt_azimuth_label"
+  top: "loss_azimuth_label"
+  loss_weight: 1
+  softmax_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "loss_elevation_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_elevation2"
+  bottom: "gt_elevation_label"
+  top: "loss_elevation_label"
+  loss_weight: 1
+  softmax_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "loss_tilt_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_tilt2"
+  bottom: "gt_tilt_label"
+  top: "loss_tilt_label"
+  loss_weight: 1
+  softmax_param {
+    axis: 2
+  }
+}
+
+
+
+layer {
+  type: "Scale"
+  name: "scale_fc_viewpoint_3x2"
+  bottom: "fc_viewpoint_3x2"
+  top: "fc_viewpoint_3x2_by_T"
+  scale_param {
+    axis: 1
+    num_axes: 1
+    filler {  type: "constant"  value: 1.0}
+    bias_term: false
+  }
+  param {lr_mult: 1 decay_mult: 0}
+}
+
+layer {
+  type: "Softmax"
+  name: "prob_viewpoint_3x2_by_T"
+  bottom: "fc_viewpoint_3x2_by_T"
+  top: "prob_viewpoint_3x2_by_T"
+  softmax_param {
+    axis: 2
+  }
+}
+

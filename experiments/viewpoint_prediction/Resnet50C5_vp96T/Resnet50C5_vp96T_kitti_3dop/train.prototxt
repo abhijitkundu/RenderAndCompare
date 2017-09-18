@@ -3689,7 +3689,7 @@ layer {
     module: "RenderAndCompare.layers"
     layer: "AngularL1LossLayer"
   }
-  loss_weight: 1
+  loss_weight: 0.3
 }
 
 #-------------------------------------------------#
