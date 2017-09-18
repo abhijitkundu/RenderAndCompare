@@ -60,12 +60,12 @@ if __name__ == '__main__':
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
             # aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]
 
-            bbx_a = data_sample['bbx_amodal'].astype(np.float32)
-            bbx_v = data_sample['bbx_visible'].astype(np.float32)
+            bbx_a = data_sample['bbx_amodal']
+            bbx_v = data_sample['bbx_visible']
 
             full_image = net.layers[0].image_loader[data_sample['image_id']].copy()
-            cv2.rectangle(full_image, (bbx_a[0], bbx_a[1]), (bbx_a[2], bbx_a[3]), (0, 255, 0), 1)
-            cv2.rectangle(full_image, (bbx_v[0], bbx_v[1]), (bbx_v[2], bbx_v[3]), (0, 0, 255), 1)
+            cv2.rectangle(full_image, tuple(bbx_a[:2].astype(int)), tuple(bbx_a[2:].astype(int)), (0, 255, 0), 1)
+            cv2.rectangle(full_image, tuple(bbx_v[:2].astype(int)), tuple(bbx_v[2:].astype(int)), (0, 0, 255), 1)
             cv2.imshow('full_image', full_image)
 
             vp = data_sample['viewpoint']
