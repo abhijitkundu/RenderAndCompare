@@ -44,6 +44,7 @@ if __name__ == '__main__':
     batch_size = image_blob_shape[0]
     num_of_batches = int(np.ceil(len(data_samples) / float(batch_size)))
 
+    exit_loop = False
     for b in xrange(num_of_batches):
         start_idx = batch_size * b
         end_idx = min(batch_size * (b + 1), len(data_samples))
@@ -63,9 +64,13 @@ if __name__ == '__main__':
             bbx_a = data_sample['bbx_amodal']
             bbx_v = data_sample['bbx_visible']
 
+            center_proj_blob = net.blobs['gt_center_proj'].data[i - start_idx]
+            center_proj = data_sample['center_proj']
+
             full_image = net.layers[0].image_loader[data_sample['image_id']].copy()
             cv2.rectangle(full_image, tuple(bbx_a[:2].astype(int)), tuple(bbx_a[2:].astype(int)), (0, 255, 0), 1)
             cv2.rectangle(full_image, tuple(bbx_v[:2].astype(int)), tuple(bbx_v[2:].astype(int)), (0, 0, 255), 1)
+            cv2.circle(full_image, tuple(center_proj.astype(int)), 4, (0, 255, 255), -1)
             cv2.imshow('full_image', full_image)
 
             vp = data_sample['viewpoint']
@@ -79,12 +84,14 @@ if __name__ == '__main__':
                 assert np.allclose(bbx_amodal_blob, bbx_a)
                 assert np.allclose(bbx_crop_blob, bbx_v)
                 assert np.allclose(vp_blob, vp)
+                assert np.allclose(center_proj_blob, center_proj)
             else:
                 cv2.displayOverlay('blob_image', 'Flipped')
                 W = full_image.shape[1]
                 assert np.allclose(bbx_amodal_blob, np.array([W - bbx_a[0], bbx_a[1], W - bbx_a[2], bbx_a[3]]))
                 assert np.allclose(bbx_crop_blob, np.array([W - bbx_v[0], bbx_v[1], W - bbx_v[2], bbx_v[3]]))
                 assert np.allclose(vp_blob, np.array([-vp[0], vp[1], -vp[2]]))
+                assert np.allclose(center_proj_blob, np.array([W - center_proj[0], center_proj[1]]))
 
             viewpoint_label = net.blobs['gt_viewpoint_label'].data[i - start_idx]
             assert (viewpoint_label >= 0).all() and (viewpoint_label < 96).all()
@@ -101,9 +108,9 @@ if __name__ == '__main__':
             key = cv2.waitKey(args.pause)
             if key == 27:
                 cv2.destroyAllWindows()
-                quit = True
+                exit_loop = True
                 break
 
-        if quit is True:
+        if exit_loop is True:
             print 'User presessed ESC. Exiting'
             break

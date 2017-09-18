@@ -94,7 +94,7 @@ class DataLayer(AbstractDataLayer):
     """Data Layer RCNN style. Inherits AbstractDataLayer"""
 
     def parse_param_str(self, param_str):
-        top_names_choices = ['input_image', 'viewpoint', 'bbx_amodal', 'bbx_crop']
+        top_names_choices = ['input_image', 'viewpoint', 'bbx_amodal', 'bbx_crop', 'center_proj']
         default_mean_bgr = [103.0626238, 115.90288257, 123.15163084]  # ResNet
         default_im_size = [224, 224]  # ResNet
 
@@ -132,23 +132,18 @@ class DataLayer(AbstractDataLayer):
 
         assert len(top) == len(self.top_names), 'Number of tops do not match specified top_names'
 
-        # ----- Reshape tops -----#
+        # set top shapes
+        top_shapes = {
+            "input_image": (self.batch_size, 3, self.im_size[1], self.im_size[0]),
+            "viewpoint": (self.batch_size, 3),
+            "bbx_amodal": (self.batch_size, 4),
+            "bbx_crop": (self.batch_size, 4),
+            "center_proj": (self.batch_size, 2),
+        }
 
-        # Reshape image data top (B, C, H, W)
-        if 'input_image' in self.top_names:
-            top[self.top_names.index('input_image')].reshape(self.batch_size, 3, self.im_size[1], self.im_size[0])  # Image Data
-
-        # Reshape viewpoint tops (B, 3)
-        if 'viewpoint' in self.top_names:
-            top[self.top_names.index('viewpoint')].reshape(self.batch_size, 3)  # viewpoint Data (a, e, t)
-
-        # Reshape bbx tops (B, 4)
-        if 'bbx_amodal' in self.top_names:
-            top[self.top_names.index('bbx_amodal')].reshape(self.batch_size, 4)
-
-        # Reshape bbx tops (B, 4)
-        if 'bbx_crop' in self.top_names:
-            top[self.top_names.index('bbx_crop')].reshape(self.batch_size, 4)
+        # Reshape tops
+        for top_index, top_name in enumerate(self.top_names):
+            top[top_index].reshape(*top_shapes[top_name])
 
         # Create a loader to load the images.
         self.image_loader = BatchImageLoader(transpose=False)
@@ -176,7 +171,7 @@ class DataLayer(AbstractDataLayer):
             for obj_info in image_info['objects']:
                 data_sample = {}
                 data_sample['image_id'] = image_id
-                for field in ['viewpoint', 'bbx_amodal', 'bbx_visible']:
+                for field in ['viewpoint', 'bbx_amodal', 'bbx_visible', 'center_proj']:
                     if field in obj_info:
                         data_sample[field] = np.array(obj_info[field])
 
@@ -202,8 +197,7 @@ class DataLayer(AbstractDataLayer):
         if self.phase == caffe.TRAIN:
             shuffle(self.data_ids)
 
-        assert len(self.data_ids) > self.batch_size, 'batch size ({}) cannot be smaller than total number of data points ({}).'.format(
-            self.batch_size, len(self.data_ids))
+        assert len(self.data_ids) > self.batch_size, 'batch size ({})is smaller than number of data points ({}).'.format(self.batch_size, len(self.data_ids))
         print 'Total number of data points (annotations) = {:,}'.format(num_of_data_points)
         return num_of_data_points
 
@@ -221,6 +215,7 @@ class DataLayer(AbstractDataLayer):
         data_sample['bbx_crop'] = bbx_crop
         data_sample['bbx_amodal'] = original_data_sample['bbx_amodal'].copy()
         data_sample['viewpoint'] = original_data_sample['viewpoint'].copy()
+        data_sample['center_proj'] = original_data_sample['center_proj'].copy()
         data_sample['input_image'] = crop_and_resize_image(full_image, bbx_crop, self.im_size)
 
         if random() < self.flip_ratio:
@@ -229,12 +224,16 @@ class DataLayer(AbstractDataLayer):
             data_sample['bbx_crop'][x_idxs] = W - data_sample['bbx_crop'][x_idxs]
             data_sample['bbx_amodal'][x_idxs] = W - data_sample['bbx_amodal'][x_idxs]
 
+            data_sample['center_proj'][0] = W - data_sample['center_proj'][0]
+
             data_sample['viewpoint'][0] = -data_sample['viewpoint'][0]
             data_sample['viewpoint'][2] = -data_sample['viewpoint'][2]
 
             data_sample['input_image'] = np.fliplr(data_sample['input_image'])
 
-
+        # Change image channel order
+        data_sample['input_image'] = data_sample['input_image'].transpose((2, 0, 1))
+        
         return data_sample
 
     def forward(self, bottom, top):
@@ -256,17 +255,9 @@ class DataLayer(AbstractDataLayer):
             # fetch the data sample (object)
             data_sample = self.augment_data_sample(data_idx)
 
-            if 'input_image' in self.top_names:
-                top[self.top_names.index('input_image')].data[i, ...] = data_sample['input_image'].transpose((2, 0, 1)).astype(np.float32)
-
-            if 'bbx_crop' in self.top_names:
-                top[self.top_names.index('bbx_crop')].data[i, ...] = data_sample['bbx_crop']
-
-            if 'bbx_amodal' in self.top_names:
-                top[self.top_names.index('bbx_amodal')].data[i, ...] = data_sample['bbx_amodal']
-
-            if 'viewpoint' in self.top_names:
-                top[self.top_names.index('viewpoint')].data[i, ...] = data_sample['viewpoint']
+            # set to data
+            for top_index, top_name in enumerate(self.top_names):
+                top[top_index].data[i, ...] = data_sample[top_name]
 
             self.curr_data_ids_idx += 1
 

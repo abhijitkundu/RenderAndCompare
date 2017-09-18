@@ -6,10 +6,11 @@ layer {
   top: "gt_viewpoint"
   top: "gt_bbx_amodal"
   top: "gt_bbx_crop"
+  top: "gt_center_proj"
   python_param {
     module: "RenderAndCompare.layers"
     layer: "DataLayer"
-    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.5 -t input_image viewpoint bbx_amodal bbx_crop"
+    param_str: "-b 40 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.5 -t input_image viewpoint bbx_amodal bbx_crop center_proj"
   }
 }
 
