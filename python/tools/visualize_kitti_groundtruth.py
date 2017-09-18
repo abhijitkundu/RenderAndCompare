@@ -1,14 +1,16 @@
 #!/usr/bin/env python
+"""visualizes kitti grundtruth annotations"""
 
-import _init_paths
-import cv2
-import numpy as np
 import os.path as osp
+import numpy as np
+import cv2
+import _init_paths
 import RenderAndCompare as rac
 
 
 def drawBbx3D(image, corners2d):
-    corners2d = np.floor(corners2d).astype(int) 
+    """draw 3d bbx on image"""
+    corners2d = np.floor(corners2d).astype(int)
     cv2.line(image, tuple(corners2d[:, 0]), tuple(corners2d[:, 1]), (0, 0, 255), 1)
     cv2.line(image, tuple(corners2d[:, 2]), tuple(corners2d[:, 3]), (0, 0, 255), 1)
     cv2.line(image, tuple(corners2d[:, 4]), tuple(corners2d[:, 5]), (0, 0, 255), 1)
@@ -26,6 +28,7 @@ def drawBbx3D(image, corners2d):
 
 
 def main():
+    """main function"""
     kitti_object_dir = osp.join(_init_paths.root_dir, 'data', 'kitti', 'KITTI-Object')
     assert osp.exists(kitti_object_dir), 'KITTI-Object dir "{}" dsoes not exist'.format(kitti_object_dir)
 
@@ -72,7 +75,8 @@ def main():
 
         K = P1[:3, :3]
         assert np.all(P2[:3, :3] == K)
-        cam_center = -np.linalg.inv(K).dot(P2[:, 3])
+        cam2_center = -np.linalg.inv(K).dot(P2[:, 3])
+        velo_T_cam0 = rac.datasets.get_kitti_cam0_to_velo(calib_data)
 
         filtered_objects = []
         for obj in objects:
@@ -102,11 +106,11 @@ def main():
             # bbx_str = '{} Occ:{} Trunc{:0.2f}'.format(obj['type'], obj['occlusion'], obj['truncation'])
             # cv2.putText(image, bbx_str, (bbx[0] + 5, bbx[1] + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA)
 
-            R, t = rac.datasets.get_kitti_object_pose(obj, cam_center)
-            obj_center_proj = rac.geometry.project_point(K, R.dot(np.array([0., 0., 0.])) + t).astype(int)
-            obj_x_proj = rac.geometry.project_point(K, R.dot(np.array([1., 0., 0.])) + t).astype(int)
-            obj_y_proj = rac.geometry.project_point(K, R.dot(np.array([0., 1., 0.])) + t).astype(int)
-            obj_z_proj = rac.geometry.project_point(K, R.dot(np.array([0., 0., 1.])) + t).astype(int)
+            obj_pose = rac.datasets.get_kitti_object_pose(obj, velo_T_cam0, cam2_center)
+            obj_center_proj = rac.geometry.project_point(K, obj_pose * (np.array([0., 0., 0.]))).astype(int)
+            obj_x_proj = rac.geometry.project_point(K, obj_pose * np.array([1., 0., 0.])).astype(int)
+            obj_y_proj = rac.geometry.project_point(K, obj_pose * np.array([0., 1., 0.])).astype(int)
+            obj_z_proj = rac.geometry.project_point(K, obj_pose * np.array([0., 0., 1.])).astype(int)
 
             cv2.line(image, tuple(obj_center_proj), tuple(obj_x_proj), (0, 0, 255), 2)
             cv2.line(image, tuple(obj_center_proj), tuple(obj_y_proj), (0, 255, 0), 2)
@@ -114,7 +118,7 @@ def main():
 
             cv2.circle(image, tuple(obj_center_proj), 4, (0, 255, 255), -1)
 
-            corners3D = rac.datasets.get_kitti_3D_bbox_corners(obj, R, t)
+            corners3D = rac.datasets.get_kitti_3D_bbox_corners(obj, obj_pose)
 
             corners2D = K.dot(corners3D)
             corners2D[0, :] = corners2D[0, :] / corners2D[2, :]
