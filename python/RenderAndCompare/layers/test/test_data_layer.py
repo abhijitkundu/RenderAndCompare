@@ -99,6 +99,15 @@ if __name__ == '__main__':
             assert viewpoint_label[1] == net.blobs['gt_vp_elevation_label'].data[i - start_idx]
             assert viewpoint_label[2] == net.blobs['gt_vp_tilt_label'].data[i - start_idx]
 
+            # Only for testing synthetic transformation
+            gt_bbx_amodal = net.blobs['gt_bbx_amodal'].data[i - start_idx, ...]
+            pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
+            assert np.allclose(pred_bbx_amodal, gt_bbx_amodal, rtol=1e-4, atol=1e-5), 'pred_bbx_amodal={} and gt_bbx_amodal={} are different'.format(pred_bbx_amodal, gt_bbx_amodal)
+
+            gt_center_proj = net.blobs['gt_center_proj'].data[i - start_idx, ...]
+            pred_center_proj = net.blobs['pred_center_proj'].data[i - start_idx, ...]
+            assert np.allclose(pred_center_proj, gt_center_proj, rtol=1e-4, atol=1e-5), 'pred_center_proj={} and gt_center_proj={} are different'.format(pred_center_proj, gt_center_proj)
+
             # # Only for testing perfect transformation
             # pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
             # assert np.allclose(pred_bbx_amodal, bbx_a, rtol=1e-04, atol=1e-06), 'pred_bbx_amodal={} and bbx_a={} are different'.format(pred_bbx_amodal, bbx_a)

@@ -39,3 +39,55 @@ layer {
     slice_point: 2
   }
 }
+
+layer {
+  name:"gt_center_proj_targets"
+  type: "Python"
+  bottom: "gt_center_proj"
+  bottom: "gt_bbx_crop"
+  top: "gt_center_proj_targets"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "Coord2DTransformation"
+    param_str: "--offsets 0.5"
+  }
+}
+
+layer {
+  name:"gt_bbx_amodal_targets"
+  type: "Python"
+  bottom: "gt_bbx_amodal"
+  bottom: "gt_bbx_crop"
+  top: "gt_bbx_amodal_targets"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "Coord2DTransformation"
+    param_str: "--offsets 0.0 1.0"
+  }
+}
+
+layer {
+  name:"pred_center_proj"
+  type: "Python"
+  bottom: "gt_center_proj_targets"
+  bottom: "gt_bbx_crop"
+  top: "pred_center_proj"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "Coord2DTransformationInverse"
+    param_str: "--offsets 0.5"
+  }
+}
+
+layer {
+  name:"pred_bbx_amodal"
+  type: "Python"
+  bottom: "gt_bbx_amodal_targets"
+  bottom: "gt_bbx_crop"
+  top: "pred_bbx_amodal"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "Coord2DTransformationInverse"
+    param_str: "--offsets 0.0 1.0"
+  }
+}
