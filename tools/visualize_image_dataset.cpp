@@ -100,12 +100,14 @@ RaC::ImageInfo flip(const RaC::ImageInfo& image_info_) {
         Eigen::Vector4d& bbx_visible = obj_info.bbx_visible.value();
         bbx_visible[0] = W - bbx_visible[0];
         bbx_visible[2] = W - bbx_visible[2];
+        std::swap(bbx_visible[0], bbx_visible[2]);
       }
 
       if (obj_info.bbx_amodal) {
         Eigen::Vector4d& bbx_amodal = obj_info.bbx_amodal.value();
         bbx_amodal[0] = W - bbx_amodal[0];
         bbx_amodal[2] = W - bbx_amodal[2];
+        std::swap(bbx_amodal[0], bbx_amodal[2]);
       }
 
       if (obj_info.center_proj) {
@@ -146,6 +148,7 @@ cv::Mat visualizeObjects(const cv::Mat& cv_image_, const RaC::ImageInfo& image_i
       if (obj_info.bbx_visible) {
         auto bbx_visible = obj_info.bbx_visible.value();
         cv::rectangle(cv_image, cv::Point(bbx_visible[0], bbx_visible[1]), cv::Point(bbx_visible[2], bbx_visible[3]), cv::Scalar(255, 0, 0));
+        cv::line(cv_image, cv::Point(bbx_visible[0], bbx_visible[1]), cv::Point(bbx_visible[2], bbx_visible[3]), cv::Scalar(255, 0, 0));
       }
 
       if (obj_info.bbx_amodal) {

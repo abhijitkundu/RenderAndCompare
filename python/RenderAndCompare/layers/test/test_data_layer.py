@@ -59,10 +59,13 @@ if __name__ == '__main__':
 
             bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data[i - start_idx]
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
-            # aTc_blob = net.blobs['crop_target'].data[i - start_idx, ...]
 
             bbx_a = data_sample['bbx_amodal']
             bbx_v = data_sample['bbx_visible']
+
+            for bbx in [bbx_amodal_blob, bbx_crop_blob, bbx_a, bbx_v]:
+                assert bbx.shape == (4,), "weird bbx shape {}".format(bbx.shape)
+                assert np.all(bbx[:2] <= bbx[2:]), "Invalid bbx = {}".format(bbx)
 
             center_proj_blob = net.blobs['gt_center_proj'].data[i - start_idx]
             center_proj = data_sample['center_proj']
@@ -88,8 +91,8 @@ if __name__ == '__main__':
             else:
                 cv2.displayOverlay('blob_image', 'Flipped')
                 W = full_image.shape[1]
-                assert np.allclose(bbx_amodal_blob, np.array([W - bbx_a[0], bbx_a[1], W - bbx_a[2], bbx_a[3]]))
-                assert np.allclose(bbx_crop_blob, np.array([W - bbx_v[0], bbx_v[1], W - bbx_v[2], bbx_v[3]]))
+                assert np.allclose(bbx_amodal_blob, np.array([W - bbx_a[2], bbx_a[1], W - bbx_a[0], bbx_a[3]]))
+                assert np.allclose(bbx_crop_blob, np.array([W - bbx_v[2], bbx_v[1], W - bbx_v[0], bbx_v[3]]))
                 assert np.allclose(vp_blob, np.array([-vp[0], vp[1], -vp[2]]))
                 assert np.allclose(center_proj_blob, np.array([W - center_proj[0], center_proj[1]]))
 
@@ -113,6 +116,8 @@ if __name__ == '__main__':
             # assert np.allclose(pred_bbx_amodal, bbx_a, rtol=1e-04, atol=1e-06), 'pred_bbx_amodal={} and bbx_a={} are different'.format(pred_bbx_amodal, bbx_a)
             # iou = net.blobs['ious'].data[i - start_idx, ...]
             # assert np.allclose(iou, 1.0)
+
+            assert np.allclose(output['acc_iou_bbx_amodal'], 1), "output['acc_iou_bbx_amodal'] = {}".format(output['acc_iou_bbx_amodal'])
 
             key = cv2.waitKey(args.pause)
             if key == 27:

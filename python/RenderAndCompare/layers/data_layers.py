@@ -102,7 +102,8 @@ class DataLayer(AbstractDataLayer):
         parser.add_argument("-b", "--batch_size", default=32, type=int, help="Batch Size")
         parser.add_argument("-wh", "--im_size", nargs=2, default=default_im_size, type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
         parser.add_argument("-m", "--mean_bgr", nargs=3, default=default_mean_bgr, type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
-        parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True, type=str, help="ordered list of top names e.g input_image azimuth shape")
+        parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True,
+                            type=str, help="ordered list of top names e.g input_image azimuth shape")
         parser.add_argument("-f", "--flip_ratio", default=0.5, type=float, help="Flip ratio in range [0, 1] (Defaults to 0.5)")
         params = parser.parse_args(param_str.split())
 
@@ -207,7 +208,7 @@ class DataLayer(AbstractDataLayer):
         original_data_sample = self.data_samples[data_idx]
 
         full_image = self.image_loader[original_data_sample['image_id']]
-        
+
         # TODO Jitter
         bbx_crop = original_data_sample['bbx_visible'].copy()
 
@@ -220,20 +221,16 @@ class DataLayer(AbstractDataLayer):
 
         if random() < self.flip_ratio:
             W = full_image.shape[1]
-            x_idxs = np.array([True, False, True, False])
-            data_sample['bbx_crop'][x_idxs] = W - data_sample['bbx_crop'][x_idxs]
-            data_sample['bbx_amodal'][x_idxs] = W - data_sample['bbx_amodal'][x_idxs]
-
+            data_sample['bbx_crop'][[0, 2]] = W - data_sample['bbx_crop'][[2, 0]]
+            data_sample['bbx_amodal'][[0, 2]] = W - data_sample['bbx_amodal'][[2, 0]]
             data_sample['center_proj'][0] = W - data_sample['center_proj'][0]
-
             data_sample['viewpoint'][0] = -data_sample['viewpoint'][0]
             data_sample['viewpoint'][2] = -data_sample['viewpoint'][2]
-
             data_sample['input_image'] = np.fliplr(data_sample['input_image'])
 
         # Change image channel order
         data_sample['input_image'] = data_sample['input_image'].transpose((2, 0, 1))
-        
+
         return data_sample
 
     def forward(self, bottom, top):
