@@ -14,6 +14,7 @@ import tqdm
 import _init_paths
 import caffe
 from RenderAndCompare.datasets import Dataset, NoIndent
+from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
 
 
 def test_single_weights_file(weights_file, net, input_dataset):
@@ -49,6 +50,13 @@ def test_single_weights_file(weights_file, net, input_dataset):
 
     assert result_dataset.num_of_annotations() == input_dataset.num_of_annotations()
 
+    assert_funcs = {
+        "viewpoint": assert_viewpoint,
+        "bbx_visible": assert_bbx,
+        "bbx_amodal": assert_bbx,
+        "center_proj": assert_coord2D,
+    }
+
     performance_metric = {}
 
     print 'Evaluating for {} batches with {} imaes per batch.'.format(num_of_batches, batch_size)
@@ -71,12 +79,17 @@ def test_single_weights_file(weights_file, net, input_dataset):
             image_id = data_samples[i]['image_id']
             image_info = result_dataset.annotations()[image_id]
 
-            object_info = {}
+            object_info = OrderedDict()
 
-            pred_viewpoint = np.squeeze(net.blobs['pred_viewpoint'].data[i - start_idx, ...])
-            assert (pred_viewpoint >= -np.pi).all() and (pred_viewpoint < np.pi).all()
-            object_info['viewpoint'] = NoIndent(pred_viewpoint.tolist())
+            # since we are not predicting bbx_visible, it is directly copied
             object_info['bbx_visible'] = NoIndent(data_samples[i]['bbx_visible'].tolist())
+
+            for info in ["bbx_amodal", "viewpoint", "center_proj"]:
+                pred_info = "pred_" + info
+                if pred_info in net.blobs:
+                    prediction = np.squeeze(net.blobs[pred_info].data[i - start_idx, ...])
+                    assert_funcs[info](prediction)
+                    object_info[info] = NoIndent(prediction.tolist())
 
             image_info['objects'].append(object_info)
 

@@ -5,9 +5,10 @@ import os.path as osp
 import cv2
 import numpy as np
 
-import _init_paths
 import caffe
-import RenderAndCompare as rac
+import _init_paths
+from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
 
 if __name__ == '__main__':
     import argparse
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     net = caffe.Net(args.net_file, caffe.TEST)
 
     print 'Loading dataset from {}'.format(args.dataset)
-    dataset = rac.datasets.Dataset.from_json(args.dataset)
+    dataset = Dataset.from_json(args.dataset)
     print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
     net.layers[0].add_dataset(dataset)
@@ -59,16 +60,20 @@ if __name__ == '__main__':
 
             bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data[i - start_idx]
             bbx_crop_blob = net.blobs['gt_bbx_crop'].data[i - start_idx]
+            pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx]
 
             bbx_a = data_sample['bbx_amodal']
             bbx_v = data_sample['bbx_visible']
 
-            for bbx in [bbx_amodal_blob, bbx_crop_blob, bbx_a, bbx_v]:
-                assert bbx.shape == (4,), "weird bbx shape {}".format(bbx.shape)
-                assert np.all(bbx[:2] <= bbx[2:]), "Invalid bbx = {}".format(bbx)
+            for bbx in [bbx_amodal_blob, bbx_crop_blob, pred_bbx_amodal, bbx_a, bbx_v]:
+                assert_bbx(bbx)
 
             center_proj_blob = net.blobs['gt_center_proj'].data[i - start_idx]
+            pred_center_proj = net.blobs['pred_center_proj'].data[i - start_idx]
             center_proj = data_sample['center_proj']
+
+            for coord in [center_proj_blob, pred_center_proj, center_proj]:
+                assert_coord2D(coord)
 
             full_image = net.layers[0].image_loader[data_sample['image_id']].copy()
             cv2.rectangle(full_image, tuple(bbx_a[:2].astype(int)), tuple(bbx_a[2:].astype(int)), (0, 255, 0), 1)
@@ -79,8 +84,8 @@ if __name__ == '__main__':
             vp = data_sample['viewpoint']
             vp_blob = net.blobs['gt_viewpoint'].data[i - start_idx]
 
-            assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
-            assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all(), "Bad viewpoint = {}".format(vp_blob)
+            assert_viewpoint(vp)
+            assert_viewpoint(vp_blob)
 
             if np.allclose(bbx_amodal_blob, bbx_a):
                 cv2.displayOverlay('blob_image', 'Original')
@@ -103,13 +108,8 @@ if __name__ == '__main__':
             assert viewpoint_label[2] == net.blobs['gt_vp_tilt_label'].data[i - start_idx]
 
             # Only for testing synthetic transformation
-            gt_bbx_amodal = net.blobs['gt_bbx_amodal'].data[i - start_idx, ...]
-            pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
-            assert np.allclose(pred_bbx_amodal, gt_bbx_amodal, rtol=1e-4, atol=1e-5), 'pred_bbx_amodal={} and gt_bbx_amodal={} are different'.format(pred_bbx_amodal, gt_bbx_amodal)
-
-            gt_center_proj = net.blobs['gt_center_proj'].data[i - start_idx, ...]
-            pred_center_proj = net.blobs['pred_center_proj'].data[i - start_idx, ...]
-            assert np.allclose(pred_center_proj, gt_center_proj, rtol=1e-4, atol=1e-5), 'pred_center_proj={} and gt_center_proj={} are different'.format(pred_center_proj, gt_center_proj)
+            assert np.allclose(pred_bbx_amodal, bbx_amodal_blob, rtol=1e-4, atol=1e-5), 'pred_bbx_amodal={} and bbx_amodal_blob={} are different'.format(pred_bbx_amodal, bbx_amodal_blob)
+            assert np.allclose(pred_center_proj, center_proj_blob, rtol=1e-4, atol=1e-5), 'pred_center_proj={} and center_proj_blob={} are different'.format(pred_center_proj, center_proj_blob)
 
             # # Only for testing perfect transformation
             # pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
