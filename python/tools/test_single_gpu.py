@@ -124,8 +124,9 @@ def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
         print 'Working with weights_file: {}'.format(weight_name)
         result_dataset, performance_metric = test_single_weights_file(weights_file, net, input_dataset)
         performance_metrics.append(performance_metric)
-        out_json_filename = "{}_{}_result.json".format(result_dataset.name(), weight_name)
-        result_dataset.write_data_to_json(out_json_filename)
+        result_name = "{}_{}_result".format(result_dataset.name(), weight_name)
+        result_dataset.set_name(result_name)
+        result_dataset.write_data_to_json(result_name + ".json")
         print '--------------------------------------------------'
 
     perf_metrics_df = pd.DataFrame(performance_metrics).set_index('iter')
