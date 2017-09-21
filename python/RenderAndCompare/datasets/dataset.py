@@ -1,3 +1,7 @@
+"""
+Contains definition of Dataset class used in RenderAndCompare
+"""
+
 import os.path as osp
 from collections import OrderedDict
 import json
