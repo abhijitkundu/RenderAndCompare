@@ -117,7 +117,7 @@ if __name__ == '__main__':
             # iou = net.blobs['ious'].data[i - start_idx, ...]
             # assert np.allclose(iou, 1.0)
 
-            assert np.allclose(output['acc_iou_bbx_amodal'], 1), "output['acc_iou_bbx_amodal'] = {}".format(output['acc_iou_bbx_amodal'])
+            assert np.allclose(output['iou_bbx_amodal'], 1), "output['iou_bbx_amodal'] = {}".format(output['iou_bbx_amodal'])
 
             key = cv2.waitKey(args.pause)
             if key == 27:

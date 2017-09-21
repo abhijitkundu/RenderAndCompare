@@ -93,11 +93,11 @@ layer {
 }
 
 layer {
-  name: "acc_iou_bbx_amodal"
+  name: "iou_bbx_amodal"
   type: "Python"
   bottom: "pred_bbx_amodal"
   bottom: "gt_bbx_amodal"
-  top: "acc_iou_bbx_amodal"
+  top: "iou_bbx_amodal"
   python_param {
     module: "RenderAndCompare.layers"
     layer: "AverageBoxOverlapIoU"
