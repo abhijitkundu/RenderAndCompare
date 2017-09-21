@@ -163,6 +163,7 @@ void from_json(const nlohmann::json& j, ImageInfo& p) {
 
 void to_json(nlohmann::json& j, const ImageObjectInfo& p) {
   j = nlohmann::json {
+    { "id", p.id },
     { "category", p.category },
     { "shape_param", p.shape_param },
     { "dimension", p.dimension },
@@ -176,6 +177,7 @@ void to_json(nlohmann::json& j, const ImageObjectInfo& p) {
 }
 
 void from_json(const nlohmann::json& j, ImageObjectInfo& p) {
+  from_json_if_present(j, "id", p.id);
   from_json_if_present(j, "category", p.category);
   from_json_if_present(j, "shape_param", p.shape_param);
   from_json_if_present(j, "dimension", p.dimension);

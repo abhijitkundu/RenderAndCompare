@@ -83,8 +83,9 @@ def main():
 
         objects = read_kitti_object_labels(label_file_path)
 
-        filtered_objects = []
-        for obj in objects:
+        # filter the objects based on kitti hardness criteria
+        filtered_objects = {}
+        for obj_id, obj in enumerate(objects):
             if obj['type'] not in args.categories:
                 continue
 
@@ -99,7 +100,7 @@ def main():
                 too_hard = True
 
             if not too_hard:
-                filtered_objects.append(obj)
+                filtered_objects[obj_id] = obj
 
         if not filtered_objects:
             continue
@@ -128,7 +129,8 @@ def main():
         annotation['image_intrinsic'] = NoIndent(K.astype(np.float).tolist())
 
         obj_infos = []
-        for obj in filtered_objects:
+        for obj_id in sorted(filtered_objects):
+            obj = filtered_objects[obj_id]
             obj_pose_cam2 = get_kitti_object_pose(obj, velo_T_cam0, cam2_center)
             obj_pose_cam0 = get_kitti_object_pose(obj, velo_T_cam0, np.zeros(3))
             assert np.allclose(obj_pose_cam0.t - obj_pose_cam2.t, cam2_center)
@@ -155,6 +157,7 @@ def main():
 
             obj_info = OrderedDict()
 
+            obj_info['id'] = obj_id
             obj_info['category'] = obj['type']
             obj_info['dimension'] = NoIndent(obj['dimension'][::-1])  # [length, width, height]
             obj_info['bbx_visible'] = NoIndent(bbx_visible.tolist())

@@ -18,6 +18,9 @@
 namespace RaC {
 
 struct ImageObjectInfo {
+  // object id
+  boost::optional<int> id;
+
   // Object category
   boost::optional<std::string> category;
 
