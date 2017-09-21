@@ -45,7 +45,8 @@ def compute_viewpoint_error(vpA, vpB, use_degrees=True):
     return np.fabs(angle_error)
 
 
-def compute_2dcoord_error(pointA, pointB):
+def compute_coord_error(pointA, pointB):
+    """compute 2d distance (L2) bw two points"""
     return np.linalg.norm(np.array(pointA) - np.array(pointB))
 
 
@@ -98,9 +99,12 @@ def main():
         pred_objects = pred_image_info['objects']
         assert len(gt_objects) == len(pred_objects)
 
-        for obj_id, (gt_obj, pred_obj) in enumerate(zip(gt_objects, pred_objects)):
+        for gt_obj, pred_obj in zip(gt_objects, pred_objects):
+            assert gt_obj['id'] == pred_obj['id']
+            assert gt_obj['category'] == pred_obj['category']
+
             pm = {}
-            pm['obj_id'] = "{}_{}".format(osp.splitext(osp.basename(gt_image_info['image_file']))[0], obj_id)
+            pm['obj_id'] = "{}_{}".format(osp.splitext(osp.basename(gt_image_info['image_file']))[0], gt_obj['id'])
 
             # compute viewpoint error
             if all('viewpoint' in obj_info for obj_info in (gt_obj, pred_obj)):
@@ -111,7 +115,7 @@ def main():
 
             # compute pixel center_proj error
             if all('center_proj' in obj_info for obj_info in (gt_obj, pred_obj)):
-                pm['error_center_proj_pixels'] = compute_2dcoord_error(gt_obj['center_proj'], pred_obj['center_proj'])
+                pm['error_center_proj_pixels'] = compute_coord_error(gt_obj['center_proj'], pred_obj['center_proj'])
 
             # compute bbx overlap error
             if all('bbx_amodal' in obj_info for obj_info in (gt_obj, pred_obj)):

@@ -172,6 +172,8 @@ class DataLayer(AbstractDataLayer):
             for obj_info in image_info['objects']:
                 data_sample = {}
                 data_sample['image_id'] = image_id
+                data_sample['id'] = obj_info['id']
+                data_sample['category'] = obj_info['category']
                 for field in ['viewpoint', 'bbx_amodal', 'bbx_visible', 'center_proj']:
                     if field in obj_info:
                         data_sample[field] = np.array(obj_info[field])
@@ -213,6 +215,8 @@ class DataLayer(AbstractDataLayer):
         bbx_crop = original_data_sample['bbx_visible'].copy()
 
         data_sample = {}
+        data_sample['id'] = original_data_sample['id']
+        data_sample['category'] = original_data_sample['category']
         data_sample['bbx_crop'] = bbx_crop
         data_sample['bbx_amodal'] = original_data_sample['bbx_amodal'].copy()
         data_sample['viewpoint'] = original_data_sample['viewpoint'].copy()

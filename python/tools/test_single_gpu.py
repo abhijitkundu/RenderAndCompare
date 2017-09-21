@@ -81,6 +81,10 @@ def test_single_weights_file(weights_file, net, input_dataset):
 
             object_info = OrderedDict()
 
+            # since we are not changing cetegory orid it is directly copied
+            object_info['id'] = data_samples[i]['id']
+            object_info['category'] = data_samples[i]['category']
+
             # since we are not predicting bbx_visible, it is directly copied
             object_info['bbx_visible'] = NoIndent(data_samples[i]['bbx_visible'].tolist())
 
