@@ -67,7 +67,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
         output = net.forward()
 
         # store all accuracy outputs
-        for key in [key for key in output if any(x in key for x in ["accuracy", "error"])]:
+        for key in [key for key in output if any(x in key for x in ["accuracy", "iou", "error"])]:
             assert np.squeeze(output[key]).shape == (), "Expects {} output to be scalar but got {}".format(key, output[key].shape)
             current_batch_accuracy = float(np.squeeze(output[key]))
             if key in performance_metric:
