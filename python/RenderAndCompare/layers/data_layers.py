@@ -5,7 +5,7 @@ from random import shuffle, random
 import numpy as np
 
 import caffe
-from RenderAndCompare.datasets import BatchImageLoader, crop_and_resize_image
+from RenderAndCompare.datasets import BatchImageLoader, crop_and_resize_image, uniform_crop_and_resize_image
 
 
 class AbstractDataLayer(caffe.Layer):
@@ -265,3 +265,41 @@ class DataLayer(AbstractDataLayer):
         # subtarct mean from image data blob
         if 'input_image' in self.top_names:
             top[self.top_names.index('input_image')].data[...] -= self.mean_bgr
+
+
+class DataLayerAmodalCropping(DataLayer):
+    """
+    DataLayer which does cropping (uniform scale) via amodal bbx
+    """
+    def augment_data_sample(self, data_idx):
+        """Returns augmented data_sample and image"""
+        # fetch the data sample (object)
+        original_data_sample = self.data_samples[data_idx]
+
+        full_image = self.image_loader[original_data_sample['image_id']]
+
+        # TODO Jitter
+        bbx_crop = original_data_sample['bbx_amodal'].copy()
+
+        data_sample = {}
+        data_sample['id'] = original_data_sample['id']
+        data_sample['category'] = original_data_sample['category']
+        data_sample['bbx_crop'] = bbx_crop
+        data_sample['bbx_amodal'] = original_data_sample['bbx_amodal'].copy()
+        data_sample['viewpoint'] = original_data_sample['viewpoint'].copy()
+        data_sample['center_proj'] = original_data_sample['center_proj'].copy()
+        data_sample['input_image'] = uniform_crop_and_resize_image(full_image, bbx_crop, self.im_size, np.squeeze(self.mean_bgr))
+
+        if random() < self.flip_ratio:
+            W = full_image.shape[1]
+            data_sample['bbx_crop'][[0, 2]] = W - data_sample['bbx_crop'][[2, 0]]
+            data_sample['bbx_amodal'][[0, 2]] = W - data_sample['bbx_amodal'][[2, 0]]
+            data_sample['center_proj'][0] = W - data_sample['center_proj'][0]
+            data_sample['viewpoint'][0] = -data_sample['viewpoint'][0]
+            data_sample['viewpoint'][2] = -data_sample['viewpoint'][2]
+            data_sample['input_image'] = np.fliplr(data_sample['input_image'])
+
+        # Change image channel order
+        data_sample['input_image'] = data_sample['input_image'].transpose((2, 0, 1))
+
+        return data_sample
