@@ -7,7 +7,7 @@ import warnings
 
 import _init_paths
 import caffe
-import RenderAndCompare as rac
+from RenderAndCompare.datasets import Dataset
 
 
 def train(solver_proto, datasets, initialization, gpu_id):
@@ -52,7 +52,7 @@ def main():
     datasets = []
     for dataset_path in args.datasets:
         print 'Loading dataset from {}'.format(dataset_path)
-        dataset = rac.datasets.Dataset.from_json(dataset_path)
+        dataset = Dataset.from_json(dataset_path)
         datasets.append(dataset)
         print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
