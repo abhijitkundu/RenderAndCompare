@@ -54,23 +54,62 @@ def makeBGR8image(image):
     return np.uint8(rgb8_image)
 
 
-def crop_and_resize_image(image, cropping_box, im_size):
+def crop_and_resize_image(image, cropping_box, target_size):
     assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)
     assert image.shape[2] == 3, 'Expects image to RGB image in (H, W, C) order. Current shape= {}'.format(image.shape)
     bbx = cropping_box.astype(int)
     assert (bbx[3] - bbx[1]) > 0 and (bbx[2] - bbx[0]) > 0, 'Invalid bbx = {}'.format(bbx)
     cropped_image = image[bbx[1]:bbx[3], bbx[0]:bbx[2]]
-    cropped_image = cv2.resize(cropped_image, (im_size[0], im_size[1]), interpolation=cv2.INTER_LINEAR)
+    cropped_image = cv2.resize(cropped_image, (target_size[0], target_size[1]), interpolation=cv2.INTER_LINEAR)
     return cropped_image
 
 
-def read_resize_transpose_image(image_file, im_size, transpose):
+def uniform_crop_and_resize_image(image, bbx_crop, target_size, mean_bgr):
+    assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)
+    assert image.shape[2] == 3, 'Expects image to RGB image in (H, W, C) order. image.shape = {}'.format(image.shape)
+    assert bbx_crop.shape == (4,), 'Expects bbx to be vector of size 4. bbx_crop.shape = {}'.format(bbx_crop.shape)
+
+    bbx_crop_wh = bbx_crop[2:] - bbx_crop[:2]
+    assert np.all(bbx_crop_wh > 0), 'Invalid bbx = {}'.format(bbx_crop)
+
+    bbx_increase = (bbx_crop_wh.max() - bbx_crop_wh) / 2
+
+    roi_uniform = bbx_crop.copy()
+    roi_uniform[:2] -= bbx_increase
+    roi_uniform[2:] += bbx_increase
+    roi_uniform[:2] = np.floor(roi_uniform[:2])
+    roi_uniform[2:] = np.ceil(roi_uniform[2:])
+    roi_uniform = roi_uniform.astype(np.int)
+
+    canvas_wh = roi_uniform[2:] - roi_uniform[:2]
+    assert np.abs(canvas_wh[0] - canvas_wh[1]) <= 1, 'canvas_wh = {}'.format(canvas_wh)
+
+    canvas = np.empty([canvas_wh[1], canvas_wh[0], 3], dtype=np.uint8)
+    canvas[..., 0] = mean_bgr[0]
+    canvas[..., 1] = mean_bgr[1]
+    canvas[..., 2] = mean_bgr[2]
+
+    roi_src = roi_uniform.copy()
+    roi_src[:2] = np.maximum(roi_src[:2], 0)
+    roi_src[2:] = np.minimum(roi_src[2:], [[image.shape[1] - 1, image.shape[0] - 1]])
+
+    roi_dst = roi_uniform.copy()
+    roi_dst[:2] = roi_src[:2] - roi_uniform[:2]
+    roi_dst[2:] = roi_dst[:2] + roi_src[2:] - roi_src[:2]
+
+    canvas[roi_dst[1]:roi_dst[3], roi_dst[0]:roi_dst[2], :] = image[roi_src[1]:roi_src[3], roi_src[0]:roi_src[2], :]
+
+    cropped_image = cv2.resize(canvas, (target_size[0], target_size[1]), interpolation=cv2.INTER_LINEAR)
+    return cropped_image
+
+
+def read_resize_transpose_image(image_file, target_size, transpose):
     image = cv2.imread(image_file)
     assert image.size != 0, 'Invalid image'
     assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)
 
-    if all(v > 0 for v in im_size):
-        image = cv2.resize(image, (im_size[0], im_size[1]), interpolation=cv2.INTER_LINEAR)
+    if all(v > 0 for v in target_size):
+        image = cv2.resize(image, (target_size[0], target_size[1]), interpolation=cv2.INTER_LINEAR)
 
     if transpose:
         # move image channels to outermost dimension
@@ -79,7 +118,7 @@ def read_resize_transpose_image(image_file, im_size, transpose):
     return image
 
 
-def read_crop_resize_transpose_image(image_file, cropping_box, im_size, transpose):
+def read_crop_resize_transpose_image(image_file, cropping_box, target_size, transpose):
     image = cv2.imread(image_file)
     assert image.size != 0, 'Invalid image'
     assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)
@@ -88,8 +127,8 @@ def read_crop_resize_transpose_image(image_file, cropping_box, im_size, transpos
     assert (bbx[3] - bbx[1]) > 0 and (bbx[2] - bbx[0]) > 0, 'Invalid bbx = {}'.format(bbx)
     image = image[bbx[1]:bbx[3], bbx[0]:bbx[2]]
 
-    if all(v > 0 for v in im_size):
-        image = cv2.resize(image, (im_size[0], im_size[1]), interpolation=cv2.INTER_LINEAR)
+    if all(v > 0 for v in target_size):
+        image = cv2.resize(image, (target_size[0], target_size[1]), interpolation=cv2.INTER_LINEAR)
 
     if transpose:
         # move image channels to outermost dimension
@@ -98,17 +137,17 @@ def read_crop_resize_transpose_image(image_file, cropping_box, im_size, transpos
     return image
 
 
-def parallel_read_resize_transpose_images(images, im_size, transpose, n_jobs=12, front_num=3):
+def parallel_read_resize_transpose_images(images, target_size, transpose, n_jobs=12, front_num=3):
     # We run the first few iterations serially to catch bugs
     if front_num > 0:
-        front = [read_resize_transpose_image(a, im_size, transpose) for a in images[:front_num]]
+        front = [read_resize_transpose_image(a, target_size, transpose) for a in images[:front_num]]
     # If we set n_jobs to 1, just run a list comprehension. This is useful for benchmarking and debugging.
     if n_jobs == 1:
-        return front + [read_resize_transpose_image(a, im_size, transpose) for a in tqdm.tqdm(images[front_num:])]
+        return front + [read_resize_transpose_image(a, target_size, transpose) for a in tqdm.tqdm(images[front_num:])]
     # Assemble the workers
     with ThreadPoolExecutor(max_workers=n_jobs) as pool:
         # Pass the elements of array into function
-        futures = [pool.submit(read_resize_transpose_image, a, im_size, transpose) for a in images[front_num:]]
+        futures = [pool.submit(read_resize_transpose_image, a, target_size, transpose) for a in images[front_num:]]
         kwargs = {
             'total': len(futures),
             'unit': 'it',
@@ -128,20 +167,20 @@ def parallel_read_resize_transpose_images(images, im_size, transpose, n_jobs=12,
     return front + out
 
 
-def parallel_read_crop_resize_transpose_images(images, cropping_boxes, im_size, transpose, n_jobs=12, front_num=3):
+def parallel_read_crop_resize_transpose_images(images, cropping_boxes, target_size, transpose, n_jobs=12, front_num=3):
     num_of_images = len(images)
     assert len(cropping_boxes) == num_of_images
 
     # We run the first few iterations serially to catch bugs
     if front_num > 0:
-        front = [read_crop_resize_transpose_image(images[i], cropping_boxes[i], im_size, transpose) for i in xrange(front_num)]
+        front = [read_crop_resize_transpose_image(images[i], cropping_boxes[i], target_size, transpose) for i in xrange(front_num)]
     # If we set n_jobs to 1, just run a list comprehension. This is useful for benchmarking and debugging.
     if n_jobs == 1:
-        return front + [read_crop_resize_transpose_image(images[i], cropping_boxes[i], im_size, transpose) for i in tqdm.trange(front_num, num_of_images)]
+        return front + [read_crop_resize_transpose_image(images[i], cropping_boxes[i], target_size, transpose) for i in tqdm.trange(front_num, num_of_images)]
     # Assemble the workers
     with ThreadPoolExecutor(max_workers=n_jobs) as pool:
         # Pass the elements of array into function
-        futures = [pool.submit(read_crop_resize_transpose_image, images[i], cropping_boxes[i], im_size, transpose) for i in xrange(front_num, num_of_images)]
+        futures = [pool.submit(read_crop_resize_transpose_image, images[i], cropping_boxes[i], target_size, transpose) for i in xrange(front_num, num_of_images)]
         kwargs = {
             'total': len(futures),
             'unit': 'it',
