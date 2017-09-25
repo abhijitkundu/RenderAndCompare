@@ -7,7 +7,7 @@ layer {
   top: "gt_viewpoint"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "DataLayer"
+    layer: "RCNNDataLayer"
     param_str: "-b 32 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.5 -t input_image viewpoint"
   }
 }

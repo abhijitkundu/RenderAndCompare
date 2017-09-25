@@ -90,7 +90,7 @@ class AbstractDataLayer(caffe.Layer):
         return np.uint8(image)
 
 
-class DataLayer(AbstractDataLayer):
+class RCNNDataLayer(AbstractDataLayer):
     """Data Layer RCNN style. Inherits AbstractDataLayer"""
 
     def parse_param_str(self, param_str):
@@ -98,16 +98,19 @@ class DataLayer(AbstractDataLayer):
         default_mean_bgr = [103.0626238, 115.90288257, 123.15163084]  # ResNet
         default_im_size = [224, 224]  # ResNet
 
-        parser = argparse.ArgumentParser(description='Data Layer')
+        parser = argparse.ArgumentParser(description='RCNN style Data Layer')
         parser.add_argument("-b", "--batch_size", default=32, type=int, help="Batch Size")
         parser.add_argument("-wh", "--im_size", nargs=2, default=default_im_size, type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
         parser.add_argument("-m", "--mean_bgr", nargs=3, default=default_mean_bgr, type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
         parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True,
                             type=str, help="ordered list of top names e.g input_image azimuth shape")
         parser.add_argument("-f", "--flip_ratio", default=0.5, type=float, help="Flip ratio in range [0, 1] (Defaults to 0.5)")
+        parser.add_argument("-c", "--crop_target", default='bbx_visible',
+                            choices=['bbx_amodal', 'bbx_visible'], type=str, help="bbx type used for cropping (Defaults to bbx_visible)")
+        parser.add_argument("-u", "--uniform_crop", action='store_true', default=False, help="If set we do not change the aspect ratio while cropping")
         params = parser.parse_args(param_str.split())
 
-        print "-------------------- DataLayer Config ----------------------"
+        print "-------------------- RCNNDataLayer Config ----------------------"
         for arg in vars(params):
             print "\t{} \t= {}".format(arg, getattr(params, arg))
         print "------------------------------------------------------------"
@@ -115,7 +118,7 @@ class DataLayer(AbstractDataLayer):
         return params
 
     def setup(self, bottom, top):
-        print "Setting up DataLayer ..."
+        print "Setting up RCNNDataLayer ..."
 
         # params is expected as argparse style string
         params = self.parse_param_str(self.param_str)
@@ -130,6 +133,10 @@ class DataLayer(AbstractDataLayer):
         self.im_size = params.im_size
         # set flip_ratio
         self.flip_ratio = params.flip_ratio
+        # set crop_target
+        self.crop_target = params.crop_target
+        # set uniform_crop
+        self.uniform_crop = params.uniform_crop
 
         assert len(top) == len(self.top_names), 'Number of tops do not match specified top_names'
 
@@ -152,7 +159,7 @@ class DataLayer(AbstractDataLayer):
         # Create placeholder for annotations
         self.data_samples = []
 
-        print 'DataLayer has been setup.'
+        print 'RCNNDataLayer has been setup.'
 
     def add_dataset(self, dataset):
         """Add annotations from a json dataset"""
@@ -212,7 +219,7 @@ class DataLayer(AbstractDataLayer):
         full_image = self.image_loader[original_data_sample['image_id']]
 
         # TODO Jitter
-        bbx_crop = original_data_sample['bbx_visible'].copy()
+        bbx_crop = original_data_sample[self.crop_target].copy()
 
         data_sample = {}
         data_sample['id'] = original_data_sample['id']
@@ -221,7 +228,10 @@ class DataLayer(AbstractDataLayer):
         data_sample['bbx_amodal'] = original_data_sample['bbx_amodal'].copy()
         data_sample['viewpoint'] = original_data_sample['viewpoint'].copy()
         data_sample['center_proj'] = original_data_sample['center_proj'].copy()
-        data_sample['input_image'] = crop_and_resize_image(full_image, bbx_crop, self.im_size)
+        if self.uniform_crop:
+            data_sample['input_image'] = uniform_crop_and_resize_image(full_image, bbx_crop, self.im_size, np.squeeze(self.mean_bgr))
+        else:
+            data_sample['input_image'] = crop_and_resize_image(full_image, bbx_crop, self.im_size)
 
         if random() < self.flip_ratio:
             W = full_image.shape[1]
@@ -265,41 +275,3 @@ class DataLayer(AbstractDataLayer):
         # subtarct mean from image data blob
         if 'input_image' in self.top_names:
             top[self.top_names.index('input_image')].data[...] -= self.mean_bgr
-
-
-class DataLayerAmodalCropping(DataLayer):
-    """
-    DataLayer which does cropping (uniform scale) via amodal bbx
-    """
-    def augment_data_sample(self, data_idx):
-        """Returns augmented data_sample and image"""
-        # fetch the data sample (object)
-        original_data_sample = self.data_samples[data_idx]
-
-        full_image = self.image_loader[original_data_sample['image_id']]
-
-        # TODO Jitter
-        bbx_crop = original_data_sample['bbx_amodal'].copy()
-
-        data_sample = {}
-        data_sample['id'] = original_data_sample['id']
-        data_sample['category'] = original_data_sample['category']
-        data_sample['bbx_crop'] = bbx_crop
-        data_sample['bbx_amodal'] = original_data_sample['bbx_amodal'].copy()
-        data_sample['viewpoint'] = original_data_sample['viewpoint'].copy()
-        data_sample['center_proj'] = original_data_sample['center_proj'].copy()
-        data_sample['input_image'] = uniform_crop_and_resize_image(full_image, bbx_crop, self.im_size, np.squeeze(self.mean_bgr))
-
-        if random() < self.flip_ratio:
-            W = full_image.shape[1]
-            data_sample['bbx_crop'][[0, 2]] = W - data_sample['bbx_crop'][[2, 0]]
-            data_sample['bbx_amodal'][[0, 2]] = W - data_sample['bbx_amodal'][[2, 0]]
-            data_sample['center_proj'][0] = W - data_sample['center_proj'][0]
-            data_sample['viewpoint'][0] = -data_sample['viewpoint'][0]
-            data_sample['viewpoint'][2] = -data_sample['viewpoint'][2]
-            data_sample['input_image'] = np.fliplr(data_sample['input_image'])
-
-        # Change image channel order
-        data_sample['input_image'] = data_sample['input_image'].transpose((2, 0, 1))
-
-        return data_sample

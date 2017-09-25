@@ -10,7 +10,7 @@ layer {
   top: "gt_center_proj"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "DataLayer"
+    layer: "RCNNDataLayer"
     param_str: "-b 48 -wh 224 224 -m 103.0626238 115.90288257 123.15163084 -f 0.0 -t input_image viewpoint bbx_crop bbx_amodal center_proj"
   }
 }

@@ -90,14 +90,20 @@ if __name__ == '__main__':
             if np.allclose(bbx_amodal_blob, bbx_a):
                 cv2.displayOverlay('blob_image', 'Original')
                 assert np.allclose(bbx_amodal_blob, bbx_a)
-                assert np.allclose(bbx_crop_blob, bbx_v) or np.allclose(bbx_crop_blob, bbx_a)
+                if net.layers[0].crop_target == 'bbx_visible':
+                    assert np.allclose(bbx_crop_blob, bbx_v)
+                else:
+                    np.allclose(bbx_crop_blob, bbx_a)
                 assert np.allclose(vp_blob, vp)
                 assert np.allclose(center_proj_blob, center_proj)
             else:
                 cv2.displayOverlay('blob_image', 'Flipped')
                 W = full_image.shape[1]
                 assert np.allclose(bbx_amodal_blob, np.array([W - bbx_a[2], bbx_a[1], W - bbx_a[0], bbx_a[3]]))
-                assert np.allclose(bbx_crop_blob, np.array([W - bbx_v[2], bbx_v[1], W - bbx_v[0], bbx_v[3]])) or  np.allclose(bbx_crop_blob, np.array([W - bbx_a[2], bbx_a[1], W - bbx_a[0], bbx_a[3]]))
+                if net.layers[0].crop_target == 'bbx_visible':
+                    assert np.allclose(bbx_crop_blob, np.array([W - bbx_v[2], bbx_v[1], W - bbx_v[0], bbx_v[3]]))
+                else:
+                    np.allclose(bbx_crop_blob, np.array([W - bbx_a[2], bbx_a[1], W - bbx_a[0], bbx_a[3]]))
                 assert np.allclose(vp_blob, np.array([-vp[0], vp[1], -vp[2]]))
                 assert np.allclose(center_proj_blob, np.array([W - center_proj[0], center_proj[1]]))
 
