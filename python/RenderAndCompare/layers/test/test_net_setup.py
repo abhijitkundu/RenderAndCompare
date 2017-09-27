@@ -3,6 +3,7 @@
 import os.path as osp
 from time import time
 import caffe
+import _init_paths
 
 if __name__ == '__main__':
     import argparse
@@ -40,6 +41,13 @@ if __name__ == '__main__':
     for layer_name, param in net.params.iteritems():
         param_shapes = [str(p.data.shape) for p in param]
         print "{0:15} {1}".format(layer_name, '; '.join(param_shapes))
+
+    print 'Running a single forward pass'
+    output = net.forward()
+    print "{:13} | Blob shape".format("output_name")
+    print "----------------------------------"
+    for key in output:
+        print "{:15} {}".format(key, output[key].shape)
 
     print 'Running forward pass for {} iterations'.format(args.iterations)
     start = time()
