@@ -295,7 +295,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
                             type=str, help="ordered list of top names e.g input_image azimuth shape")
         parser.add_argument("-c", "--crop_target", default='bbx_visible',
                             choices=['bbx_amodal', 'bbx_visible'], type=str, help="bbx type used for cropping (Defaults to bbx_visible)")
-        parser.add_argument("-sr", "--size_range", nargs=2, default=default_size_range, type=int, 
+        parser.add_argument("-sr", "--size_range", nargs=2, default=default_size_range, type=int,
                             metavar=('LOW', 'HI'), help="upper and lower bounds for length of shorter size of image in pixels")
         parser.add_argument("-sm", "--size_max", default=3072, type=int,  help="Max pixel size of the longest side of a scaled input image")
         parser.add_argument("-f", "--flip_ratio", default=0.5, type=float, help="Flip ratio in range [0, 1] (Defaults to 0.5)")
@@ -332,7 +332,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
         self.size_max = params.size_max
         # set flip_ratio
         self.flip_ratio = params.flip_ratio
-         # set jitter_iou_min
+        # set jitter_iou_min
         self.jitter_iou_min = params.jitter_iou_min
 
         assert len(top) == len(self.top_names), "Number of tops do not match specified top_names"
@@ -340,7 +340,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
         assert self.size_range[1] >= self.size_range[0], "invalid size_range = {}".format(self.size_range)
         assert self.size_max >= self.size_range[1], "size_max needs to be greater than max shorter size"
 
-        assert 0.0 < self.jitter_iou_min <= 1.0, "jitter_iou_min needs to be in [0, 1], but got {}".format(self.jitter_iou_min)        
+        assert 0.0 < self.jitter_iou_min <= 1.0, "jitter_iou_min needs to be in [0, 1], but got {}".format(self.jitter_iou_min)
 
         rois_per_batch = max(2 * self.rois_per_image, 1)
 
@@ -395,11 +395,8 @@ class FastRCNNDataLayer(AbstractDataLayer):
                     if field in annotation:
                         obj_info[field] = np.array(annotation[field])
 
-                if 'viewpoint' in obj_info:
-                    vp = obj_info['viewpoint']
-                    assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
-
                 obj_infos.append(obj_info)
+
             image_info['objects'] = obj_infos
             image_infos.append(image_info)
 
@@ -407,12 +404,34 @@ class FastRCNNDataLayer(AbstractDataLayer):
         self.data_samples.extend(image_infos)
         self.image_loader.preload_images(image_files)
 
-        assert len(self.data_samples) == len(self.image_loader), "len(self.data_samples) = {} while len(self.image_loader) = {}".format(len(self.data_samples), len(self.image_loader))
-        print 'Number of data points (annotations) = {:,}'.format(len(self.data_samples))
+        print 'Number of images = {:,}'.format(len(self.data_samples))
         print "--------------------------------------------------------------------"
+
+    def verify_data(self):
+        """Verify all data"""
+        print "Verifying data ...",
+        assert len(self.data_samples) == len(self.image_loader), "len(self.data_samples) = {} while len(self.image_loader) = {}".format(
+            len(self.data_samples), len(self.image_loader))
+        for image_id, image_info in enumerate(self.data_samples):
+            if 'image_size' in image_info:
+                image_size = self.image_loader[image_id].shape[:2][::-1]
+                assert np.all(image_info['image_size'] == image_size)
+
+            if 'image_intrinsic' in image_info:
+                assert image_info['image_intrinsic'].shape == (3, 3)
+
+            for obj_info in image_info['objects']:
+                if 'viewpoint' in obj_info:
+                    vp = obj_info['viewpoint']
+                    assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
+        print "Done"
 
     def generate_datum_ids(self):
         """generate data ids"""
+        # verify the data
+        self.verify_data()
+
+        # number of image_infos
         num_of_data_points = len(self.data_samples)
 
         # set of data indices in [0, num_of_data_points)
@@ -427,7 +446,10 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         assert len(self.data_ids) > self.imgs_per_batch, 'imgs_per_batch ({})is smaller than total number of images ({}).'.format(
             self.imgs_per_batch, len(self.data_ids))
-        print 'Total number of data points (annotations) = {:,}'.format(num_of_data_points)
+        print 'Total number of images = {:,}'.format(num_of_data_points)
+
+        num_of_objects = sum([len(image_info['objects']) for image_info in self.data_samples])
+        print 'Total number of objects = {:,}'.format(num_of_objects)
         return num_of_data_points
 
     def forward(self, bottom, top):
@@ -443,20 +465,20 @@ class FastRCNNDataLayer(AbstractDataLayer):
         #     if self.curr_data_ids_idx == len(self.data_ids):
         #         self.curr_data_ids_idx = 0
         #         shuffle(self.data_ids)
-            
+
         #     # Current Data index
         #     img_idx = self.data_ids[self.curr_data_ids_idx]
         #     image_ids.append(img_idx)
-            
+
         #     self.curr_data_ids_idx += 1
-        
+
         # mb_data = self.prepare_mini_batch(image_ids)
-        
+
     # def prepare_mini_batch(self, image_ids):
     #     img_blob, img_scales, img_flippings = self.prepare_image_blob(image_ids)
 
     #     obj_blobs = self.pepare_object_blobs(image_ids, img_scales, img_flippings)
-        
+
     #     mb_data = {}
     #     mb_data['input_image'] = img_blob
     #     return mb_data
@@ -467,7 +489,6 @@ class FastRCNNDataLayer(AbstractDataLayer):
     #         obj_infos = self.data_samples[image_ids[i]]['objects']
     #         obj_infos = sample_object_infos(obj_infos, self.rois_per_image, self.jitter_iou_min)
 
-    
     def prepare_image_blob(self, image_ids):
         # returns image blob and also scaling, flipping params for each image
         num_images = len(image_ids)
@@ -491,25 +512,24 @@ class FastRCNNDataLayer(AbstractDataLayer):
             # Prevent the biggest axis from being more than MAX_SIZE
             if np.round(img_scale * img_size_max) > self.size_max:
                 img_scale = float(self.size_max) / float(img_size_max)
-            #resize img by img_scale
+            # resize img by img_scale
             img = cv2.resize(img, None, None, fx=img_scale, fy=img_scale, interpolation=cv2.INTER_LINEAR)
-            
+
             images.append(img)
             img_scales.append(img_scale)
             img_flippings.append(flip)
-        
+
         max_hw = np.array([img.shape[:2] for img in images]).max(axis=0)
         img_blob = np.zeros((num_images, max_hw[0], max_hw[1], 3), dtype=np.float32)
 
         for i in xrange(num_images):
             img = images[i]
             img_blob[i, 0:img.shape[0], 0:img.shape[1], :] = img
-        
+
         # Make axis order NCHW
         img_blob = img_blob.transpose((0, 3, 1, 2))
 
         return img_blob, img_scales, img_flippings
-
 
 
 # def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
@@ -523,6 +543,3 @@ class FastRCNNDataLayer(AbstractDataLayer):
 #             i = 0
 #         obj_id = obj_ids[i]
 #         i += 1
-
-
-            
