@@ -22,37 +22,38 @@ def bbx_iou_overlap(bbxA, bbxB):
     iou = inter / (a_area + b_area - inter)
     return iou
 
-# def create_jittered_bbx(bbx, min_jittter_iou):
-#     """returns a jittered bbx which has overlap > min_jittter_iou with input bbx"""
-#     assert 0 < min_jittter_iou <= 1.0
-#     assert bbx.size % 2 == 0
-#     ndim = bbx.size / 2
-#     wh = (np.asarray(bbx[ndim:]) - np.asarray(bbx[:ndim])) * (1.0 - min_jittter_iou)
-#     assert np.all(wh >= 0)
-#     while True:
-#         jitter = (np.random.uniform(-1.0, 1.0, (2, ndim)) * wh).reshape(2*ndim, )
-#         # jitter = (np.random.normal(0.0, 0.3, (2, ndim)) * wh).reshape(2*ndim, )
-#         jittered_bbx = bbx + jitter
-#         if bbx_iou_overlap(bbx, jittered_bbx) >= min_jittter_iou:
-#             return jittered_bbx
-
-def create_jittered_bbx(bbx, min_jittter_iou):
+def create_jittered_bbx(bbx, min_jittter_iou, num_bins=20):
     """returns a jittered bbx which has overlap > min_jittter_iou with input bbx"""
     assert 0 < min_jittter_iou <= 1.0
     assert bbx.size % 2 == 0
     ndim = bbx.size / 2
-    wh = (np.asarray(bbx[ndim:]) - np.asarray(bbx[:ndim])) * (1.0 - min_jittter_iou)
+
+    bin_width = (1. - min_jittter_iou) / num_bins
+
+    target_bin = np.random.randint(num_bins)
+    target_iou_min = min_jittter_iou + target_bin * bin_width
+    target_iou_max = target_iou_min + bin_width
+
+    assert target_iou_min >= min_jittter_iou
+    assert target_iou_max <= 1.
+
+    wh = (np.asarray(bbx[ndim:]) - np.asarray(bbx[:ndim])) * (1.0 - target_iou_min)
     assert np.all(wh >= 0)
     while True:
-        jitter = (np.random.uniform(-1.0, 1.0, (2, ndim)) * wh).reshape(2*ndim, )
-        # jitter = (np.random.normal(0.0, 0.3, (2, ndim)) * wh).reshape(2*ndim, )
+        jitter = (np.random.normal(0.0, 0.4, (2, ndim)) * wh).reshape(2 * ndim, )
         jittered_bbx = bbx + jitter
-        if bbx_iou_overlap(bbx, jittered_bbx) >= min_jittter_iou:
+        jittered_bbx_wh = jittered_bbx[ndim:] - jittered_bbx[:ndim]
+        if np.any(jittered_bbx_wh <= 0):
+            continue
+
+        actual_iou = bbx_iou_overlap(bbx, jittered_bbx)
+        if target_iou_min <= actual_iou <= target_iou_max:
             return jittered_bbx
 
 
 class BoundingBox(object):
     """Aligned BoundingBox class"""
+
     def __init__(self, bbx_min, bbx_max):
         self._min = np.array(bbx_min, dtype=np.float)
         self._max = np.array(bbx_max, dtype=np.float)
