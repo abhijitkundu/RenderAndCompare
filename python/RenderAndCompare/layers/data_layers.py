@@ -6,6 +6,7 @@ import numpy as np
 
 import caffe
 from RenderAndCompare.datasets import BatchImageLoader, crop_and_resize_image, uniform_crop_and_resize_image
+from RenderAndCompare.geometry import create_jittered_bbx, bbx_iou_overlap
 
 
 class AbstractDataLayer(caffe.Layer):
@@ -370,14 +371,43 @@ class FastRCNNDataLayer(AbstractDataLayer):
         print '---- Adding data from {} datatset -----'.format(dataset.name())
         print 'Number of data points (annotations) = {:,}'.format(len(self.data_samples))
 
-        image_files = [osp.join(dataset.rootdir(), image_info['image_file']) for image_info in dataset.annotations()]
-        self.image_loader.preload_images(image_files)
-        self.data_samples.extend(dataset.annotations())
+        image_files = []
+        image_infos = []
+        for annotation in dataset.annotations():
+            if 'objects' not in annotation or not annotation['objects']:
+                continue
 
-        assert len(self.data_samples) == len(self.image_loader), "len(self.data_samples) = {} while len(self.image_loader) = {}".format(
-            len(self.data_samples), len(self.image_loader))
+            image_file = osp.join(dataset.rootdir(), annotation['image_file'])
+            image_files.append(image_file)
 
+            image_info = {}
+            for field in ['image_size', 'image_intrinsic']:
+                if field in annotation:
+                    image_info[field] = np.array(annotation[field])
+
+            obj_infos = []
+            for anno_obj in annotation['objects']:
+                obj_info = {}
+                obj_info['id'] = anno_obj['id']
+                obj_info['category'] = anno_obj['category']
+
+                for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
+                    if field in annotation:
+                        obj_info[field] = np.array(annotation[field])
+
+                if 'viewpoint' in obj_info:
+                    vp = obj_info['viewpoint']
+                    assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
+
+                obj_infos.append(obj_info)
+            image_info['objects'] = obj_infos
+            image_infos.append(image_info)
+
+        assert len(image_files) == len(image_infos)
+        self.data_samples.extend(image_infos)
         self.image_loader.preload_images(image_files)
+
+        assert len(self.data_samples) == len(self.image_loader), "len(self.data_samples) = {} while len(self.image_loader) = {}".format(len(self.data_samples), len(self.image_loader))
         print 'Number of data points (annotations) = {:,}'.format(len(self.data_samples))
         print "--------------------------------------------------------------------"
 
@@ -407,38 +437,35 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         assert hasattr(self, 'data_ids'), 'Most likely data has not been initialized before calling forward()'
 
-        image_ids = []
-        for _ in xrange(self.imgs_per_batch):
-            # Did we finish an epoch?
-            if self.curr_data_ids_idx == len(self.data_ids):
-                self.curr_data_ids_idx = 0
-                shuffle(self.data_ids)
+        # image_ids = []
+        # for _ in xrange(self.imgs_per_batch):
+        #     # Did we finish an epoch?
+        #     if self.curr_data_ids_idx == len(self.data_ids):
+        #         self.curr_data_ids_idx = 0
+        #         shuffle(self.data_ids)
             
-            # Current Data index
-            img_idx = self.data_ids[self.curr_data_ids_idx]
-            image_ids.append(img_idx)
+        #     # Current Data index
+        #     img_idx = self.data_ids[self.curr_data_ids_idx]
+        #     image_ids.append(img_idx)
             
-            self.curr_data_ids_idx += 1
+        #     self.curr_data_ids_idx += 1
         
-        mb_data = self.prepare_mini_batch(image_ids)
+        # mb_data = self.prepare_mini_batch(image_ids)
         
-    def prepare_mini_batch(self, image_ids):
-        img_blob, img_scales, img_flippings = self.prepare_image_blob(image_ids)
+    # def prepare_mini_batch(self, image_ids):
+    #     img_blob, img_scales, img_flippings = self.prepare_image_blob(image_ids)
 
-        obj_blobs = self.pepare_object_blobs(image_ids, img_scales, img_flippings)
+    #     obj_blobs = self.pepare_object_blobs(image_ids, img_scales, img_flippings)
         
-        mb_data = {}
-        mb_data['input_image'] = img_blob
-        return mb_data
+    #     mb_data = {}
+    #     mb_data['input_image'] = img_blob
+    #     return mb_data
 
-    def pepare_object_blobs(self, image_ids, img_scales, img_flippings):
-        num_images = len(image_ids)
-        for i in xrange(num_images):
-            obj_infos = self.data_samples[image_ids[i]]['objects']
-            obj_infos = sample_object_infos(obj_infos, self.rois_per_image, self.jitter_iou_min)
-
-
-
+    # def pepare_object_blobs(self, image_ids, img_scales, img_flippings):
+    #     num_images = len(image_ids)
+    #     for i in xrange(num_images):
+    #         obj_infos = self.data_samples[image_ids[i]]['objects']
+    #         obj_infos = sample_object_infos(obj_infos, self.rois_per_image, self.jitter_iou_min)
 
     
     def prepare_image_blob(self, image_ids):
@@ -483,7 +510,19 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         return img_blob, img_scales, img_flippings
 
-    def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
-        sample_object_infos = []
-        while len(sample_object_infos) < number_of_objects:
+
+
+# def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
+#     sample_object_infos = []
+#     number_of_gt_objects = len(object_infos)
+#     obj_ids = shuffle(range(number_of_gt_objects))
+#     i = 0
+#     while len(sample_object_infos) < number_of_objects:
+#         if i >= number_of_gt_objects:
+#             shuffle(obj_ids)
+#             i = 0
+#         obj_id = obj_ids[i]
+#         i += 1
+
+
             
