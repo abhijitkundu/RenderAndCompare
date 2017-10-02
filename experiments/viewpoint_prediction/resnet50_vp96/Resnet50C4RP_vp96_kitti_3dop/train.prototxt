@@ -1,23 +1,48 @@
-name: "Resnet50C4_ROIPool"
+name: "Resnet50C4RP_vp96"
 
-input: "data"
-input_shape {
-  dim: 1
-  dim: 3
-  dim: 800
-  dim: 2700
+layer {
+  name: "data_layer"
+  type: "Python"
+  top: "input_image"
+  top: "rois"
+  top: "gt_viewpoint"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "FastRCNNDataLayer"
+    param_str: "-i 1 -r 64 -sr 600 650 -sm 2500 -f 0.5 -j 0.95 -t input_image roi viewpoint -m 103.0626238 115.90288257 123.15163084"
+  }
 }
 
-input: "rois"
-input_shape {
-  dim: 64 # to be changed on-the-fly to num ROIs
-  dim: 5 # [batch ind, x1, y1, x2, y2] zero-based indexing
+layer {
+  name:"viewpoint_quantizer"
+  type: "Python"
+  bottom: "gt_viewpoint"
+  top: "gt_viewpoint_label"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "QuantizeViewPoint"
+    param_str: "--num_of_bins 96"
+  }
+}
+
+layer {
+  name: "slice_gt_viewpoint_label"
+  type: "Slice"
+  bottom: "gt_viewpoint_label"
+  top: "gt_azimuth_label"
+  top: "gt_elevation_label"
+  top: "gt_tilt_label"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
 }
 
 #------------- conv1 (freezed) --------------#
 
 layer {
-  bottom: "data"
+  bottom: "input_image"
   top: "conv1"
   name: "conv1"
   type: "Convolution"
@@ -780,7 +805,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -837,7 +862,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -901,7 +926,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -965,7 +990,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1037,7 +1062,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1101,7 +1126,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1165,7 +1190,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1237,7 +1262,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1301,7 +1326,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1365,7 +1390,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1437,7 +1462,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1501,7 +1526,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1565,7 +1590,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1639,7 +1664,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1696,7 +1721,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1760,7 +1785,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1824,7 +1849,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1896,7 +1921,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -1960,7 +1985,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2024,7 +2049,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2096,7 +2121,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2160,7 +2185,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2224,7 +2249,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2296,7 +2321,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2360,7 +2385,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2424,7 +2449,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2496,7 +2521,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2560,7 +2585,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2624,7 +2649,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2696,7 +2721,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2760,7 +2785,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2824,7 +2849,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2912,7 +2937,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -2969,7 +2994,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3033,7 +3058,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3097,7 +3122,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3169,7 +3194,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3233,7 +3258,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3297,7 +3322,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3369,7 +3394,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3433,7 +3458,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3497,7 +3522,7 @@ layer {
     bias_term: false
   }
   param {
-    lr_mult: 0.0
+    lr_mult: 1.0
   }
 }
 
@@ -3565,5 +3590,178 @@ layer {
     kernel_size: 7
     stride: 1
     pool: AVE
+  }
+}
+
+#-------------------------------------------------#
+#-------------- FC Viewpoint Layers --------------#
+#-------------------------------------------------#
+
+layer {
+  name: "fc_viewpoint_288"
+  type: "InnerProduct"
+  bottom: "pool5"
+  top: "fc_viewpoint_288"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 288 # 288 = 3 x 96
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "reshape_fc_viewpoint"
+  type: "Reshape"
+  bottom: "fc_viewpoint_288"
+  top: "fc_viewpoint_3x96"
+  reshape_param {
+    shape {
+      dim: 0  # copy the dimension from below
+      dim: 3
+      dim: -1 # infer it from the other dimensions
+    }
+  }
+}
+
+#-------------------------------------------------#
+#----------- Discrete Viewpoint Loss -------------#
+#-------------------------------------------------#
+
+layer {
+  name: "loss_viewpoint_label"
+  type: "SoftmaxWithLoss"
+  bottom: "fc_viewpoint_3x96"
+  bottom: "gt_viewpoint_label"
+  top: "loss_viewpoint_label"
+  softmax_param {
+    axis: 2
+  }
+  loss_weight: 1
+}
+
+#-------------------------------------------------#
+#-------------- Continious Viewpoint -------------#
+#-------------------------------------------------#
+
+layer {
+  name:"argmax_fc_viewpoint_3x96"
+  type: "ArgMax"
+  bottom: "fc_viewpoint_3x96"
+  top: "pred_viewpoint_label"
+  argmax_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "dequantize_pred_viewpoint_label"
+  type: "Python"
+  bottom: "pred_viewpoint_label"
+  top: "pred_viewpoint"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "DeQuantizeViewPoint"
+    param_str: "-b 96"
+  }
+}
+
+#-------------------------------------------------#
+#------------------ Accuracy Layers --------------#
+#-------------------------------------------------#
+
+layer {
+  name: "accuracy_viewpoint_label"
+  type: "Accuracy"
+  bottom: "fc_viewpoint_3x96"
+  bottom: "gt_viewpoint_label"
+  top: "accuracy_viewpoint_label"
+  accuracy_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "slice_fc_viewpoint_3x96"
+  type: "Slice"
+  bottom: "fc_viewpoint_3x96"
+  top: "fc_azimuth_96"
+  top: "fc_elevation_96"
+  top: "fc_tilt_96"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
+  }
+}
+
+layer {
+  name: "accuracy_azimuth_label"
+  type: "Accuracy"
+  bottom: "fc_azimuth_96"
+  bottom: "gt_azimuth_label"
+  top: "accuracy_azimuth_label"
+  accuracy_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "accuracy_elevation_label"
+  type: "Accuracy"
+  bottom: "fc_elevation_96"
+  bottom: "gt_elevation_label"
+  top: "accuracy_elevation_label"
+  accuracy_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "accuracy_tilt_label"
+  type: "Accuracy"
+  bottom: "fc_tilt_96"
+  bottom: "gt_tilt_label"
+  top: "accuracy_tilt_label"
+  accuracy_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "error_angular_deg"
+  type: "Python"
+  bottom: "pred_viewpoint"
+  bottom: "gt_viewpoint"
+  top: "error_angular_deg"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AverageAngularError"
+    param_str: "--degrees_out"
+  }
+}
+
+layer {
+  name: "slicer_error_angular"
+  type: "Slice"
+  bottom: "error_angular_deg"
+  top: "error_azimuth_deg"
+  top: "error_elevation_deg"
+  top: "error_tilt_deg"
+  slice_param {
+    axis: 1
+    slice_point: 1
+    slice_point: 2
   }
 }

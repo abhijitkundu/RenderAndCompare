@@ -345,7 +345,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         # set top shapes
         top_shapes = {
-            "input_image": (self.imgs_per_batch, 3, 768, 1024),   # Use dummy H W
+            "input_image": (self.imgs_per_batch, 3, 200, 100),   # Use dummy H W
             "flippings": (self.imgs_per_batch,),   # Use dummy H W
             "scales": (self.imgs_per_batch,),   # Use dummy H W
             "roi": (rois_per_batch, 5),
