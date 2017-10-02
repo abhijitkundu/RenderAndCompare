@@ -51,19 +51,41 @@ if __name__ == '__main__':
         start_idx = batch_size * b
         end_idx = min(batch_size * (b + 1), number_of_images)
         print 'Working on batch: %d/%d (Images# %d - %d)' % (b, num_of_batches, start_idx, end_idx)
+
+        # Run forward pass
         output = net.forward()
 
+        # Get image_scales and image_flippings
         image_scales = net.blobs['image_scales'].data
         image_flippings = net.blobs['image_flippings'].data.astype(np.bool)
         assert image_scales.shape == image_flippings.shape == (batch_size,)
 
+        # Get roi_blob and from that determine number_of_rois
         roi_blob = net.blobs['roi'].data
-        # print roi_blob
         assert roi_blob.ndim == 2 and roi_blob.shape[1] == 5
-        for roi_id in xrange(roi_blob.shape[0]):
+
+        number_of_rois = roi_blob.shape[0]
+        for roi_id in xrange(number_of_rois):
             roi_batch_index = roi_blob[roi_id, 0]
             assert 0 <= roi_batch_index <= batch_size
             assert_bbx(roi_blob[roi_id, -4:])
+
+        # Check the bbx blobs
+        bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data
+        bbx_crop_blob = net.blobs['gt_bbx_crop'].data
+        for bbx_blob in [bbx_amodal_blob, bbx_crop_blob]:
+            assert bbx_blob.shape == (number_of_rois, 4)
+            for roi_id in xrange(number_of_rois):
+                assert_bbx(bbx_blob[roi_id, :])
+
+        # Check the center proj blobs
+        center_proj_blob = net.blobs['gt_center_proj'].data
+        assert center_proj_blob.shape == (number_of_rois, 2)
+
+        # Check vp blobs
+        vp_blob = net.blobs['gt_viewpoint'].data
+        assert vp_blob.shape == (number_of_rois, 3), "Weird vp shape = {}".format(vp_blob)
+        assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all()
 
         for i in xrange(start_idx, end_idx):
             original_image = cv2.imread(osp.join(dataset.rootdir(), dataset.annotations()[i]['image_file']))
