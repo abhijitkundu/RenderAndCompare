@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Tests a RCNN style model
+Evaluate a RCNN style model
 """
 
 import os.path as osp

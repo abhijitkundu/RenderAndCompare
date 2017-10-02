@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Tests a FastRCNN style model
+Evaluate a FastRCNN style model
 """
 
 import os.path as osp
