@@ -53,6 +53,19 @@ def makeBGR8image(image):
     rgb8_image = image.transpose(1, 2, 0)
     return np.uint8(rgb8_image)
 
+def scale_image(image, target_size, max_size):
+    """uniformly scales an image's shorter size to target size bounded by max_size"""
+    img_hw = image.shape[:2]
+    img_size_min = np.min(img_hw)
+    img_size_max = np.max(img_hw)
+    img_scale = float(target_size) / float(img_size_min)
+    # Prevent the biggest axis from being more than MAX_SIZE
+    if np.round(img_scale * img_size_max) > max_size:
+        img_scale = float(max_size) / float(img_size_max)
+    # resize image by img_scale
+    image = cv2.resize(image, None, None, fx=img_scale, fy=img_scale, interpolation=cv2.INTER_LINEAR)
+    return image, img_scale
+
 
 def crop_and_resize_image(image, cropping_box, target_size):
     assert image.ndim == 3, 'Expects image to be rank 3 tensor (color image) but got rank {}'.format(image.ndim)

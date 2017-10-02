@@ -12,7 +12,7 @@ from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord
 
 if __name__ == '__main__':
     import argparse
-    description = ('Test datalayer')
+    description = ('Test RCNN style datalayer')
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("dataset", help="Dataset JSON file")
     parser.add_argument("-n", "--net_file", required=True, help="Net (prototxt) file")

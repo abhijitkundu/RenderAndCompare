@@ -8,10 +8,22 @@ import cv2
 from RenderAndCompare.geometry import create_jittered_bbx, bbx_iou_overlap
 
 def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
-    """Sample number_of_objects object infos from object_infos by jittering"""
-    sampled_object_infos = []
+    """
+    Sample number_of_objects object infos from input object_infos by jittering
+    If number_of_objects < 0 then return the original object_infos
+    """
     number_of_gt_objects = len(object_infos)
-    assert number_of_gt_objects, "Cannot have 0 objects"
+    assert number_of_gt_objects > 0, "Cannot have 0 objects"
+
+    sampled_object_infos = []
+    #if number_of_objects < 0 then return the original object_infos
+    if number_of_objects < 0:
+        for oi in object_infos:
+            obj_info = oi.copy()
+            obj_info['bbx_crop'] = oi['bbx_visible']
+            sampled_object_infos.append(obj_info)
+        return sampled_object_infos
+
     obj_ids = range(number_of_gt_objects)
     shuffle(obj_ids)
     i = 0

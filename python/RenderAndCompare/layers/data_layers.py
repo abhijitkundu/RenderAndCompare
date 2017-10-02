@@ -5,9 +5,12 @@ from random import shuffle, random, randint
 import numpy as np
 
 import caffe
-from RenderAndCompare.datasets import BatchImageLoader, crop_and_resize_image, uniform_crop_and_resize_image
-from RenderAndCompare.geometry import create_jittered_bbx, bbx_iou_overlap
-
+from RenderAndCompare.datasets import (
+    BatchImageLoader,
+    crop_and_resize_image,
+    uniform_crop_and_resize_image,
+    scale_image, sample_object_infos
+)
 
 class AbstractDataLayer(caffe.Layer):
     """
@@ -239,8 +242,7 @@ class RCNNDataLayer(AbstractDataLayer):
             data_sample['bbx_crop'][[0, 2]] = W - data_sample['bbx_crop'][[2, 0]]
             data_sample['bbx_amodal'][[0, 2]] = W - data_sample['bbx_amodal'][[2, 0]]
             data_sample['center_proj'][0] = W - data_sample['center_proj'][0]
-            data_sample['viewpoint'][0] = -data_sample['viewpoint'][0]
-            data_sample['viewpoint'][2] = -data_sample['viewpoint'][2]
+            data_sample['viewpoint'][[0, 2]] = -data_sample['viewpoint'][[0, 2]]
             data_sample['input_image'] = np.fliplr(data_sample['input_image'])
 
         # Change image channel order
@@ -392,8 +394,8 @@ class FastRCNNDataLayer(AbstractDataLayer):
                 obj_info['category'] = anno_obj['category']
 
                 for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
-                    if field in annotation:
-                        obj_info[field] = np.array(annotation[field])
+                    if field in anno_obj:
+                        obj_info[field] = np.array(anno_obj[field])
 
                 obj_infos.append(obj_info)
 
@@ -459,35 +461,72 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         assert hasattr(self, 'data_ids'), 'Most likely data has not been initialized before calling forward()'
 
-        # image_ids = []
-        # for _ in xrange(self.imgs_per_batch):
-        #     # Did we finish an epoch?
-        #     if self.curr_data_ids_idx == len(self.data_ids):
-        #         self.curr_data_ids_idx = 0
-        #         shuffle(self.data_ids)
+        image_ids = []
+        for _ in xrange(self.imgs_per_batch):
+            # Did we finish an epoch?
+            if self.curr_data_ids_idx == len(self.data_ids):
+                self.curr_data_ids_idx = 0
+                shuffle(self.data_ids)
 
-        #     # Current Data index
-        #     img_idx = self.data_ids[self.curr_data_ids_idx]
-        #     image_ids.append(img_idx)
+            # Current Data index
+            img_idx = self.data_ids[self.curr_data_ids_idx]
+            image_ids.append(img_idx)
 
-        #     self.curr_data_ids_idx += 1
+            self.curr_data_ids_idx += 1
 
-        # mb_data = self.prepare_mini_batch(image_ids)
+        mb_blobs = self.prepare_mini_batch(image_ids)
 
-    # def prepare_mini_batch(self, image_ids):
-    #     img_blob, img_scales, img_flippings = self.prepare_image_blob(image_ids)
+        for key, mb_blob in mb_blobs.iteritems():
+            if key in self.top_names:
+                top_index = self.top_names.index(key)
+                top[top_index].reshape(*mb_blob.shape)
+                top[top_index].data[...] = mb_blob
 
-    #     obj_blobs = self.pepare_object_blobs(image_ids, img_scales, img_flippings)
+    def prepare_mini_batch(self, image_ids):
+        mb_blobs = {}
+        mb_blobs['input_image'], img_scales, img_flippings = self.prepare_image_blob(image_ids)
+        mb_blobs.update(self.pepare_object_blobs(image_ids, img_scales, img_flippings))
+        return mb_blobs
 
-    #     mb_data = {}
-    #     mb_data['input_image'] = img_blob
-    #     return mb_data
+    def pepare_object_blobs(self, image_ids, img_scales, img_flippings):
+        num_images = len(image_ids)
+        assert len(img_scales) == len(img_flippings) == num_images
 
-    # def pepare_object_blobs(self, image_ids, img_scales, img_flippings):
-    #     num_images = len(image_ids)
-    #     for i in xrange(num_images):
-    #         obj_infos = self.data_samples[image_ids[i]]['objects']
-    #         obj_infos = sample_object_infos(obj_infos, self.rois_per_image, self.jitter_iou_min)
+        obj_infos = []
+        for i in xrange(num_images):
+            image_id = image_ids[i]
+            image_scale = img_scales[i]
+            image_flip = img_flippings[i]
+
+            assert isinstance(image_scale, (float))
+            assert isinstance(image_flip, (bool))
+
+            image_info = self.data_samples[image_id]
+            obj_infos_curr_batch = sample_object_infos(image_info['objects'], self.rois_per_image, self.jitter_iou_min)
+            for obj_info in obj_infos_curr_batch:
+                if image_flip:
+                    W = image_info['image_size'][0]
+                    obj_info['bbx_crop'][[0, 2]] = W - obj_info['bbx_crop'][[2, 0]]
+                    obj_info['bbx_amodal'][[0, 2]] = W - obj_info['bbx_amodal'][[2, 0]]
+                    obj_info['center_proj'][0] = W - obj_info['center_proj'][0]
+                    obj_info['viewpoint'][[0, 2]] = -obj_info['viewpoint'][[0, 2]]
+
+                obj_info['roi'] = np.append(i, obj_info['bbx_crop'] * image_scale)
+            obj_infos.extend(obj_infos_curr_batch)
+
+        num_of_objects = len(obj_infos)
+        object_blobs = {}
+        object_blobs['roi'] = np.empty((num_of_objects, 5), dtype=np.float32)
+        object_blobs['bbx_crop'] = np.empty((num_of_objects, 4), dtype=np.float32)
+        object_blobs['bbx_amodal'] = np.empty((num_of_objects, 4), dtype=np.float32)
+        object_blobs['viewpoint'] = np.empty((num_of_objects, 3), dtype=np.float32)
+        object_blobs['center_proj'] = np.empty((num_of_objects, 2), dtype=np.float32)
+
+        for i, obj_info in enumerate(obj_infos):
+            for field in ['roi', 'bbx_crop', 'bbx_amodal', 'viewpoint', 'center_proj']:
+                object_blobs[field][i, ...] = obj_info[field]
+
+        return object_blobs
 
     def prepare_image_blob(self, image_ids):
         # returns image blob and also scaling, flipping params for each image
@@ -505,15 +544,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
             if flip:
                 img = img[:, ::-1, :]
 
-            img_hw = img.shape[:2]
-            img_size_min = np.min(img_hw)
-            img_size_max = np.max(img_hw)
-            img_scale = float(target_size) / float(img_size_min)
-            # Prevent the biggest axis from being more than MAX_SIZE
-            if np.round(img_scale * img_size_max) > self.size_max:
-                img_scale = float(self.size_max) / float(img_size_max)
-            # resize img by img_scale
-            img = cv2.resize(img, None, None, fx=img_scale, fy=img_scale, interpolation=cv2.INTER_LINEAR)
+            img, img_scale = scale_image(img, target_size, self.size_max)
 
             images.append(img)
             img_scales.append(img_scale)
@@ -530,16 +561,3 @@ class FastRCNNDataLayer(AbstractDataLayer):
         img_blob = img_blob.transpose((0, 3, 1, 2))
 
         return img_blob, img_scales, img_flippings
-
-
-# def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
-#     sample_object_infos = []
-#     number_of_gt_objects = len(object_infos)
-#     obj_ids = shuffle(range(number_of_gt_objects))
-#     i = 0
-#     while len(sample_object_infos) < number_of_objects:
-#         if i >= number_of_gt_objects:
-#             shuffle(obj_ids)
-#             i = 0
-#         obj_id = obj_ids[i]
-#         i += 1
