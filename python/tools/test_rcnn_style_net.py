@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Trains a model using one GPU.
+Tests a RCNN style model
 """
 
 import os.path as osp
