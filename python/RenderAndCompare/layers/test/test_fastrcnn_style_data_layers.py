@@ -38,7 +38,7 @@ if __name__ == '__main__':
     number_of_images = dataset.num_of_annotations()
 
     cv2.namedWindow('blob_image', cv2.WINDOW_AUTOSIZE)
-    # cv2.namedWindow('full_image', cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow('original_image', cv2.WINDOW_AUTOSIZE)
 
     image_blob_shape = net.blobs['input_image'].data.shape
     assert len(image_blob_shape) == 4, 'Expects 4D data blob'
@@ -53,6 +53,10 @@ if __name__ == '__main__':
         print 'Working on batch: %d/%d (Images# %d - %d)' % (b, num_of_batches, start_idx, end_idx)
         output = net.forward()
 
+        image_scales = net.blobs['image_scales'].data
+        image_flippings = net.blobs['image_flippings'].data.astype(np.bool)
+        assert image_scales.shape == image_flippings.shape == (batch_size,)
+
         roi_blob = net.blobs['roi'].data
         # print roi_blob
         assert roi_blob.ndim == 2 and roi_blob.shape[1] == 5
@@ -62,6 +66,9 @@ if __name__ == '__main__':
             assert_bbx(roi_blob[roi_id, -4:])
 
         for i in xrange(start_idx, end_idx):
+            original_image = cv2.imread(osp.join(dataset.rootdir(), dataset.annotations()[i]['image_file']))
+            cv2.imshow('original_image', original_image)
+
             image_blob = net.blobs['input_image'].data[i - start_idx]
             image_blob_bgr8 = net.layers[0].make_bgr8_from_blob(image_blob).copy()
 
@@ -72,6 +79,7 @@ if __name__ == '__main__':
                     cv2.rectangle(image_blob_bgr8, tuple(bbx_roi[:2]), tuple(bbx_roi[2:]), (0, 255, 0), 1)
 
             cv2.imshow('blob_image', image_blob_bgr8)
+            cv2.displayOverlay('blob_image', 'Flipped' if image_flippings[i - start_idx] else 'Original')
 
             key = cv2.waitKey(args.pause)
             if key == 27:

@@ -12,6 +12,7 @@ from RenderAndCompare.datasets import (
     scale_image, sample_object_infos
 )
 
+
 class AbstractDataLayer(caffe.Layer):
     """
     Generic python Data layer for caffe
@@ -285,7 +286,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
     def parse_param_str(self, param_str):
         """Parse params"""
-        top_names_choices = ['input_image', 'roi', 'viewpoint', 'bbx_amodal', 'bbx_crop', 'center_proj']
+        top_names_choices = ['input_image', 'flippings', 'scales', 'roi', 'viewpoint', 'bbx_amodal', 'bbx_crop', 'center_proj']
         default_mean_bgr = [103.0626238, 115.90288257, 123.15163084]  # ResNet
         default_size_range = [600, 1024]
 
@@ -295,8 +296,6 @@ class FastRCNNDataLayer(AbstractDataLayer):
         parser.add_argument("-r", "--rois_per_image", default=64, type=int, help="ROIs per image. Use -1 for dynamic number of rois (e.g during test time)")
         parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True,
                             type=str, help="ordered list of top names e.g input_image azimuth shape")
-        parser.add_argument("-c", "--crop_target", default='bbx_visible',
-                            choices=['bbx_amodal', 'bbx_visible'], type=str, help="bbx type used for cropping (Defaults to bbx_visible)")
         parser.add_argument("-sr", "--size_range", nargs=2, default=default_size_range, type=int,
                             metavar=('LOW', 'HI'), help="upper and lower bounds for length of shorter size of image in pixels")
         parser.add_argument("-sm", "--size_max", default=3072, type=int,  help="Max pixel size of the longest side of a scaled input image")
@@ -326,8 +325,6 @@ class FastRCNNDataLayer(AbstractDataLayer):
         self.rois_per_image = params.rois_per_image
         # create mean bgr
         self.mean_bgr = np.array(params.mean_bgr)
-        # set crop_target
-        self.crop_target = params.crop_target
         # set size_range
         self.size_range = params.size_range
         # set size_max
@@ -349,6 +346,8 @@ class FastRCNNDataLayer(AbstractDataLayer):
         # set top shapes
         top_shapes = {
             "input_image": (self.imgs_per_batch, 3, 768, 1024),   # Use dummy H W
+            "flippings": (self.imgs_per_batch,),   # Use dummy H W
+            "scales": (self.imgs_per_batch,),   # Use dummy H W
             "roi": (rois_per_batch, 5),
             "viewpoint": (rois_per_batch, 3),
             "bbx_amodal": (rois_per_batch, 4),
@@ -474,32 +473,31 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
             self.curr_data_ids_idx += 1
 
+        # Get all blobs for the minibatch
         mb_blobs = self.prepare_mini_batch(image_ids)
 
-        for key, mb_blob in mb_blobs.iteritems():
-            if key in self.top_names:
-                top_index = self.top_names.index(key)
-                top[top_index].reshape(*mb_blob.shape)
-                top[top_index].data[...] = mb_blob
+        # set top blobs
+        for top_index, top_name in enumerate(self.top_names):
+            blob = mb_blobs[top_name]
+            top[top_index].reshape(*blob.shape)
+            top[top_index].data[...] = blob
 
     def prepare_mini_batch(self, image_ids):
-        mb_blobs = {}
-        mb_blobs['input_image'], img_scales, img_flippings = self.prepare_image_blob(image_ids)
-        mb_blobs.update(self.pepare_object_blobs(image_ids, img_scales, img_flippings))
+        """Prepare minibatch blobs which is retured as a dict"""
+        mb_blobs = self.prepare_image_blobs(image_ids)
+        mb_blobs.update(self.pepare_object_blobs(image_ids, mb_blobs['scales'], mb_blobs['flippings']))
         return mb_blobs
 
     def pepare_object_blobs(self, image_ids, img_scales, img_flippings):
+        """ prepare object (roi) blobs"""
         num_images = len(image_ids)
-        assert len(img_scales) == len(img_flippings) == num_images
+        assert img_scales.shape == img_flippings.shape == (num_images,)
 
         obj_infos = []
         for i in xrange(num_images):
             image_id = image_ids[i]
             image_scale = img_scales[i]
             image_flip = img_flippings[i]
-
-            assert isinstance(image_scale, (float))
-            assert isinstance(image_flip, (bool))
 
             image_info = self.data_samples[image_id]
             obj_infos_curr_batch = sample_object_infos(image_info['objects'], self.rois_per_image, self.jitter_iou_min)
@@ -528,8 +526,8 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         return object_blobs
 
-    def prepare_image_blob(self, image_ids):
-        # returns image blob and also scaling, flipping params for each image
+    def prepare_image_blobs(self, image_ids):
+        """ prepare image info blobs e.g inpu image, scaling, flippings, intrinsics"""
         num_images = len(image_ids)
         images = []
         img_scales = []
@@ -557,7 +555,13 @@ class FastRCNNDataLayer(AbstractDataLayer):
             img = images[i]
             img_blob[i, 0:img.shape[0], 0:img.shape[1], :] = img
 
-        # Make axis order NCHW
-        img_blob = img_blob.transpose((0, 3, 1, 2))
+        image_blobs = {}
+        image_blobs['input_image'] = img_blob.transpose((0, 3, 1, 2))  # Make axis order NCHW
+        image_blobs['scales'] = np.array(img_scales)
+        image_blobs['flippings'] = np.array(img_flippings)
 
-        return img_blob, img_scales, img_flippings
+        assert image_blobs['input_image'].dtype == np.float32
+        assert image_blobs['scales'].dtype == np.float
+        assert image_blobs['flippings'].dtype == np.bool
+
+        return image_blobs

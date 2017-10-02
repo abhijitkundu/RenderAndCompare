@@ -3,11 +3,17 @@ layer {
   name: "data_layer"
   type: "Python"
   top: "input_image"
+  top: "image_scales"
+  top: "image_flippings"
   top: "roi"
+  top: "gt_viewpoint"
+  top: "gt_bbx_amodal"
+  top: "gt_bbx_crop"
+  top: "gt_center_proj"
   python_param {
     module: "RenderAndCompare.layers"
     layer: "FastRCNNDataLayer"
-    param_str: "--imgs_per_batch 2 --size_range 800 1024 --size_max 3100 --flip_ratio 0.5 -j 0.9 --top_names input_image roi --mean_bgr 103.0626238 115.90288257 123.15163084"
+    param_str: "-i 2 -r -1 -sr 800 1024 -sm 3100 -f 0.5 -j 0.9 -t input_image scales flippings roi viewpoint bbx_amodal bbx_crop center_proj -m 103.0626238 115.90288257 123.15163084"
   }
 }
 
