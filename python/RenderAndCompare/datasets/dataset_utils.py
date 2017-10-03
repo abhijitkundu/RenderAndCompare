@@ -18,11 +18,16 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
     sampled_object_infos = []
     #if number_of_objects < 0 then return the original object_infos
     if number_of_objects < 0:
-        for oi in object_infos:
+        for obj_id, oi in enumerate(object_infos):
             obj_info = oi.copy()
-            obj_info['bbx_crop'] = oi['bbx_visible']
+            if jitter_iou_min < 1.0:
+                obj_info['bbx_crop'] = create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min)
+            else:
+                obj_info['bbx_crop'] = oi['bbx_visible']
             sampled_object_infos.append(obj_info)
         return sampled_object_infos
+
+    assert 0.0 < jitter_iou_min <= 1.0, "For non-dynamic rois jitter_iou_min needs to be in [0, 1], but got {}".format(jitter_iou_min)
 
     obj_ids = range(number_of_gt_objects)
     shuffle(obj_ids)
@@ -33,17 +38,21 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
             i = 0
         obj_id = obj_ids[i]
         i += 1
-        bbx_crop_gt = np.array(object_infos[obj_id]['bbx_visible'])
-        while True:
-            bbx_crop = create_jittered_bbx(bbx_crop_gt, jitter_iou_min)
-            max_iou_obj_id = np.asarray([bbx_iou_overlap(bbx_crop, np.array(object_infos[j]['bbx_visible'])) for j in xrange(number_of_gt_objects)]).argmax()
-            if max_iou_obj_id == obj_id:
-                break
-
         obj_info = object_infos[obj_id].copy()
-        obj_info['bbx_crop'] = bbx_crop
+        obj_info['bbx_crop'] = create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min)
         sampled_object_infos.append(obj_info)
     return sampled_object_infos
+
+def create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min):
+    bbx_crop_gt = np.array(object_infos[obj_id]['bbx_visible'])
+    while True:
+        bbx_crop = create_jittered_bbx(bbx_crop_gt, jitter_iou_min)
+        max_iou_obj_id = np.asarray([bbx_iou_overlap(bbx_crop, np.array(object_info['bbx_visible'])) for object_info in object_infos]).argmax()
+        if max_iou_obj_id == obj_id:
+            break
+    return bbx_crop
+
+
 
 def draw_bbx2d(image, boxes, color=(0, 255, 0), thickness=1, copy=True):
     if copy:

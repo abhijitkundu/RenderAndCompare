@@ -34,6 +34,8 @@ def test_single_weights_file(weights_file, net, input_dataset):
     assert len(net.layers[0].data_samples) == num_of_images
     assert net.layers[0].rois_per_image < 0, "rois_per_image need to be dynamic for testing"
     assert net.layers[0].imgs_per_batch == 1, "We only support one image per batch while testing"
+    assert net.layers[0].flip_ratio < 0, "No flipping while testing"
+    assert net.layers[0].jitter_iou_min > 1, "No jittering"
 
     # Create Result dataset
     result_dataset = Dataset(input_dataset.name())

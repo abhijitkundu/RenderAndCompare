@@ -299,8 +299,8 @@ class FastRCNNDataLayer(AbstractDataLayer):
         parser.add_argument("-sr", "--size_range", nargs=2, default=default_size_range, type=int,
                             metavar=('LOW', 'HI'), help="upper and lower bounds for length of shorter size of image in pixels")
         parser.add_argument("-sm", "--size_max", default=3072, type=int,  help="Max pixel size of the longest side of a scaled input image")
-        parser.add_argument("-f", "--flip_ratio", default=0.5, type=float, help="Flip ratio in range [0, 1] (Defaults to 0.5)")
-        parser.add_argument("-j", "--jitter_iou_min", default=0.7, type=float, help="Minimum jitter IOU for crop_target")
+        parser.add_argument("-f", "--flip_ratio", default=0.5, type=float, help="Flip ratio in range [0, 1] (Defaults to 0.5). Use -ve for no flip at all.")
+        parser.add_argument("-j", "--jitter_iou_min", default=0.7, type=float, help="Minimum jitter IOU for crop_target. Use values > 1 for no jittering.")
 
         params = parser.parse_args(param_str.split())
 
@@ -338,8 +338,6 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         assert self.size_range[1] >= self.size_range[0], "invalid size_range = {}".format(self.size_range)
         assert self.size_max >= self.size_range[1], "size_max needs to be greater than max shorter size"
-
-        assert 0.0 < self.jitter_iou_min <= 1.0, "jitter_iou_min needs to be in [0, 1], but got {}".format(self.jitter_iou_min)
 
         rois_per_batch = max(2 * self.rois_per_image, 1)
 
