@@ -113,3 +113,17 @@ if __name__ == '__main__':
         if exit_loop is True:
             print 'User presessed ESC. Exiting'
             break
+
+    # No check the data_layer.data_samples
+    print "Verifying data_samples ...",
+    for im_info_layer, im_info_dataset in zip(net.layers[0].data_samples, dataset.annotations()):
+        assert np.all(im_info_layer['image_size'] == im_info_dataset['image_size'])
+        assert np.all(im_info_layer['image_intrinsic'] == im_info_dataset['image_intrinsic'])
+        assert len(im_info_layer['objects']) == len(im_info_dataset['objects'])
+        for obj_info_layer, obj_info_dataset in zip(im_info_layer['objects'], im_info_dataset['objects']):
+            assert obj_info_layer['id'] == obj_info_dataset['id']
+            assert obj_info_layer['category'] == obj_info_dataset['category']
+            for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
+                assert np.all(obj_info_layer[field] == np.array(obj_info_dataset[field])), \
+                "For field '{}': {} vs {}".format(field, obj_info_layer[field], obj_info_dataset[field])
+    print "Done."

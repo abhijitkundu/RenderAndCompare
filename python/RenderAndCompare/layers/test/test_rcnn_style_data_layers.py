@@ -115,8 +115,10 @@ if __name__ == '__main__':
             assert viewpoint_label[2] == net.blobs['gt_vp_tilt_label'].data[i - start_idx]
 
             # Only for testing synthetic transformation
-            assert np.allclose(pred_bbx_amodal, bbx_amodal_blob, rtol=1e-4, atol=1e-5), 'pred_bbx_amodal={} and bbx_amodal_blob={} are different'.format(pred_bbx_amodal, bbx_amodal_blob)
-            assert np.allclose(pred_center_proj, center_proj_blob, rtol=1e-4, atol=1e-5), 'pred_center_proj={} and center_proj_blob={} are different'.format(pred_center_proj, center_proj_blob)
+            assert np.allclose(pred_bbx_amodal, bbx_amodal_blob, rtol=1e-4,
+                               atol=1e-5), 'pred_bbx_amodal={} and bbx_amodal_blob={} are different'.format(pred_bbx_amodal, bbx_amodal_blob)
+            assert np.allclose(pred_center_proj, center_proj_blob, rtol=1e-4,
+                               atol=1e-5), 'pred_center_proj={} and center_proj_blob={} are different'.format(pred_center_proj, center_proj_blob)
 
             # # Only for testing perfect transformation
             # pred_bbx_amodal = net.blobs['pred_bbx_amodal'].data[i - start_idx, ...]
@@ -135,3 +137,20 @@ if __name__ == '__main__':
         if exit_loop is True:
             print 'User presessed ESC. Exiting'
             break
+
+    # No check the data_layer.data_samples
+    print "Verifying data_samples ...",
+    num_of_objects = sum([len(image_info['objects']) for image_info in dataset.annotations()])
+    assert len(net.layers[0].data_samples) == num_of_objects
+    data_id = 0
+    for image_id, im_info_dataset in enumerate(dataset.annotations()):
+        for obj_info_dataset in im_info_dataset['objects']:
+            obj_info_layer = net.layers[0].data_samples[data_id]
+            assert obj_info_layer['image_id'] == image_id, "{} vs {}".format(obj_info_layer['image_id'], image_id)
+            assert obj_info_layer['id'] == obj_info_dataset['id']
+            assert obj_info_layer['category'] == obj_info_dataset['category']
+            for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj']:
+                assert np.all(obj_info_layer[field] == np.array(obj_info_dataset[field])), \
+                    "For field '{}': {} vs {}".format(field, obj_info_layer[field], obj_info_dataset[field])
+            data_id += 1
+    print "Done."
