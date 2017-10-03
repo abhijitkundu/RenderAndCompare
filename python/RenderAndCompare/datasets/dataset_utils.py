@@ -16,18 +16,18 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
     assert number_of_gt_objects > 0, "Cannot have 0 objects"
 
     sampled_object_infos = []
-    #if number_of_objects < 0 then return the original object_infos
-    if number_of_objects < 0:
+    #if number_of_objects <= 0 (dynamic roi) then return the original object_infos
+    if number_of_objects <= 0:
         for obj_id, oi in enumerate(object_infos):
             obj_info = oi.copy()
             if jitter_iou_min < 1.0:
                 obj_info['bbx_crop'] = create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min)
             else:
-                obj_info['bbx_crop'] = oi['bbx_visible']
+                obj_info['bbx_crop'] = oi['bbx_visible'].copy()
             sampled_object_infos.append(obj_info)
         return sampled_object_infos
 
-    assert 0.0 < jitter_iou_min <= 1.0, "For non-dynamic rois jitter_iou_min needs to be in [0, 1], but got {}".format(jitter_iou_min)
+    # assert 0.0 < jitter_iou_min <= 1.0, "For non-dynamic rois jitter_iou_min needs to be in [0, 1], but got {}".format(jitter_iou_min)
 
     obj_ids = range(number_of_gt_objects)
     shuffle(obj_ids)
@@ -39,7 +39,10 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
         obj_id = obj_ids[i]
         i += 1
         obj_info = object_infos[obj_id].copy()
-        obj_info['bbx_crop'] = create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min)
+        if jitter_iou_min < 1.0:
+            obj_info['bbx_crop'] = create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min)
+        else:
+            obj_info['bbx_crop'] = object_infos[obj_id]['bbx_visible'].copy()
         sampled_object_infos.append(obj_info)
     return sampled_object_infos
 
