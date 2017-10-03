@@ -2,10 +2,14 @@
 Some usefule dataset related functionality
 """
 
+from copy import deepcopy
 from random import shuffle
-import numpy as np
+
 import cv2
-from RenderAndCompare.geometry import create_jittered_bbx, bbx_iou_overlap
+import numpy as np
+
+from RenderAndCompare.geometry import bbx_iou_overlap, create_jittered_bbx
+
 
 def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
     """
@@ -19,7 +23,7 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
     #if number_of_objects <= 0 (dynamic roi) then return the original object_infos
     if number_of_objects <= 0:
         for obj_id, oi in enumerate(object_infos):
-            obj_info = oi.copy()
+            obj_info = deepcopy(oi)
             if jitter_iou_min < 1.0:
                 obj_info['bbx_crop'] = create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min)
             else:
@@ -38,7 +42,7 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
             i = 0
         obj_id = obj_ids[i]
         i += 1
-        obj_info = object_infos[obj_id].copy()
+        obj_info = deepcopy(object_infos[obj_id])
         if jitter_iou_min < 1.0:
             obj_info['bbx_crop'] = create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min)
         else:
@@ -47,6 +51,7 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
     return sampled_object_infos
 
 def create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min):
+    """Jitter bbx by makin sure the jittered bbx still has the maximum overlap with original bbx"""
     bbx_crop_gt = np.array(object_infos[obj_id]['bbx_visible'])
     while True:
         bbx_crop = create_jittered_bbx(bbx_crop_gt, jitter_iou_min)
@@ -58,6 +63,7 @@ def create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min):
 
 
 def draw_bbx2d(image, boxes, color=(0, 255, 0), thickness=1, copy=True):
+    """Draw 2d boxes on image"""
     if copy:
         image_ = image.copy()
     else:

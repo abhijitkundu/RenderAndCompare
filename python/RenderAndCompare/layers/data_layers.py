@@ -539,6 +539,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
         img_scales = []
         img_flippings = []
         for i in xrange(num_images):
+            # do mean substraction (also astype does a copy so we are good here)
             img = self.image_loader[image_ids[i]].astype(np.float32) - self.mean_bgr
             assert img.ndim == 3 and img.shape[2] == 3
 

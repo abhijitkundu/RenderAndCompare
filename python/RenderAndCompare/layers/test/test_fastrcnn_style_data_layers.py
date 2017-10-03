@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument("dataset", help="Dataset JSON file")
     parser.add_argument("-n", "--net_file", required=True, help="Net (prototxt) file")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
+    parser.add_argument("-e", "--epochs", type=int, default=2, help="Number of epochs")
     parser.add_argument("-p", "--pause", default=0, type=int, help="Set number of milliseconds to pause. Use 0 to pause indefinitely")
     args = parser.parse_args()
 
@@ -48,82 +49,88 @@ if __name__ == '__main__':
     num_of_batches = int(np.ceil(dataset.num_of_annotations() / float(batch_size)))
 
     exit_loop = False
-    for b in xrange(num_of_batches):
-        start_idx = batch_size * b
-        end_idx = min(batch_size * (b + 1), number_of_images)
-        print 'Working on batch: %d/%d (Images# %d - %d)' % (b, num_of_batches, start_idx, end_idx)
+    for epoch_id in xrange(args.epochs):
+        print "-----------------------Epoch # {} / {} -----------------------------".format(epoch_id, args.epochs)
+        for b in xrange(num_of_batches):
+            start_idx = batch_size * b
+            end_idx = min(batch_size * (b + 1), number_of_images)
+            print 'Working on batch: {}/{} (Images# {} - {}) of epoch {}'.format(b, num_of_batches, start_idx, end_idx, epoch_id)
 
-        # Run forward pass
-        output = net.forward()
+            # Run forward pass
+            output = net.forward()
 
-        # Get image_scales and image_flippings
-        image_scales = net.blobs['image_scales'].data
-        image_flippings = net.blobs['image_flippings'].data.astype(np.bool)
-        assert image_scales.shape == image_flippings.shape == (batch_size,)
+            # Get image_scales and image_flippings
+            image_scales = net.blobs['image_scales'].data
+            image_flippings = net.blobs['image_flippings'].data.astype(np.bool)
+            assert image_scales.shape == image_flippings.shape == (batch_size,)
 
-        # Get roi_blob and from that determine number_of_rois
-        roi_blob = net.blobs['roi'].data
-        assert roi_blob.ndim == 2 and roi_blob.shape[1] == 5
+            # Get roi_blob and from that determine number_of_rois
+            roi_blob = net.blobs['roi'].data
+            assert roi_blob.ndim == 2 and roi_blob.shape[1] == 5
 
-        number_of_rois = roi_blob.shape[0]
-        for roi_id in xrange(number_of_rois):
-            roi_batch_index = roi_blob[roi_id, 0]
-            assert 0 <= roi_batch_index <= batch_size
-            assert_bbx(roi_blob[roi_id, -4:])
-
-        # Check the bbx blobs
-        bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data
-        bbx_crop_blob = net.blobs['gt_bbx_crop'].data
-        for bbx_blob in [bbx_amodal_blob, bbx_crop_blob]:
-            assert bbx_blob.shape == (number_of_rois, 4)
+            number_of_rois = roi_blob.shape[0]
             for roi_id in xrange(number_of_rois):
-                assert_bbx(bbx_blob[roi_id, :])
-
-        # Check the center proj blobs
-        center_proj_blob = net.blobs['gt_center_proj'].data
-        assert center_proj_blob.shape == (number_of_rois, 2)
-
-        # Check vp blobs
-        vp_blob = net.blobs['gt_viewpoint'].data
-        assert vp_blob.shape == (number_of_rois, 3), "Weird vp shape = {}".format(vp_blob)
-        assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all()
-
-        for i in xrange(start_idx, end_idx):
-            original_image = cv2.imread(osp.join(dataset.rootdir(), dataset.annotations()[i]['image_file']))
-            cv2.imshow('original_image', original_image)
-
-            image_blob = net.blobs['input_image'].data[i - start_idx]
-            image_blob_bgr8 = net.layers[0].make_bgr8_from_blob(image_blob).copy()
-
-            for roi_id in xrange(roi_blob.shape[0]):
                 roi_batch_index = roi_blob[roi_id, 0]
-                if roi_batch_index == (i - start_idx):
-                    bbx_roi = roi_blob[roi_id, -4:].astype(np.float32)
-                    cv2.rectangle(image_blob_bgr8, tuple(bbx_roi[:2]), tuple(bbx_roi[2:]), (0, 255, 0), 1)
+                assert 0 <= roi_batch_index <= batch_size
+                assert_bbx(roi_blob[roi_id, -4:])
 
-            cv2.imshow('blob_image', image_blob_bgr8)
-            cv2.displayOverlay('blob_image', 'Flipped' if image_flippings[i - start_idx] else 'Original')
+            # Check the bbx blobs
+            bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data
+            bbx_crop_blob = net.blobs['gt_bbx_crop'].data
+            for bbx_blob in [bbx_amodal_blob, bbx_crop_blob]:
+                assert bbx_blob.shape == (number_of_rois, 4)
+                for roi_id in xrange(number_of_rois):
+                    assert_bbx(bbx_blob[roi_id, :])
 
-            key = cv2.waitKey(args.pause)
-            if key == 27:
-                cv2.destroyAllWindows()
-                exit_loop = True
+            # Check the center proj blobs
+            center_proj_blob = net.blobs['gt_center_proj'].data
+            assert center_proj_blob.shape == (number_of_rois, 2)
+
+            # Check vp blobs
+            vp_blob = net.blobs['gt_viewpoint'].data
+            assert vp_blob.shape == (number_of_rois, 3), "Weird vp shape = {}".format(vp_blob)
+            assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all()
+
+            for i in xrange(start_idx, end_idx):
+                original_image = cv2.imread(osp.join(dataset.rootdir(), dataset.annotations()[i]['image_file']))
+                cv2.imshow('original_image', original_image)
+
+                image_blob = net.blobs['input_image'].data[i - start_idx]
+                image_blob_bgr8 = net.layers[0].make_bgr8_from_blob(image_blob).copy()
+
+                for roi_id in xrange(roi_blob.shape[0]):
+                    roi_batch_index = roi_blob[roi_id, 0]
+                    if roi_batch_index == (i - start_idx):
+                        bbx_roi = roi_blob[roi_id, -4:].astype(np.float32)
+                        cv2.rectangle(image_blob_bgr8, tuple(bbx_roi[:2]), tuple(bbx_roi[2:]), (0, 255, 0), 1)
+
+                cv2.imshow('blob_image', image_blob_bgr8)
+                cv2.displayOverlay('blob_image', 'Flipped' if image_flippings[i - start_idx] else 'Original')
+
+                key = cv2.waitKey(args.pause)
+                if key == 27:
+                    cv2.destroyAllWindows()
+                    exit_loop = True
+                    break
+                elif key == ord('p'):
+                    args.pause = not args.pause
+
+            if exit_loop is True:
+                print 'User presessed ESC. Exiting epoch {}'.format(epoch_id)
+                exit_loop = False
                 break
+        print "-----------------------End of epoch -----------------------------"
 
-        if exit_loop is True:
-            print 'User presessed ESC. Exiting'
-            break
-
-    # No check the data_layer.data_samples
-    print "Verifying data_samples ...",
-    for im_info_layer, im_info_dataset in zip(net.layers[0].data_samples, dataset.annotations()):
-        assert np.all(im_info_layer['image_size'] == im_info_dataset['image_size'])
-        assert np.all(im_info_layer['image_intrinsic'] == im_info_dataset['image_intrinsic'])
-        assert len(im_info_layer['objects']) == len(im_info_dataset['objects'])
-        for obj_info_layer, obj_info_dataset in zip(im_info_layer['objects'], im_info_dataset['objects']):
-            assert obj_info_layer['id'] == obj_info_dataset['id']
-            assert obj_info_layer['category'] == obj_info_dataset['category']
-            for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
-                assert np.all(obj_info_layer[field] == np.array(obj_info_dataset[field])), \
-                "For field '{}': {} vs {}".format(field, obj_info_layer[field], obj_info_dataset[field])
-    print "Done."
+        # No check the data_layer.data_samples
+        print "Verifying data_samples ...",
+        for im_info_layer, im_info_dataset in zip(net.layers[0].data_samples, dataset.annotations()):
+            assert np.all(im_info_layer['image_size'] == im_info_dataset['image_size'])
+            assert np.all(im_info_layer['image_intrinsic'] == im_info_dataset['image_intrinsic'])
+            assert len(im_info_layer['objects']) == len(im_info_dataset['objects'])
+            for obj_info_layer, obj_info_dataset in zip(im_info_layer['objects'], im_info_dataset['objects']):
+                assert obj_info_layer['id'] == obj_info_dataset['id']
+                assert obj_info_layer['category'] == obj_info_dataset['category']
+                for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
+                    assert np.all(obj_info_layer[field] == np.array(obj_info_dataset[field])), \
+                    "For field '{}': {} vs {}".format(field, obj_info_layer[field], obj_info_dataset[field])
+        print "Done."
