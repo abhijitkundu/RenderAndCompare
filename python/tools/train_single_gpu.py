@@ -32,6 +32,7 @@ def train(solver_proto, datasets, initialization, gpu_id):
 
     for dataset in datasets:
         solver.net.layers[0].add_dataset(dataset)
+    solver.net.layers[0].print_params()
     solver.net.layers[0].generate_datum_ids()
 
     # train according to solver params

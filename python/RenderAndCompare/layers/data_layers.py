@@ -41,7 +41,7 @@ class AbstractDataLayer(caffe.Layer):
         self.params = self.parse_param_str(self.param_str)
 
         # create mean bgr to directly operate on image data blob
-        self.mean_bgr = np.array(self.params.mean_bgr).reshape(1, 3, 1, 1)
+        self.mean_bgr = np.array(self.params.mean_bgr)
 
         print "AbstractDataLayer has been setup."
         pass
@@ -74,6 +74,14 @@ class AbstractDataLayer(caffe.Layer):
         if hasattr(self, 'data_ids'):
             return len(self.data_ids)
         return 0
+
+    def print_params(self):
+        print "------------------- DataLayer Config -----------------------"
+        for param_key in self.__dict__:
+            if param_key in ['data_ids', 'data_samples', 'param_str']:
+                continue
+            print "\t{} \t= {}".format(param_key, getattr(self, param_key))
+        print "------------------------------------------------------------"
 
     def make_rgb8_from_blob(self, blob_data):
         """
@@ -133,7 +141,7 @@ class RCNNDataLayer(AbstractDataLayer):
         # Store batch size as member variable for use in other methods
         self.batch_size = params.batch_size
         # create mean bgr to directly operate on image data blob
-        self.mean_bgr = np.array(params.mean_bgr).reshape(1, 3, 1, 1)
+        self.mean_bgr = np.array(params.mean_bgr)
         # set network input_image size
         self.im_size = params.im_size
         # set flip_ratio
@@ -234,7 +242,7 @@ class RCNNDataLayer(AbstractDataLayer):
         data_sample['viewpoint'] = original_data_sample['viewpoint'].copy()
         data_sample['center_proj'] = original_data_sample['center_proj'].copy()
         if self.uniform_crop:
-            data_sample['input_image'] = uniform_crop_and_resize_image(full_image, bbx_crop, self.im_size, np.squeeze(self.mean_bgr))
+            data_sample['input_image'] = uniform_crop_and_resize_image(full_image, bbx_crop, self.im_size, self.mean_bgr)
         else:
             data_sample['input_image'] = crop_and_resize_image(full_image, bbx_crop, self.im_size)
 
@@ -278,7 +286,7 @@ class RCNNDataLayer(AbstractDataLayer):
 
         # subtarct mean from image data blob
         if 'input_image' in self.top_names:
-            top[self.top_names.index('input_image')].data[...] -= self.mean_bgr
+            top[self.top_names.index('input_image')].data[...] -= self.mean_bgr.reshape(1, 3, 1, 1)
 
 
 class FastRCNNDataLayer(AbstractDataLayer):

@@ -32,6 +32,7 @@ if __name__ == '__main__':
     print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
     net.layers[0].add_dataset(dataset)
+    net.layers[0].print_params()
     net.layers[0].generate_datum_ids()
 
     assert net.layers[0].number_of_datapoints() == dataset.num_of_annotations()

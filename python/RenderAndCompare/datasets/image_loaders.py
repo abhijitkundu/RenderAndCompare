@@ -42,6 +42,10 @@ class BatchImageLoader(object):
     def __len__(self):
         return len(self.preloaded_images)
 
+    def __repr__(self):
+        'Return a nicely formatted representation string'
+        return "BatchImageLoader(number_of_images={}, Transpose={})".format(len(self.preloaded_images), self.transpose)
+
 
 def makeRGB8image(image):
     rgb8_image = image.transpose(1, 2, 0)

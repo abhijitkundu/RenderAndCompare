@@ -120,6 +120,9 @@ def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     # Add dataset to datalayer
     net.layers[0].add_dataset(input_dataset)
 
+    # print data layer params
+    net.layers[0].print_params()
+
     # store accuracies for each weight file here
     performance_metrics = []
 
