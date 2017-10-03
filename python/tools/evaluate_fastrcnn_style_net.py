@@ -4,15 +4,20 @@ Evaluate a FastRCNN style model
 """
 
 import os.path as osp
+import re
 from collections import OrderedDict
 
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import tqdm
 
 import _init_paths
 import caffe
 from RenderAndCompare.datasets import Dataset, NoIndent
-from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
+from RenderAndCompare.evaluation import compute_performance_metrics
+from RenderAndCompare.geometry import (assert_bbx, assert_coord2D,
+                                       assert_viewpoint)
 
 
 def test_single_weights_file(weights_file, net, input_dataset):
@@ -39,14 +44,14 @@ def test_single_weights_file(weights_file, net, input_dataset):
     for input_im_info in input_dataset.annotations():
         result_im_info = OrderedDict()
         result_im_info['image_file'] = input_im_info['image_file']
-        result_im_info['image_size'] = NoIndent(input_im_info['image_size'])
-        result_im_info['image_intrinsic'] = NoIndent(input_im_info['image_intrinsic'])
+        result_im_info['image_size'] = input_im_info['image_size']
+        result_im_info['image_intrinsic'] = input_im_info['image_intrinsic']
         obj_infos = []
         for input_obj_info in input_im_info['objects']:
             obj_info = OrderedDict()
             obj_info['id'] = input_obj_info['id']
             obj_info['category'] = input_obj_info['category']
-            obj_info['bbx_visible'] = NoIndent(input_obj_info['bbx_visible'])
+            obj_info['bbx_visible'] = input_obj_info['bbx_visible']
             obj_infos.append(obj_info)
         result_im_info['objects'] = obj_infos
         assert len(result_im_info['objects']) == len(input_im_info['objects'])
@@ -64,7 +69,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
     print 'Running inference for {} images.'.format(num_of_images)
     for image_id in tqdm.trange(num_of_images):
         # Run forward pass
-        output = net.forward()
+        _ = net.forward()
 
         img_info = result_dataset.annotations()[image_id]
         expected_num_of_rois = len(img_info['objects'])
@@ -81,9 +86,26 @@ def test_single_weights_file(weights_file, net, input_dataset):
                 if pred_info in net.blobs:
                     prediction = np.squeeze(net.blobs[pred_info].data[i, ...])
                     assert_funcs[info](prediction)
-                    obj_info[info] = NoIndent(prediction.tolist())
+                    obj_info[info] = prediction.tolist()
 
-    return result_dataset
+    print "Evaluating results ... "
+    perf_metrics_df = compute_performance_metrics(input_dataset, result_dataset)
+    perf_metrics_summary_df = perf_metrics_df.describe()
+    print perf_metrics_summary_df
+
+    return result_dataset, perf_metrics_summary_df
+
+
+def prepare_dataset_for_saving(dataset):
+    for im_info in dataset.annotations():
+        for im_info_field in ['image_size', 'image_intrinsic']:
+            if im_info_field in im_info:
+                im_info[im_info_field] = NoIndent(im_info[im_info_field])
+
+        for obj_info in im_info['objects']:
+            for obj_info_field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj']:
+                if obj_info_field in obj_info:
+                    obj_info[obj_info_field] = NoIndent(obj_info[obj_info_field])
 
 
 def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
@@ -97,14 +119,52 @@ def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     # Add dataset to datalayer
     net.layers[0].add_dataset(input_dataset)
 
+    perf_metrics_summaries = []
+    iter_regex = re.compile('iter_([0-9]*).caffemodel')
+
     for weights_file in weights_files:
         weight_name = osp.splitext(osp.basename(weights_file))[0]
         print 'Working with weights_file: {}'.format(weight_name)
-        result_dataset = test_single_weights_file(weights_file, net, input_dataset)
+        result_dataset, perf_metrics_summary_df = test_single_weights_file(weights_file, net, input_dataset)
+
+        perf_metrics_summary = {}
+        perf_metrics_summary['iter'] = int(iter_regex.findall(weights_file)[0])
+        for metric in perf_metrics_summary_df:
+            perf_metrics_summary[metric + '_mean'] = perf_metrics_summary_df[metric]['mean']
+            perf_metrics_summary[metric + '_std'] = perf_metrics_summary_df[metric]['std']
+
+        perf_metrics_summaries.append(perf_metrics_summary)
+
         result_name = "{}_{}_result".format(result_dataset.name(), weight_name)
         result_dataset.set_name(result_name)
+        prepare_dataset_for_saving(result_dataset)
         result_dataset.write_data_to_json(result_name + ".json")
         print '--------------------------------------------------'
+
+    perf_metrics_df = pd.DataFrame(perf_metrics_summaries).set_index('iter')
+
+    print 'Saving performance metrics to {}.csv'.format(input_dataset.name() + '_all_metrics')
+    perf_metrics_df.to_csv(input_dataset.name() + '_all_metrics' + '.csv')
+
+    iters = perf_metrics_df.index.values
+    metric_names = []
+    for metric in list(perf_metrics_df.columns.values):
+        if metric.endswith('_mean'):
+            metric_names.append(metric[:-5])
+
+    cmap = plt.get_cmap('viridis')
+    colors = cmap(np.linspace(0, 1, len(metric_names)))
+
+    for (metric, color) in zip(metric_names, colors):
+        mean = perf_metrics_df[metric + '_mean'].values
+        std = perf_metrics_df[metric + '_std'].values
+        plt.plot(iters, mean, label=metric, c=color)
+        plt.fill_between(iters, mean - std, mean + std, facecolor=color, alpha=0.5)
+    plt.legend()
+    plt.xlabel('iterations')
+    print 'Saving error plot to {}_all_metrics.png'.format(input_dataset.name())
+    plt.savefig(input_dataset.name() + '_all_metrics.png')
+    plt.show()
 
 
 def main():
