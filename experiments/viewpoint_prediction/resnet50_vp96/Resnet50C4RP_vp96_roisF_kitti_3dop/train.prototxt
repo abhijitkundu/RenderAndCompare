@@ -9,7 +9,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "FastRCNNDataLayer"
-    param_str: "-i 1 -r 64 -sr 600 650 -sm 2500 -f 0.5 -j 0.95 -t input_image roi viewpoint -m 103.0626238 115.90288257 123.15163084"
+    param_str: "-i 1 -r 32 -sr 600 650 -sm 2500 -f 0.5 -j 0.9 -t input_image roi viewpoint -m 103.0626238 115.90288257 123.15163084"
   }
 }
 
