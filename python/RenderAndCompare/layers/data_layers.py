@@ -26,6 +26,8 @@ class AbstractDataLayer(caffe.Layer):
         parser.add_argument("-b", "--batch_size", default=50, type=int, help="Batch Size")
         parser.add_argument("-m", "--mean_bgr", nargs=3, default=[103.0626238, 115.90288257, 123.15163084],
                             type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
+        parser.add_argument("-s", "--std_bgr", nargs=3, default=[1.0, 1.0, 1.0],
+                            type=float, metavar=('B', 'G', 'R'), help="Std BGR color value")
         params = parser.parse_args(param_str.split())
 
         print "------------- AbstractDataLayer Config ------------------"
@@ -38,10 +40,12 @@ class AbstractDataLayer(caffe.Layer):
     def setup(self, bottom, top):
         """Reimplement Layer setup in this method"""
         # params is expected as argparse style string
-        self.params = self.parse_param_str(self.param_str)
+        params = self.parse_param_str(self.param_str)
 
         # create mean bgr to directly operate on image data blob
-        self.mean_bgr = np.array(self.params.mean_bgr)
+        self.mean_bgr = np.array(params.mean_bgr)
+        # create std bgr to directly operate on image data blob
+        self.std_bgr = np.array(params.std_bgr)
 
         print "AbstractDataLayer has been setup."
         pass
@@ -88,7 +92,7 @@ class AbstractDataLayer(caffe.Layer):
         conveneince method to get an rgb8 image (compatible for Matplotlib display)
         """
         assert blob_data.ndim == 3, 'expects a color image (dim: 3)'
-        image = blob_data + self.mean_bgr.reshape(3, 1, 1)
+        image = blob_data * self.std_bgr.reshape(3, 1, 1) + self.mean_bgr.reshape(3, 1, 1)
         image = image.transpose(1, 2, 0)
         image = image[:, :, ::-1]  # change to RGB
         return np.uint8(image)
@@ -98,7 +102,7 @@ class AbstractDataLayer(caffe.Layer):
         conveneince method to get an bgr8 image (compatible for OpenCV display)
         """
         assert blob_data.ndim == 3, 'expects a color image (dim: 3)'
-        image = blob_data + self.mean_bgr.reshape(3, 1, 1)
+        image = blob_data * self.std_bgr.reshape(3, 1, 1) + self.mean_bgr.reshape(3, 1, 1)
         image = image.transpose(1, 2, 0)
         return np.uint8(image)
 
@@ -109,12 +113,14 @@ class RCNNDataLayer(AbstractDataLayer):
     def parse_param_str(self, param_str):
         top_names_choices = ['input_image', 'viewpoint', 'bbx_amodal', 'bbx_crop', 'center_proj']
         default_mean_bgr = [103.0626238, 115.90288257, 123.15163084]  # ResNet
+        default_std_bgr = [1.0, 1.0, 1.0]  # ResNet
         default_im_size = [224, 224]  # ResNet
 
         parser = argparse.ArgumentParser(description='RCNN style Data Layer')
         parser.add_argument("-b", "--batch_size", default=32, type=int, help="Batch Size")
         parser.add_argument("-wh", "--im_size", nargs=2, default=default_im_size, type=int, metavar=('WIDTH', 'HEIGHT'), help="Image Size [width, height]")
         parser.add_argument("-m", "--mean_bgr", nargs=3, default=default_mean_bgr, type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
+        parser.add_argument("-s", "--std_bgr", nargs=3, default=default_std_bgr, type=float, metavar=('B', 'G', 'R'), help="Std BGR color value")
         parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True,
                             type=str, help="ordered list of top names e.g input_image azimuth shape")
         parser.add_argument("-f", "--flip_ratio", default=0.5, type=float, help="Flip ratio in range [0, 1] (Defaults to 0.5)")
@@ -142,6 +148,8 @@ class RCNNDataLayer(AbstractDataLayer):
         self.batch_size = params.batch_size
         # create mean bgr to directly operate on image data blob
         self.mean_bgr = np.array(params.mean_bgr)
+        # create std bgr to directly operate on image data blob
+        self.std_bgr = np.array(params.std_bgr)
         # set network input_image size
         self.im_size = params.im_size
         # set flip_ratio
@@ -287,6 +295,7 @@ class RCNNDataLayer(AbstractDataLayer):
         # subtarct mean from image data blob
         if 'input_image' in self.top_names:
             top[self.top_names.index('input_image')].data[...] -= self.mean_bgr.reshape(1, 3, 1, 1)
+            top[self.top_names.index('input_image')].data[...] /= self.std_bgr.reshape(1, 3, 1, 1)
 
 
 class FastRCNNDataLayer(AbstractDataLayer):
@@ -296,10 +305,12 @@ class FastRCNNDataLayer(AbstractDataLayer):
         """Parse params"""
         top_names_choices = ['input_image', 'flippings', 'scales', 'roi', 'viewpoint', 'bbx_amodal', 'bbx_crop', 'center_proj']
         default_mean_bgr = [103.0626238, 115.90288257, 123.15163084]  # ResNet
+        default_std_bgr = [1.0, 1.0, 1.0]  # ResNet
         default_size_range = [600, 1024]
 
         parser = argparse.ArgumentParser(description='Fast RCNN style Data Layer')
         parser.add_argument("-m", "--mean_bgr", nargs=3, default=default_mean_bgr, type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
+        parser.add_argument("-s", "--std_bgr", nargs=3, default=default_std_bgr, type=float, metavar=('B', 'G', 'R'), help="Std BGR color value")
         parser.add_argument("-i", "--imgs_per_batch", default=2, type=int, help="Images per batch")
         parser.add_argument("-r", "--rois_per_image", default=64, type=int, help="ROIs per image. Use -1 for dynamic number of rois (e.g during test time)")
         parser.add_argument("-t", "--top_names", nargs='+', choices=top_names_choices, required=True,
@@ -333,6 +344,8 @@ class FastRCNNDataLayer(AbstractDataLayer):
         self.rois_per_image = params.rois_per_image
         # create mean bgr
         self.mean_bgr = np.array(params.mean_bgr)
+        # create std bgr
+        self.std_bgr = np.array(params.std_bgr)
         # set size_range
         self.size_range = params.size_range
         # set size_max
@@ -540,7 +553,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
         img_flippings = []
         for i in xrange(num_images):
             # do mean substraction (also astype does a copy so we are good here)
-            img = self.image_loader[image_ids[i]].astype(np.float32) - self.mean_bgr
+            img = (self.image_loader[image_ids[i]].astype(np.float32) - self.mean_bgr) / self.std_bgr
             assert img.ndim == 3 and img.shape[2] == 3
 
             flip = True if random() < self.flip_ratio else False
