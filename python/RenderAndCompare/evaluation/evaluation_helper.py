@@ -96,3 +96,17 @@ def compute_bbx_iou(bbxA_, bbxB_):
     iou = inter / (a_area + b_area - inter)
 
     return float(iou)
+
+def get_bbx_sizes(dataset, bbx_type='bbx_visible'):
+    obj_ids = []
+    widths = []
+    heights = []
+    for img_info in dataset.annotations():
+        for obj_info in img_info['objects']:
+            bbx = obj_info[bbx_type]
+            obj_ids.append("{}_{}".format(osp.splitext(osp.basename(img_info['image_file']))[0], obj_info['id']))
+            widths.append(bbx[2] - bbx[0])
+            heights.append(bbx[3] - bbx[1])
+    
+    return pd.DataFrame({'obj_id': obj_ids, 'width': widths, 'height': heights}).set_index('obj_id')
+

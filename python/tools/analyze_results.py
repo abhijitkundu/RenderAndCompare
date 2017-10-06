@@ -7,10 +7,11 @@ Analyze results against groundtruth (using dataset json files)
 import os.path as osp
 import argparse
 import matplotlib.pyplot as plt
+import pandas as pd
 
 import _init_paths
 from RenderAndCompare.datasets import Dataset
-from RenderAndCompare.evaluation import compute_performance_metrics
+from RenderAndCompare.evaluation import compute_performance_metrics, get_bbx_sizes
 
 
 def load_datasets(gt_dataset_file, pred_dataset_file):
@@ -40,19 +41,27 @@ def main():
     parser.add_argument("-p", "--pred_dataset_file", required=True, help="Path to predicted (results) RenderAndCompare JSON dataset file")
     args = parser.parse_args()
 
-    # load bot the datasets
+    # load both the datasets
     gt_dataset, pred_dataset = load_datasets(args.gt_dataset_file, args.pred_dataset_file)
 
     # compute perf metrics
     perf_metrics_df = compute_performance_metrics(gt_dataset, pred_dataset)
 
-    print perf_metrics_df.describe()
-    perf_metrics_df.hist(bins=96)
-    plt.show()
+    # get bbx sizes
+    bbx_sizes_df = get_bbx_sizes(gt_dataset)
+
+    assert (perf_metrics_df.index == bbx_sizes_df.index).all()
+    perf_metrics_df = pd.concat([perf_metrics_df, bbx_sizes_df], axis=1)
+
+    print "perf_metrics = ...\n", perf_metrics_df.describe()
 
     pm_out_name = "{}.xlsx".format(pred_dataset.name())
     print 'Saving performance metrics to {}'.format(pm_out_name)
     perf_metrics_df.to_excel(pm_out_name)
+
+    perf_metrics_df.hist(bins=96)
+    plt.show()
+
 
 
 if __name__ == '__main__':
