@@ -20,7 +20,6 @@ def main():
     parser = argparse.ArgumentParser(description="Visualize Results")
     parser.add_argument("pred_dataset_file", help="Path to predicted (results) JSON dataset file")
     parser.add_argument("-s", "--score_threshold", default=0.1, type=float, help="Score thresold")
-    parser.add_argument("-p", "--pause", default=0, type=int, help="Set number of milliseconds to pause. Use 0 to pause indefinitely")
 
     args = parser.parse_args()
 
@@ -31,6 +30,9 @@ def main():
     print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_annotations())
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+
+    paused = True
+    fwd = True
 
     i = 0
     while True:
@@ -55,15 +57,18 @@ def main():
 
         cv2.displayOverlay('image', 'Image: {}'.format(osp.splitext(osp.basename(img_path))[0]))
         cv2.imshow('image', image)
-        key = cv2.waitKey(args.pause)
 
+        key = cv2.waitKey(not paused)
         if key == 27:
             cv2.destroyAllWindows()
             break
         elif key in [82, 83, 100, 119, 61, 43]:
-            i += 1
+            fwd = True
         elif key in [81, 84, 97, 115, 45]:
-            i -= 1
+            fwd = False
+        elif key == ord('p'):
+            paused = not paused        
+        i = i+1 if fwd else i-1
 
 
 if __name__ == '__main__':

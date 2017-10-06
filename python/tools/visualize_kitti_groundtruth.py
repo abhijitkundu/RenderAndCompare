@@ -52,6 +52,9 @@ def main():
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
 
+    paused = True
+    fwd = True
+
     i = 0
     while True:
         i = max(0, min(i, num_of_images - 1))
@@ -137,14 +140,17 @@ def main():
 
         cv2.imshow('image', image)
 
-        key = cv2.waitKey(0)
+        key = cv2.waitKey(not paused)
         if key == 27:
             cv2.destroyAllWindows()
             break
         elif key in [82, 83, 100, 119, 61, 43]:
-            i += 1
+            fwd = True
         elif key in [81, 84, 97, 115, 45]:
-            i -= 1
+            fwd = False
+        elif key == ord('p'):
+            paused = not paused        
+        i = i+1 if fwd else i-1
 
 
 if __name__ == '__main__':
