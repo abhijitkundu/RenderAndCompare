@@ -229,6 +229,16 @@ int main(int argc, char **argv) {
   RaC::ImageDataset dataset = RaC::loadImageDatasetFromJson(dataset_file.string());
   std::cout << "Loaded Image dataset \"" << dataset.name << "\" with " << dataset.annotations.size() << " images" << std::endl;
 
+  if (!fs::exists(dataset.rootdir)) {
+    std::cout << "Error: Dataset rootdir " << dataset.rootdir << " does not exist\n";
+    return EXIT_FAILURE;
+  }
+
+  if (!fs::is_directory(dataset.rootdir)) {
+    std::cout << "Error: Dataset rootdir " << dataset.rootdir << " is not a valid directory\n";
+    return EXIT_FAILURE;
+  }
+
   const int num_of_annotations = dataset.annotations.size();
 
   const std::string img_window_original = "Original Image";
