@@ -21,8 +21,8 @@ from RenderAndCompare.geometry import (assert_bbx, assert_coord2D,
                                        assert_viewpoint)
 
 
-def test_single_weights_file(weights_file, net, input_dataset):
-    """Test already initalized net with a new set of weights"""
+def run_inference(weights_file, net, input_dataset):
+    """Run inference with already initalized net with a new set of weights"""
     net.copy_from(weights_file)
     net.layers[0].generate_datum_ids()
 
@@ -95,12 +95,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
                     assert_funcs[info](prediction)
                     obj_info[info] = prediction.tolist()
 
-    print "Evaluating results ... "
-    perf_metrics_df = compute_performance_metrics(input_dataset, result_dataset)
-    perf_metrics_summary_df = perf_metrics_df.describe()
-    print perf_metrics_summary_df
-
-    return result_dataset, perf_metrics_summary_df
+    return result_dataset
 
 
 def prepare_dataset_for_saving(dataset):
@@ -115,8 +110,19 @@ def prepare_dataset_for_saving(dataset):
                     obj_info[obj_info_field] = NoIndent(obj_info[obj_info_field])
 
 
-def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
-    """Run inference on all weight files"""
+def try_loading_precomputed_results(result_name, weights_file):
+    """Check if results already exists and return that otherwise None"""
+    if osp.exists(result_name + ".json"):
+        result_dataset = Dataset.from_json(result_name + ".json")
+        # Now check if weights file and checksum matches
+        md5_str = md5(open(weights_file, 'rb').read()).hexdigest()
+        meta_info = result_dataset.metainfo()
+        if meta_info['weights_file'] == weights_file and meta_info['weights_file_md5'] == md5_str:
+            return result_dataset
+
+
+def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
+    """evaluate net on all weight files"""
     caffe.set_mode_gpu()
     caffe.set_device(gpu_id)
 
@@ -135,7 +141,21 @@ def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     for weights_file in weights_files:
         weight_name = osp.splitext(osp.basename(weights_file))[0]
         print 'Working with weights_file: {}'.format(weight_name)
-        result_dataset, perf_metrics_summary_df = test_single_weights_file(weights_file, net, input_dataset)
+        result_name = "{}_{}_result".format(input_dataset.name(), weight_name)
+
+        # Check if results has been pre computed
+        result_dataset = try_loading_precomputed_results(result_name, weights_file)
+
+        if result_dataset:
+            print "Skipping inference and using existing results from {}.json".format(result_name)
+        else:
+            # run inference
+            result_dataset = run_inference(weights_file, net, input_dataset)
+
+        print "Evaluating results ... "
+        perf_metrics_df = compute_performance_metrics(input_dataset, result_dataset)
+        perf_metrics_summary_df = perf_metrics_df.describe()
+        print perf_metrics_summary_df
 
         perf_metrics_summary = {}
         perf_metrics_summary['iter'] = int(iter_regex.findall(weights_file)[0])
@@ -145,7 +165,6 @@ def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
 
         perf_metrics_summaries.append(perf_metrics_summary)
 
-        result_name = "{}_{}_result".format(result_dataset.name(), weight_name)
         result_dataset.set_name(result_name)
         prepare_dataset_for_saving(result_dataset)
         result_dataset.write_data_to_json(result_name + ".json")
@@ -203,7 +222,7 @@ def main():
     print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
 
     print 'User provided {} weight files'.format(len(args.weights_files))
-    test_all_weights_files(args.weights_files, args.net_file, dataset, args.gpu)
+    evaluate_all_weights_files(args.weights_files, args.net_file, dataset, args.gpu)
 
 
 if __name__ == '__main__':
