@@ -49,10 +49,19 @@ def main():
                 draw_bbx2d(image, obj_info['bbx_visible'])
                 if 'category' in obj_info:
                     obj_text = obj_info['category']
-                    cv2.putText(image, 
-                                obj_text, 
-                                tuple(np.floor(obj_info['bbx_visible'][:2]).astype(int)), 
-                                cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 255), 1, cv2.LINE_AA)
+                    tl = tuple(np.floor(obj_info['bbx_visible'][:2]).astype(int))
+                    font_face = cv2.FONT_HERSHEY_PLAIN
+                    font_scale = 0.8
+                    thickness = 1
+                    ts, baseline = cv2.getTextSize(obj_text, font_face, font_scale, thickness)
+                    cv2.rectangle(
+                        image, 
+                        (tl[0], tl[1] + baseline),
+                        (tl[0] + ts[0], tl[1] - ts[1]),
+                        (0, 0, 0),
+                        cv2.FILLED
+                    )
+                    cv2.addText(image, obj_text, tl, 'times', color=(0, 255, 0))
 
 
         cv2.displayOverlay('image', 'Image: {}'.format(osp.splitext(osp.basename(img_path))[0]))

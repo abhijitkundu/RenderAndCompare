@@ -82,7 +82,19 @@ def main():
 
             obj_text = "{}_{}".format(pred_obj['category'], pred_obj['id'])
             bbx_visible = np.array(pred_obj['bbx_visible'], dtype=np.float32)
-            cv2.putText(image, obj_text, tuple(bbx_visible[:2]), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 255), 1, cv2.LINE_AA)
+            tl = tuple(np.floor(bbx_visible[:2]).astype(int))
+            font_face = cv2.FONT_HERSHEY_PLAIN
+            font_scale = 0.8
+            thickness = 1
+            ts, baseline = cv2.getTextSize(obj_text, font_face, font_scale, thickness)
+            cv2.rectangle(
+                image, 
+                (tl[0], tl[1] + baseline),
+                (tl[0] + ts[0], tl[1] - ts[1]),
+                (0, 0, 0),
+                cv2.FILLED
+            )
+            cv2.addText(image, obj_text, tl, 'times', color=(0, 255, 0))
 
             if gt_obj:
                 assert gt_obj['id'] == pred_obj['id']
