@@ -45,8 +45,8 @@ def draw_object(image, obj_info, color=(0, 255, 0)):
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(description="Analyze Results")
-    parser.add_argument("-p", "--pred_dataset_file", help="Path to predicted (results) RenderAndCompare JSON dataset file")
-    parser.add_argument("-g", "--gt_dataset_file", help="Path to groundtruth RenderAndCompare JSON dataset file")
+    parser.add_argument("-p", "--pred_dataset_file", required=True, help="Path to predicted (results) RenderAndCompare JSON dataset file")
+    parser.add_argument("-g", "--gt_dataset_file", required=True, help="Path to groundtruth RenderAndCompare JSON dataset file")
 
     args = parser.parse_args()
 
