@@ -6,6 +6,7 @@ Evaluate a RCNN style model
 import os.path as osp
 import re
 from collections import OrderedDict
+from hashlib import md5
 
 import numpy as np
 import pandas as pd
@@ -38,6 +39,10 @@ def test_single_weights_file(weights_file, net, input_dataset):
     result_dataset = Dataset(input_dataset.name())
     result_dataset.set_rootdir(input_dataset.rootdir())
     result_dataset.set_metainfo(input_dataset.metainfo().copy())
+
+    # Add weight file and its md5 checksum to metainfo
+    result_dataset.metainfo()['weights_file'] = weights_file
+    result_dataset.metainfo()['weights_file_md5'] = md5(open(weights_file, 'rb').read()).hexdigest()
 
     # Set the image level fields
     for input_im_info in input_dataset.annotations():
