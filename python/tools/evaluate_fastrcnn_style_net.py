@@ -189,6 +189,8 @@ def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
         std = perf_metrics_df[metric + '_std'].values
         plt.plot(iters, mean, label=metric, c=color)
         plt.fill_between(iters, mean - std, mean + std, facecolor=color, alpha=0.5)
+        arg_min = np.argmin(mean)
+        plt.plot([iters[arg_min]], [mean[arg_min]], marker='o', color=color)
     plt.legend()
     plt.xlabel('iterations')
     print 'Saving error plot to {}_all_metrics.png'.format(input_dataset.name())
