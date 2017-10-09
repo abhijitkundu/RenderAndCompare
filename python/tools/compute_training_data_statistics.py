@@ -9,6 +9,7 @@ from scipy.stats import norm
 
 import _init_paths
 from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.geometry import bbx_iou_overlap
 
 def plot_viewpoint_statistics(datasets):
     """Plot viewpoint histograms"""
@@ -30,7 +31,7 @@ def plot_viewpoint_statistics(datasets):
     elevations = viewpoints[:, 1]
     tilts = viewpoints[:, 2]
 
-    f, ((ax1, ax2, ax3)) = plt.subplots(1, 3, figsize=(15, 7))
+    f, ((ax1, ax2, ax3)) = plt.subplots(1, 3, figsize=(21, 7))
 
     f.suptitle('Viewpoint statistics', fontsize=14)
 
@@ -54,6 +55,84 @@ def plot_viewpoint_statistics(datasets):
     ax3.plot(bins, y, 'r--', linewidth=2)
     ax3.set_title('tilts mean=%.3f, sigma=%.3f' % (mu, sigma))
     ax3.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+def plot_bbx_statistics(datasets):
+    """Plot visible bbx histograms"""
+    print 'Computing bbx statistics'
+    bbx_sizes = []
+    for dataset in datasets:
+        for img_info in dataset.annotations():
+            for obj_info in img_info['objects']:
+                if 'bbx_visible'  in obj_info:
+                    cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
+                    wh = cbbx[2:] - cbbx[:2]
+                    bbx_sizes.append(wh)
+    
+    if not bbx_sizes:
+        print 'No bbx information found'
+        return
+    
+    bbx_sizes = np.array(bbx_sizes)
+    widths = bbx_sizes[:, 0]
+    heights = bbx_sizes[:, 1]
+    aspect_ratios = widths / heights
+
+    f, ((ax1, ax2, ax3)) = plt.subplots(1, 3, figsize=(21, 7))
+    f.suptitle('bbx statistics', fontsize=14)
+
+    (mu, sigma) = norm.fit(widths)
+    _, bins, _ = ax1.hist(widths, 60, normed=True, facecolor='green', alpha=0.75)
+    y = mlab.normpdf(bins, mu, sigma)
+    ax1.plot(bins, y, 'r--', linewidth=2)
+    ax1.set_title('widths mean=%.3f, sigma=%.3f' % (mu, sigma))
+    ax1.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    (mu, sigma) = norm.fit(heights)
+    _, bins, _ = ax2.hist(heights, 60, normed=True, facecolor='green', alpha=0.75)
+    y = mlab.normpdf(bins, mu, sigma)
+    ax2.plot(bins, y, 'r--', linewidth=2)
+    ax2.set_title('heights mean=%.3f, sigma=%.3f' % (mu, sigma))
+    ax2.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    (mu, sigma) = norm.fit(aspect_ratios)
+    _, bins, _ = ax3.hist(aspect_ratios, 60, normed=True, facecolor='green', alpha=0.75)
+    y = mlab.normpdf(bins, mu, sigma)
+    ax3.plot(bins, y, 'r--', linewidth=2)
+    ax3.set_title('aspect_ratios mean=%.3f, sigma=%.3f' % (mu, sigma))
+    ax3.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+def plot_bbx_overlap_statistics(datasets):
+    """Plot bbx overlap histograms"""
+    print 'Computing bbx overlap statistics'
+    max_ious = []
+    for dataset in datasets:
+        for img_info in dataset.annotations():
+            boxes = []
+            for obj_info in img_info['objects']:
+                if 'bbx_visible'  in obj_info:
+                    cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
+                    boxes.append(cbbx)
+            num_of_boxes = len(boxes)
+            for i in xrange(num_of_boxes):
+                bbxA = boxes[i]
+                max_iou = 0.0
+                for j in xrange(num_of_boxes):
+                    if j == i:
+                        continue
+                    bbxB = boxes[j]
+                    max_iou = max(bbx_iou_overlap(bbxA, bbxB), max_iou)
+                max_ious.append(max_iou)
+    if not max_ious:
+        print 'No bbx overlap found'
+        return
+    max_ious = np.array(max_ious)
+    f = plt.figure()
+    f.suptitle('bbx overlap (IoU) statistics', fontsize=14)
+    plt.hist(max_ious, bins=50, normed=True)
+    plt.axvline(max_ious.max(), color='b', linestyle='dashed', linewidth=2)
+    plt.xlabel('IoU', fontsize=11)
+
+
 
 def plot_abbx_target_statistics(datasets):
     """Plot amodal bbx target histograms"""
@@ -81,7 +160,7 @@ def plot_abbx_target_statistics(datasets):
     x2_targets = abbx_targets[:, 2]
     y2_targets = abbx_targets[:, 3]
 
-    f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(11, 7))
+    f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
 
     f.suptitle('Amodal bbx target statistics', fontsize=14)
 
@@ -138,7 +217,7 @@ def plot_cp_target_statistics(datasets):
     x_targets = cp_targets[:, 0]
     y_targets = cp_targets[:, 1]
 
-    f, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(11, 7))
+    f, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(14, 7))
 
     f.suptitle('Center projection target statistics', fontsize=14)
 
@@ -199,7 +278,7 @@ def plot_center_distance_statistics(datasets):
 
     f = plt.figure()
     f.suptitle('center_distances statistics', fontsize=14)
-    plt.hist(center_distances, bins=30, normed=False)
+    plt.hist(center_distances, bins=40, normed=True)
     plt.xlabel('center_distances', fontsize=11)
 
 def plot_instance_count_per_image(datasets):
@@ -217,7 +296,7 @@ def plot_instance_count_per_image(datasets):
 
     f = plt.figure()
     f.suptitle('num of objects per image statistics', fontsize=14)
-    plt.hist(num_of_objects_per_image, bins=20, normed=False)
+    plt.hist(num_of_objects_per_image, bins=20, normed=True)
     plt.xlabel('num_of_objects_per_image', fontsize=11)
 
 
@@ -239,6 +318,8 @@ def main():
 
     # Plot object level stats
     plot_viewpoint_statistics(datasets)
+    plot_bbx_statistics(datasets)
+    plot_bbx_overlap_statistics(datasets)
     plot_abbx_target_statistics(datasets)
     plot_cp_target_statistics(datasets)
     plot_center_distance_statistics(datasets)
