@@ -28,13 +28,21 @@ def main():
     print 'Loading predited dataset from {}'.format(args.pred_dataset_file)
     pred_dataset = Dataset.from_json(args.pred_dataset_file)
     print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_annotations())
+    print "score_threshold = {}".format(args.score_threshold)
 
-    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+    cv2.resizeWindow('image', 2048, 1024)
 
     paused = True
     fwd = True
-
     i = 0
+
+    print "---------------KeyMap-----------------"
+    print "Press p to toggle pause"
+    print "Press a/s/left/down to move to previous frame"
+    print "Press a/s/left/down to move to previous frame"
+    print "Press w/d/right/up to move to next frame"
+    print "Press ESC to move quit"
     while True:
         i = max(0, min(i, pred_dataset.num_of_annotations() - 1))
         image_info = pred_dataset.annotations()[i]

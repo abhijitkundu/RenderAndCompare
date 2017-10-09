@@ -50,12 +50,19 @@ def main():
     max_occlusion = 2  # maximum occlusion level of the groundtruth used for evaluation
     max_truncation = 0.7  # maximum truncation level of the groundtruth used for evaluation
 
-    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+    cv2.resizeWindow('image', 2048, 1024)
 
     paused = True
     fwd = True
-
     i = 0
+
+    print "---------------KeyMap-----------------"
+    print "Press p to toggle pause"
+    print "Press a/s/left/down to move to previous frame"
+    print "Press a/s/left/down to move to previous frame"
+    print "Press w/d/right/up to move to next frame"
+    print "Press ESC to move quit"
     while True:
         i = max(0, min(i, num_of_images - 1))
         cv2.displayOverlay('image', 'Image: {} / {}'.format(i, num_of_images - 1))
