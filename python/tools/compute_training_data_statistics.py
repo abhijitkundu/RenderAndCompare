@@ -1,19 +1,23 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import argparse
 
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
+from six import print_
 
 import _init_paths
 from RenderAndCompare.datasets import Dataset
 from RenderAndCompare.geometry import bbx_iou_overlap
 
+
 def plot_viewpoint_statistics(datasets):
     """Plot viewpoint histograms"""
-    print 'Computing viewpoint statistics'
+    print_('Computing viewpoint statistics ... ', end='', flush=True)
     viewpoints = []
     for dataset in datasets:
         for img_info in dataset.annotations():
@@ -22,7 +26,7 @@ def plot_viewpoint_statistics(datasets):
                     viewpoints.append(np.array(obj_info['viewpoint'], dtype=np.float))
 
     if not viewpoints:
-        print 'No viewpoint information found'
+        print('No viewpoint information found.')
         return
 
     viewpoints = np.array(viewpoints)
@@ -56,22 +60,25 @@ def plot_viewpoint_statistics(datasets):
     ax3.set_title('tilts mean=%.3f, sigma=%.3f' % (mu, sigma))
     ax3.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
 
+    print('Done.')
+
+
 def plot_bbx_statistics(datasets):
     """Plot visible bbx histograms"""
-    print 'Computing bbx statistics'
+    print_('Computing bbx statistics ... ', end='', flush=True)
     bbx_sizes = []
     for dataset in datasets:
         for img_info in dataset.annotations():
             for obj_info in img_info['objects']:
-                if 'bbx_visible'  in obj_info:
+                if 'bbx_visible' in obj_info:
                     cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
                     wh = cbbx[2:] - cbbx[:2]
                     bbx_sizes.append(wh)
-    
+
     if not bbx_sizes:
-        print 'No bbx information found'
+        print('No bbx information found.')
         return
-    
+
     bbx_sizes = np.array(bbx_sizes)
     widths = bbx_sizes[:, 0]
     heights = bbx_sizes[:, 1]
@@ -101,15 +108,18 @@ def plot_bbx_statistics(datasets):
     ax3.set_title('aspect_ratios mean=%.3f, sigma=%.3f' % (mu, sigma))
     ax3.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
 
+    print('Done.')
+
+
 def plot_bbx_overlap_statistics(datasets):
     """Plot bbx overlap histograms"""
-    print 'Computing bbx overlap statistics'
+    print_('Computing bbx overlap statistics ... ', end='', flush=True)
     max_ious = []
     for dataset in datasets:
         for img_info in dataset.annotations():
             boxes = []
             for obj_info in img_info['objects']:
-                if 'bbx_visible'  in obj_info:
+                if 'bbx_visible' in obj_info:
                     cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
                     boxes.append(cbbx)
             num_of_boxes = len(boxes)
@@ -123,7 +133,7 @@ def plot_bbx_overlap_statistics(datasets):
                     max_iou = max(bbx_iou_overlap(bbxA, bbxB), max_iou)
                 max_ious.append(max_iou)
     if not max_ious:
-        print 'No bbx overlap found'
+        print('No bbx overlap found.')
         return
     max_ious = np.array(max_ious)
     f = plt.figure()
@@ -131,12 +141,12 @@ def plot_bbx_overlap_statistics(datasets):
     plt.hist(max_ious, bins=50, normed=True)
     plt.axvline(max_ious.max(), color='b', linestyle='dashed', linewidth=2)
     plt.xlabel('IoU', fontsize=11)
-
+    print('Done.')
 
 
 def plot_abbx_target_statistics(datasets):
     """Plot amodal bbx target histograms"""
-    print 'Computing bbx_amodal_target statistics'
+    print_('Computing bbx_amodal_target statistics ... ', end='', flush=True)
     abbx_targets = []
     for dataset in datasets:
         for img_info in dataset.annotations():
@@ -150,7 +160,7 @@ def plot_abbx_target_statistics(datasets):
                     abbx_targets.append(abbx_target)
 
     if not abbx_targets:
-        print 'No bxx_amodal_target information found'
+        print('No bxx_amodal_target information found.')
         return
 
     abbx_targets = np.array(abbx_targets)
@@ -192,10 +202,12 @@ def plot_abbx_target_statistics(datasets):
     ax4.set_title('y2_targets mean=%.3f, sigma=%.3f' % (mu, sigma))
     ax4.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
 
+    print('Done.')
+
 
 def plot_cp_target_statistics(datasets):
     """Plot center_proj bbx target histograms"""
-    print 'Computing center_proj target statistics'
+    print_('Computing center_proj target statistics ... ', end='', flush=True)
     cp_targets = []
     for dataset in datasets:
         for img_info in dataset.annotations():
@@ -209,7 +221,7 @@ def plot_cp_target_statistics(datasets):
                     cp_targets.append(cp_target)
 
     if not cp_targets:
-        print 'No center_proj_target information found'
+        print('No center_proj_target information found.')
         return
 
     cp_targets = np.array(cp_targets)
@@ -234,6 +246,8 @@ def plot_cp_target_statistics(datasets):
     ax2.plot(bins, y, 'r--', linewidth=2)
     ax2.set_title('y_targets mean=%.3f, sigma=%.3f' % (mu, sigma))
     ax2.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    print('Done.')
 
 
 # def plot_shape_statistics(datasets):
@@ -264,7 +278,7 @@ def plot_cp_target_statistics(datasets):
 
 def plot_center_distance_statistics(datasets):
     """Plot center_distance histograms"""
-    print 'Computing center_distance statistics'
+    print_('Computing center_distance statistics ... ', end='', flush=True)
     center_distances = []
     for dataset in datasets:
         for img_info in dataset.annotations():
@@ -273,7 +287,7 @@ def plot_center_distance_statistics(datasets):
                     center_distances.append(obj_info['center_dist'])
 
     if not center_distances:
-        print 'No object information found'
+        print('No object information found.')
         return
 
     f = plt.figure()
@@ -281,9 +295,12 @@ def plot_center_distance_statistics(datasets):
     plt.hist(center_distances, bins=40, normed=True)
     plt.xlabel('center_distances', fontsize=11)
 
+    print('Done.')
+
+
 def plot_instance_count_per_image(datasets):
     """Plot num of objects per image histograms"""
-    print 'Computing num_of_objects_per_image statistics'
+    print_('Computing num_of_objects_per_image statistics ... ', end='', flush=True)
     num_of_objects_per_image = []
     for dataset in datasets:
         for img_info in dataset.annotations():
@@ -291,13 +308,15 @@ def plot_instance_count_per_image(datasets):
                 num_of_objects_per_image.append(len(img_info['objects']))
 
     if not num_of_objects_per_image:
-        print 'No object information found'
+        print('No object information found.')
         return
 
     f = plt.figure()
     f.suptitle('num of objects per image statistics', fontsize=14)
     plt.hist(num_of_objects_per_image, bins=20, normed=True)
     plt.xlabel('num_of_objects_per_image', fontsize=11)
+
+    print('Done.')
 
 
 def main():
@@ -308,10 +327,10 @@ def main():
 
     datasets = []
     for dataset_path in args.datasets:
-        print 'Loading dataset from {}'.format(dataset_path)
+        print('Loading dataset from {}'.format(dataset_path))
         dataset = Dataset.from_json(dataset_path)
         datasets.append(dataset)
-        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+        print('Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations()))
 
     # Plot image level stats
     plot_instance_count_per_image(datasets)
