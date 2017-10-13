@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""visualizes kitti grundtruth annotations"""
+"""
+This script directly visualizes kitti object grundtruth annotations.
+This serves as way to verify the kitti-object annotation import tools.
+"""
 
 import os.path as osp
 import numpy as np

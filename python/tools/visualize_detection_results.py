@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+"""
+This script visualizes detection bounding boxes stored in ImageDataset json format
+An optional score parameter can be passed to visualize boxes only above certain threshold
+"""
 
 import os.path as osp
 import argparse
