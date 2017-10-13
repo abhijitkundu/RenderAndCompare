@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """This script creates dataset json from kitti object data"""
 
+import argparse
 import os.path as osp
 from collections import OrderedDict
 
@@ -9,21 +10,23 @@ import numpy as np
 from tqdm import tqdm
 
 import _init_paths
-from RenderAndCompare.datasets import (Dataset,
-                                       NoIndent,
-                                       get_kitti_amodal_bbx,
-                                       get_kitti_object_pose,
-                                       read_kitti_calib_file,
-                                       read_kitti_object_labels,
-                                       get_kitti_cam0_to_velo,
-                                       get_kitti_velo_to_cam,
-                                       get_kitti_alpha_from_object_pose)
-from RenderAndCompare.geometry import (Pose,
-                                       project_point,
-                                       wrap_to_pi,
-                                       rotation_from_two_vectors,
-                                       rotation_from_viewpoint,
-                                       viewpoint_from_rotation)
+from RenderAndCompare.datasets import (
+    Dataset,
+    NoIndent,
+    get_kitti_alpha_from_object_pose,
+    get_kitti_amodal_bbx,
+    get_kitti_cam0_to_velo,
+    get_kitti_object_pose,
+    get_kitti_velo_to_cam,
+    read_kitti_calib_file,
+    read_kitti_object_labels
+)
+from RenderAndCompare.geometry import (
+    Pose, project_point,
+    rotation_from_two_vectors,
+    rotation_from_viewpoint,
+    viewpoint_from_rotation, wrap_to_pi
+)
 
 
 def main():
@@ -32,7 +35,6 @@ def main():
     splits_file_default = osp.join(_init_paths.root_dir, 'data', 'kitti', 'splits', 'trainval.txt')
     all_categories = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram']
 
-    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--root_dir", default=root_dir_default, help="Path to KITTI Object directory")
     parser.add_argument("-s", "--split_file", default=splits_file_default, help="Path to split file")

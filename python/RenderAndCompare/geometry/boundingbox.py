@@ -3,6 +3,7 @@ BoundingBox helper
 """
 
 import numpy as np
+from asserts import assert_bbx
 
 
 def bbx_iou_overlap(bbxA, bbxB):
@@ -21,6 +22,7 @@ def bbx_iou_overlap(bbxA, bbxB):
     b_area = (np.asarray(bbxB[ndim:]) - np.asarray(bbxB[:ndim])).prod()
     iou = inter / (a_area + b_area - inter)
     return iou
+
 
 def create_jittered_bbx(bbx, min_jittter_iou, num_bins=20):
     """returns a jittered bbx which has overlap > min_jittter_iou with input bbx"""
@@ -101,3 +103,12 @@ class BoundingBox(object):
         """Translate the bounding box"""
         self._min += translation
         self._max += translation
+
+
+def clip_bbx_by_image_size(bbx, width, height):
+    """Clip a bbx to lie entirely inside image"""
+    clipped_bbx = np.empty_like(bbx)
+    clipped_bbx[:2] = np.maximum(bbx[:2], [0.0, 0.0])
+    clipped_bbx[2:] = np.minimum(bbx[2:], [width, height])
+    assert_bbx(clipped_bbx)
+    return clipped_bbx
