@@ -16,8 +16,9 @@ logs/
 *.log
 
 # Ignore some dataset_directories
+data/pascal3D/Pascal3D-Dataset
+data/kitti/KITTI-Object
 pretrained_imagenet_models
-
 coco
 
 #standard build directories

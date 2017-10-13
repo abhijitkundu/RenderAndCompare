@@ -4,7 +4,7 @@
 function show_cad_overlay(cls, dataset)
 
 if nargin < 2
-    dataset = 'pascal';
+    dataset = 'imagenet';
 end
 
 pascal_root_dir = '/media/Scratchspace/Pascal3D+/PASCAL3D+_release1.1';
@@ -12,7 +12,7 @@ pascal_root_dir = '/media/Scratchspace/Pascal3D+/PASCAL3D+_release1.1';
 
 % projection test
 
-annotationPath = fullfile(pascal_root_dir, 'Annotations', sprintf('%s_%s/', cls, dataset));
+annotationPath = fullfile(pascal_root_dir, 'AnnotationsFixed', sprintf('%s_%s/', cls, dataset));
 imagePath = fullfile(pascal_root_dir, 'Images', sprintf('%s_%s/', cls, dataset));
 
 % load cad model
@@ -23,8 +23,12 @@ cad = object.(cls);
 listing = dir(annotationPath);
 recordSet = {listing.name};
 
-figure;
+f = figure;
 for recordElement = recordSet
+    if ~strcmp(recordElement{1}, 'n03770679_4602.mat')
+        continue;
+    end
+    
     [~, ~, ext] = fileparts(recordElement{1});
     if ~strcmp(ext, '.mat')
         continue;
@@ -51,11 +55,16 @@ for recordElement = recordSet
             fprintf('No continuous viewpoint\n');
             continue;
         end
+        
+        
+        object.viewpoint.distance = 5.5;
+        record.objects(carIdx).viewpoint.distance = 5.5;
+        
         vertex = cad(object.cad_index).vertices;
         face = cad(object.cad_index).faces;
         x2d = project_3d(vertex, object);
         patch('vertices', x2d, 'faces', face, ...
-            'FaceColor', 'blue', 'FaceAlpha', 0.2, 'EdgeColor', 'none');
+            'FaceColor', 'blue', 'FaceAlpha', 0.05, 'EdgeColor', 'none');
         
         
         % Find bbox for the CAD model
@@ -72,4 +81,5 @@ for recordElement = recordSet
     hold off;
     pause;
     clf;
+%     save(recordElement{1}, 'record');
 end

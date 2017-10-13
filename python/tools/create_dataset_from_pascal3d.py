@@ -56,7 +56,7 @@ def main():
     print 'Using split {} with {} images'.format(args.split, num_of_images)
 
     # imagenet uses JPEG while pascal images are in jpg format
-    image_ext = '.JPEG' if args.sub_dataset == 'imagenet' else 'jpg'
+    image_ext = '.JPEG' if args.sub_dataset == 'imagenet' else '.jpg'
 
     dataset_name = 'pascal3d_{}_{}_{}'.format(args.sub_dataset, args.split, args.category)
     dataset = ImageDataset(dataset_name)
