@@ -10,7 +10,7 @@ def wrap_to_pi(radians):
     # wrap to [0..2*pi]
     wrapped = radians % (2 * np.pi)
     # wrap to [-pi..pi]
-    if wrapped > np.pi:
+    if wrapped >= np.pi:
         wrapped -= 2 * np.pi
 
     return wrapped
