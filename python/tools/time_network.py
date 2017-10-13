@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument("net_file", help="network model proto definition.")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
     parser.add_argument("-i", "--iters", type=int, default=10, help="Number of test iterations")
-    parser.add_argument("-d", "--dataset", help="Dataset JSON file")
+    parser.add_argument("-d", "--dataset", help="ImageDataset JSON file")
     args = parser.parse_args()
 
     caffe.init_log()
@@ -60,8 +60,8 @@ if __name__ == '__main__':
 
     if args.dataset is not None:
         print 'Loading dataset from {}'.format(args.dataset)
-        dataset = rac.datasets.Dataset.from_json(args.dataset)
-        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+        dataset = rac.datasets.ImageDataset.from_json(args.dataset)
+        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
         net.layers[0].add_dataset(dataset)
         net.layers[0].generate_datum_ids()
 

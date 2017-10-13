@@ -12,7 +12,7 @@ import scipy.io as sio
 from tqdm import tqdm
 
 import _init_paths
-from RenderAndCompare.datasets import Dataset, NoIndent
+from RenderAndCompare.datasets import ImageDataset, NoIndent
 from RenderAndCompare.geometry import (
     assert_viewpoint,
     assert_bbx,
@@ -59,7 +59,7 @@ def main():
     image_ext = '.JPEG' if args.sub_dataset == 'imagenet' else 'jpg'
 
     dataset_name = 'pascal3d_{}_{}_{}'.format(args.sub_dataset, args.split, args.category)
-    dataset = Dataset(dataset_name)
+    dataset = ImageDataset(dataset_name)
     dataset.set_rootdir(args.root_dir)
 
     print "Importing dataset ..."
@@ -131,13 +131,13 @@ def main():
 
             obj_infos.append(obj_info)
 
-        image_info['objects'] = obj_infos
-        dataset.add_annotation(image_info)
+        image_info['object_infos'] = obj_infos
+        dataset.add_image_info(image_info)
 
-    total_num_of_objects = sum([len(img_info['objects']) for img_info in dataset.annotations()])
-    print 'Finished creating dataset with {} images and {} objects.'.format(dataset.num_of_annotations(), total_num_of_objects)
+    total_num_of_objects = sum([len(img_info['object_infos']) for img_info in dataset.image_infos()])
+    print 'Finished creating dataset with {} images and {} objects.'.format(dataset.num_of_images(), total_num_of_objects)
 
-    num_of_objects_with_abbx = sum([len([obj_info for obj_info in img_info['objects'] if 'bbx_amodal' in obj_info]) for img_info in dataset.annotations()])
+    num_of_objects_with_abbx = sum([len([obj_info for obj_info in img_info['object_infos'] if 'bbx_amodal' in obj_info]) for img_info in dataset.image_infos()])
     print "Number of objects with bbx_amodal information = {}".format(num_of_objects_with_abbx)
     metainfo = OrderedDict()
     metainfo['total_num_of_objects'] = total_num_of_objects

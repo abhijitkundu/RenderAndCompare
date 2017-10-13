@@ -190,14 +190,14 @@ class RCNNDataLayer(AbstractDataLayer):
         prev_num_of_images = len(self.image_loader)
 
         image_files = []
-        for i in xrange(dataset.num_of_annotations()):
-            image_info = dataset.annotations()[i]
+        for i in xrange(dataset.num_of_images()):
+            image_info = dataset.image_infos()[i]
             img_path = osp.join(dataset.rootdir(), image_info['image_file'])
             image_files.append(img_path)
 
             image_id = prev_num_of_images + i
 
-            for obj_info in image_info['objects']:
+            for obj_info in image_info['object_infos']:
                 data_sample = {}
                 data_sample['image_id'] = image_id
                 data_sample['id'] = obj_info['id']
@@ -393,8 +393,8 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         image_files = []
         image_infos = []
-        for annotation in dataset.annotations():
-            if 'objects' not in annotation or not annotation['objects']:
+        for annotation in dataset.image_infos():
+            if 'object_infos' not in annotation or not annotation['object_infos']:
                 continue
 
             image_file = osp.join(dataset.rootdir(), annotation['image_file'])
@@ -406,7 +406,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
                     image_info[field] = np.array(annotation[field])
 
             obj_infos = []
-            for anno_obj in annotation['objects']:
+            for anno_obj in annotation['object_infos']:
                 obj_info = {}
                 obj_info['id'] = anno_obj['id']
                 obj_info['category'] = anno_obj['category']
@@ -417,7 +417,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
                 obj_infos.append(obj_info)
 
-            image_info['objects'] = obj_infos
+            image_info['object_infos'] = obj_infos
             image_infos.append(image_info)
 
         assert len(image_files) == len(image_infos)
@@ -440,7 +440,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
             if 'image_intrinsic' in image_info:
                 assert image_info['image_intrinsic'].shape == (3, 3)
 
-            for obj_info in image_info['objects']:
+            for obj_info in image_info['object_infos']:
                 if 'viewpoint' in obj_info:
                     vp = obj_info['viewpoint']
                     assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
@@ -468,7 +468,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
             self.imgs_per_batch, len(self.data_ids))
         print 'Total number of images = {:,}'.format(num_of_data_points)
 
-        num_of_objects = sum([len(image_info['objects']) for image_info in self.data_samples])
+        num_of_objects = sum([len(image_info['object_infos']) for image_info in self.data_samples])
         print 'Total number of objects = {:,}'.format(num_of_objects)
         return num_of_data_points
 
@@ -519,7 +519,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
             image_flip = img_flippings[i]
 
             image_info = self.data_samples[image_id]
-            obj_infos_curr_batch = sample_object_infos(image_info['objects'], self.rois_per_image, self.jitter_iou_min)
+            obj_infos_curr_batch = sample_object_infos(image_info['object_infos'], self.rois_per_image, self.jitter_iou_min)
             for obj_info in obj_infos_curr_batch:
                 if image_flip:
                     W = image_info['image_size'][0]

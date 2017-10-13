@@ -82,8 +82,8 @@ if __name__ == '__main__':
     datasets = []
     for dataset_path in args.datasets:
         print 'Loading dataset from {}'.format(dataset_path)
-        dataset = rac.datasets.Dataset.from_json(dataset_path)
+        dataset = rac.datasets.ImageDataset.from_json(dataset_path)
         datasets.append(dataset)
-        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     train(args.solver, args.init, datasets, args.gpus)

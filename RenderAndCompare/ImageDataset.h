@@ -59,14 +59,14 @@ struct ImageInfo {
   boost::optional<Eigen::Vector2i> image_size;
   boost::optional<Eigen::Matrix3d> image_intrinsic;
 
-  boost::optional<ImageObjectInfos> objects;
+  boost::optional<ImageObjectInfos> object_infos;
 };
 
 
 struct ImageDataset {
   std::string name;
   boost::filesystem::path rootdir;
-  std::vector<ImageInfo> annotations;
+  std::vector<ImageInfo> image_infos;
 };
 
 ImageDataset loadImageDatasetFromJson(const std::string& filepath);

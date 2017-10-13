@@ -13,20 +13,20 @@ def compute_performance_metrics(gt_dataset, pred_dataset):
     Returns performance metrics (as pandas data frame) of the predicted
     dataset (pred_dataset) against ground-truth (gt_dataset).
     """
-    assert gt_dataset.num_of_annotations() == pred_dataset.num_of_annotations()
-    num_of_objects_gt = sum([len(image_info['objects']) for image_info in gt_dataset.annotations()])
-    num_of_objects_pred = sum([len(image_info['objects']) for image_info in gt_dataset.annotations()])
+    assert gt_dataset.num_of_images() == pred_dataset.num_of_images()
+    num_of_objects_gt = sum([len(image_info['object_infos']) for image_info in gt_dataset.image_infos()])
+    num_of_objects_pred = sum([len(image_info['object_infos']) for image_info in gt_dataset.image_infos()])
     assert num_of_objects_gt == num_of_objects_pred, "{} ! {}".format(num_of_objects_gt, num_of_objects_pred)
 
     perf_metrics = []
     print "Computing performance metrics:"
-    for gt_image_info, pred_image_info in tqdm(zip(gt_dataset.annotations(), pred_dataset.annotations())):
+    for gt_image_info, pred_image_info in tqdm(zip(gt_dataset.image_infos(), pred_dataset.image_infos())):
         assert gt_image_info['image_file'] == pred_image_info['image_file'], "{} != {}".format(gt_image_info['image_file'], pred_image_info['image_file'])
         assert gt_image_info['image_size'] == pred_image_info['image_size'], "{} != {}".format(gt_image_info['image_size'], pred_image_info['image_size'])
         assert gt_image_info['image_intrinsic'] == pred_image_info['image_intrinsic']
 
-        gt_objects = gt_image_info['objects']
-        pred_objects = pred_image_info['objects']
+        gt_objects = gt_image_info['object_infos']
+        pred_objects = pred_image_info['object_infos']
         assert len(gt_objects) == len(pred_objects)
 
         for gt_obj, pred_obj in zip(gt_objects, pred_objects):
@@ -101,8 +101,8 @@ def get_bbx_sizes(dataset, bbx_type='bbx_visible'):
     obj_ids = []
     widths = []
     heights = []
-    for img_info in dataset.annotations():
-        for obj_info in img_info['objects']:
+    for img_info in dataset.image_infos():
+        for obj_info in img_info['object_infos']:
             bbx = obj_info[bbx_type]
             obj_ids.append("{}_{}".format(osp.splitext(osp.basename(img_info['image_file']))[0], obj_info['id']))
             widths.append(bbx[2] - bbx[0])

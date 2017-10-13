@@ -10,25 +10,25 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import _init_paths
-from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.datasets import ImageDataset
 from RenderAndCompare.evaluation import compute_performance_metrics, get_bbx_sizes
 
 
 def load_datasets(gt_dataset_file, pred_dataset_file):
     """Load gt and results datasets"""
-    assert osp.exists(gt_dataset_file), "Dataset filepath {} does not exist..".format(gt_dataset_file)
-    assert osp.exists(pred_dataset_file), "Dataset filepath {} does not exist.".format(pred_dataset_file)
+    assert osp.exists(gt_dataset_file), "ImageDataset filepath {} does not exist..".format(gt_dataset_file)
+    assert osp.exists(pred_dataset_file), "ImageDataset filepath {} does not exist.".format(pred_dataset_file)
 
     print 'Loading groundtruth dataset from {}'.format(gt_dataset_file)
-    gt_dataset = Dataset.from_json(gt_dataset_file)
-    print 'Loaded {} dataset with {} annotations'.format(gt_dataset.name(), gt_dataset.num_of_annotations())
+    gt_dataset = ImageDataset.from_json(gt_dataset_file)
+    print 'Loaded {} dataset with {} annotations'.format(gt_dataset.name(), gt_dataset.num_of_images())
     print 'Loading predited dataset from {}'.format(pred_dataset_file)
-    pred_dataset = Dataset.from_json(pred_dataset_file)
-    print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_annotations())
-    assert gt_dataset.num_of_annotations() == pred_dataset.num_of_annotations()
+    pred_dataset = ImageDataset.from_json(pred_dataset_file)
+    print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_images())
+    assert gt_dataset.num_of_images() == pred_dataset.num_of_images()
 
-    num_of_objects_gt = sum([len(image_info['objects']) for image_info in gt_dataset.annotations()])
-    num_of_objects_pred = sum([len(image_info['objects']) for image_info in gt_dataset.annotations()])
+    num_of_objects_gt = sum([len(image_info['object_infos']) for image_info in gt_dataset.image_infos()])
+    num_of_objects_pred = sum([len(image_info['object_infos']) for image_info in gt_dataset.image_infos()])
     assert num_of_objects_gt == num_of_objects_pred, "{} ! {}".format(num_of_objects_gt, num_of_objects_pred)
 
     return gt_dataset, pred_dataset

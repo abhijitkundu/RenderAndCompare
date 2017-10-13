@@ -14,7 +14,7 @@ import tqdm
 
 import _init_paths
 import caffe
-from RenderAndCompare.datasets import Dataset, NoIndent
+from RenderAndCompare.datasets import ImageDataset, NoIndent
 from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
 
 
@@ -23,7 +23,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
     net.copy_from(weights_file)
     net.layers[0].generate_datum_ids()
 
-    input_num_of_objects = sum([len(image_info['objects']) for image_info in input_dataset.annotations()])
+    input_num_of_objects = sum([len(image_info['object_infos']) for image_info in input_dataset.image_infos()])
     assert net.layers[0].curr_data_ids_idx == 0
     assert net.layers[0].number_of_datapoints() == input_num_of_objects
     assert net.layers[0].data_ids == range(input_num_of_objects)
@@ -33,10 +33,10 @@ def test_single_weights_file(weights_file, net, input_dataset):
     batch_size = net.layers[0].batch_size
     num_of_batches = int(np.ceil(num_of_data_samples / float(batch_size)))
 
-    assert len(net.layers[0].image_loader) == input_dataset.num_of_annotations()
+    assert len(net.layers[0].image_loader) == input_dataset.num_of_images()
 
     # Create Result dataset
-    result_dataset = Dataset(input_dataset.name())
+    result_dataset = ImageDataset(input_dataset.name())
     result_dataset.set_rootdir(input_dataset.rootdir())
     result_dataset.set_metainfo(input_dataset.metainfo().copy())
 
@@ -45,15 +45,15 @@ def test_single_weights_file(weights_file, net, input_dataset):
     result_dataset.metainfo()['weights_file_md5'] = md5(open(weights_file, 'rb').read()).hexdigest()
 
     # Set the image level fields
-    for input_im_info in input_dataset.annotations():
+    for input_im_info in input_dataset.image_infos():
         result_im_info = OrderedDict()
         result_im_info['image_file'] = input_im_info['image_file']
         result_im_info['image_size'] = NoIndent(input_im_info['image_size'])
         result_im_info['image_intrinsic'] = NoIndent(input_im_info['image_intrinsic'])
-        result_im_info['objects'] = []
-        result_dataset.add_annotation(result_im_info)
+        result_im_info['object_infos'] = []
+        result_dataset.add_image_info(result_im_info)
 
-    assert result_dataset.num_of_annotations() == input_dataset.num_of_annotations()
+    assert result_dataset.num_of_images() == input_dataset.num_of_images()
 
     assert_funcs = {
         "viewpoint": assert_viewpoint,
@@ -82,7 +82,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
 
         for i in xrange(start_idx, end_idx):
             image_id = data_samples[i]['image_id']
-            image_info = result_dataset.annotations()[image_id]
+            image_info = result_dataset.image_infos()[image_id]
 
             object_info = OrderedDict()
 
@@ -100,7 +100,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
                     assert_funcs[info](prediction)
                     object_info[info] = NoIndent(prediction.tolist())
 
-            image_info['objects'].append(object_info)
+            image_info['object_infos'].append(object_info)
 
     for key in sorted(performance_metric):
         performance_metric[key] = np.mean(performance_metric[key])
@@ -109,7 +109,7 @@ def test_single_weights_file(weights_file, net, input_dataset):
     regex = re.compile('iter_([0-9]*).caffemodel')
     performance_metric['iter'] = int(regex.findall(weights_file)[0])
 
-    result_num_of_objects = sum([len(image_info['objects']) for image_info in result_dataset.annotations()])
+    result_num_of_objects = sum([len(image_info['object_infos']) for image_info in result_dataset.image_infos()])
     assert result_num_of_objects == num_of_data_samples
     return result_dataset, performance_metric
 
@@ -168,7 +168,7 @@ def main():
     args = parser.parse_args()
 
     assert osp.exists(args.net_file), "Net filepath {} does not exist.".format(args.net_file)
-    assert osp.exists(args.dataset_file), "Dataset filepath {} does not exist.".format(args.dataset_file)
+    assert osp.exists(args.dataset_file), "ImageDataset filepath {} does not exist.".format(args.dataset_file)
     assert args.weights_files, "Weights files cannot be empty"
 
     for weights_file in args.weights_files:
@@ -178,8 +178,8 @@ def main():
     args.weights_files.sort(key=lambda f: int(filter(str.isdigit, f)))
 
     print 'Loading dataset from {}'.format(args.dataset_file)
-    dataset = Dataset.from_json(args.dataset_file)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+    dataset = ImageDataset.from_json(args.dataset_file)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     print 'User provided {} weight files'.format(len(args.weights_files))
     test_all_weights_files(args.weights_files, args.net_file, dataset, args.gpu)

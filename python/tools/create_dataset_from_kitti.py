@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import _init_paths
 from RenderAndCompare.datasets import (
-    Dataset,
+    ImageDataset,
     NoIndent,
     get_kitti_alpha_from_object_pose,
     get_kitti_amodal_bbx,
@@ -63,7 +63,7 @@ def main():
     assert osp.exists(calib_dir)
 
     dataset_name = 'kitti_' + osp.splitext(osp.basename(args.split_file))[0]
-    dataset = Dataset(dataset_name)
+    dataset = ImageDataset(dataset_name)
     dataset.set_rootdir(root_dir)
 
     # Using a slight harder settings thank standard kitti hardness
@@ -73,7 +73,7 @@ def main():
 
     total_num_of_objects = 0
 
-    print 'Creating Dataset. May take long time'
+    print 'Creating ImageDataset. May take long time'
     for image_name in tqdm(image_names):
         image_file_path = osp.join(image_dir, image_name + '.png')
         label_file_path = osp.join(label_dir, image_name + '.txt')
@@ -160,7 +160,7 @@ def main():
             obj_info = OrderedDict()
 
             obj_info['id'] = obj_id
-            obj_info['category'] = obj['type']
+            obj_info['category'] = obj['type'].lower()
             obj_info['dimension'] = NoIndent(obj['dimension'][::-1])  # [length, width, height]
             obj_info['bbx_visible'] = NoIndent(bbx_visible.tolist())
             obj_info['bbx_amodal'] = NoIndent(np.around(bbx_amodal, decimals=6).tolist())
@@ -169,14 +169,14 @@ def main():
             obj_info['center_dist'] = distance
 
             obj_infos.append(obj_info)
-        annotation['objects'] = obj_infos
-        dataset.add_annotation(annotation)
+        annotation['object_infos'] = obj_infos
+        dataset.add_image_info(annotation)
 
-    print 'Finished creating dataset with {} images and {} objects.'.format(dataset.num_of_annotations(), total_num_of_objects)
+    print 'Finished creating dataset with {} images and {} objects.'.format(dataset.num_of_images(), total_num_of_objects)
 
     metainfo = OrderedDict()
     metainfo['total_num_of_objects'] = total_num_of_objects
-    metainfo['categories'] = NoIndent(args.categories)
+    metainfo['categories'] = NoIndent([x.lower() for x in args.categories])
     metainfo['min_height'] = min_height
     metainfo['max_occlusion'] = max_occlusion
     metainfo['max_truncation'] = max_truncation

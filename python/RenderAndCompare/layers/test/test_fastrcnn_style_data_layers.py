@@ -7,14 +7,14 @@ import numpy as np
 
 import caffe
 import _init_paths
-from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.datasets import ImageDataset
 from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
 
 if __name__ == '__main__':
     import argparse
     description = ('Test Fast-RCNN style datalayer')
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("dataset", help="Dataset JSON file")
+    parser.add_argument("dataset", help="ImageDataset JSON file")
     parser.add_argument("-n", "--net_file", required=True, help="Net (prototxt) file")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
     parser.add_argument("-e", "--epochs", type=int, default=2, help="Number of epochs")
@@ -29,15 +29,15 @@ if __name__ == '__main__':
     net = caffe.Net(args.net_file, caffe.TEST)
 
     print 'Loading dataset from {}'.format(args.dataset)
-    dataset = Dataset.from_json(args.dataset)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+    dataset = ImageDataset.from_json(args.dataset)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     net.layers[0].add_dataset(dataset)
     net.layers[0].print_params()
     net.layers[0].generate_datum_ids()
 
-    assert net.layers[0].number_of_datapoints() == dataset.num_of_annotations()
-    number_of_images = dataset.num_of_annotations()
+    assert net.layers[0].number_of_datapoints() == dataset.num_of_images()
+    number_of_images = dataset.num_of_images()
 
     cv2.namedWindow('blob_image', cv2.WINDOW_AUTOSIZE)
     cv2.namedWindow('original_image', cv2.WINDOW_AUTOSIZE)
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     assert len(image_blob_shape) == 4, 'Expects 4D data blob'
     assert image_blob_shape[1] == 3, 'Expects 2nd channel to be 3 for BGR image'
     batch_size = image_blob_shape[0]
-    num_of_batches = int(np.ceil(dataset.num_of_annotations() / float(batch_size)))
+    num_of_batches = int(np.ceil(dataset.num_of_images() / float(batch_size)))
 
     exit_loop = False
     for epoch_id in xrange(args.epochs):
@@ -92,7 +92,7 @@ if __name__ == '__main__':
             assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all()
 
             for i in xrange(start_idx, end_idx):
-                original_image = cv2.imread(osp.join(dataset.rootdir(), dataset.annotations()[i]['image_file']))
+                original_image = cv2.imread(osp.join(dataset.rootdir(), dataset.image_infos()[i]['image_file']))
                 cv2.imshow('original_image', original_image)
 
                 image_blob = net.blobs['input_image'].data[i - start_idx]
@@ -123,11 +123,11 @@ if __name__ == '__main__':
 
         # No check the data_layer.data_samples
         print "Verifying data_samples ...",
-        for im_info_layer, im_info_dataset in zip(net.layers[0].data_samples, dataset.annotations()):
+        for im_info_layer, im_info_dataset in zip(net.layers[0].data_samples, dataset.image_infos()):
             assert np.all(im_info_layer['image_size'] == im_info_dataset['image_size'])
             assert np.all(im_info_layer['image_intrinsic'] == im_info_dataset['image_intrinsic'])
-            assert len(im_info_layer['objects']) == len(im_info_dataset['objects'])
-            for obj_info_layer, obj_info_dataset in zip(im_info_layer['objects'], im_info_dataset['objects']):
+            assert len(im_info_layer['object_infos']) == len(im_info_dataset['object_infos'])
+            for obj_info_layer, obj_info_dataset in zip(im_info_layer['object_infos'], im_info_dataset['object_infos']):
                 assert obj_info_layer['id'] == obj_info_dataset['id']
                 assert obj_info_layer['category'] == obj_info_dataset['category']
                 for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:

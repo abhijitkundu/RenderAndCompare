@@ -1,5 +1,5 @@
 """
-Contains definition of Dataset class used in RenderAndCompare
+Contains definition of ImageDataset class used in RenderAndCompare
 """
 
 import os.path as osp
@@ -9,19 +9,19 @@ from json import encoder
 encoder.FLOAT_REPR = lambda o: format(o, '.6f')
 
 
-class Dataset(object):
-    """Dataset class
+class ImageDataset(object):
+    """ImageDataset class
     Attributes:
-        data: Contains annotations, name, rootdir
+        data: Contains image_infos, name, rootdir, meta_info
     """
 
-    def __init__(self, name='RenderAndCompareDataset', data=None):
+    def __init__(self, name='RenderAndCompareImageDataset', data=None):
         if data is None:
             self.data = OrderedDict()
             self.data['name'] = name
             self.data['rootdir'] = ''
             self.data['metainfo'] = {}
-            self.data['annotations'] = []
+            self.data['image_infos'] = []
         else:
             self.data = data
             assert osp.exists(self.data['rootdir']), 'Root dir does not exist: {}'.format(self.data['rootdir'])
@@ -34,13 +34,13 @@ class Dataset(object):
         """Return dataset rootdir"""
         return self.data['rootdir']
 
-    def annotations(self):
-        """Return dataset annotations"""
-        return self.data['annotations']
+    def image_infos(self):
+        """Return dataset image_infos"""
+        return self.data['image_infos']
 
-    def num_of_annotations(self):
-        """Return number of annotations"""
-        return len(self.data['annotations'])
+    def num_of_images(self):
+        """Return number of image_infos"""
+        return len(self.data['image_infos'])
 
     def metainfo(self):
         """Return dataset metainfo"""
@@ -54,17 +54,17 @@ class Dataset(object):
         """Sets dataset rootdir"""
         self.data['rootdir'] = rootdir
 
-    def set_annotations(self, annotations):
-        """Sets dataset annotations"""
-        self.data['annotations'] = annotations
+    def set_image_infos(self, image_infos):
+        """Sets dataset image_infos"""
+        self.data['image_infos'] = image_infos
 
     def set_metainfo(self, meta_info):
         """Sets dataset metainfo"""
         self.data['metainfo'] = meta_info
 
-    def add_annotation(self, annotation):
-        """Add new annotation"""
-        self.data['annotations'].append(annotation)
+    def add_image_info(self, image_info):
+        """Add new image_info"""
+        self.data['image_infos'].append(image_info)
 
     def write_data_to_json(self, filename):
         """Writes dataset to json"""
@@ -85,7 +85,7 @@ class Dataset(object):
         return cls(data=loaded_data)
 
     def __repr__(self):
-        return 'Dataset(name="%s", with %d annotations)' % (self.name(), self.num_of_annotations())
+        return 'ImageDataset(name="%s", with %d image_infos)' % (self.name(), self.num_of_images())
 
 
 class NoIndent(object):

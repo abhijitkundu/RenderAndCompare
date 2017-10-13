@@ -94,8 +94,8 @@ RaC::ImageInfo flip(const RaC::ImageInfo& image_info_) {
     image_info.image_intrinsic.value()(0, 2) = W - image_info.image_intrinsic.value()(0, 2);
   }
 
-  if (image_info.objects) {
-    for (RaC::ImageObjectInfo& obj_info : image_info.objects.value()) {
+  if (image_info.object_infos) {
+    for (RaC::ImageObjectInfo& obj_info : image_info.object_infos.value()) {
       if (obj_info.bbx_visible) {
         Eigen::Vector4d& bbx_visible = obj_info.bbx_visible.value();
         bbx_visible[0] = W - bbx_visible[0];
@@ -141,9 +141,9 @@ cv::Mat visualizeObjects(const cv::Mat& cv_image_, const RaC::ImageInfo& image_i
   }
 
 
-  if (image_info.objects) {
-    // Loop over all objects
-    for (const RaC::ImageObjectInfo& obj_info : image_info.objects.value()) {
+  if (image_info.object_infos) {
+    // Loop over all object_infos
+    for (const RaC::ImageObjectInfo& obj_info : image_info.object_infos.value()) {
 
       if (obj_info.bbx_visible) {
         auto bbx_visible = obj_info.bbx_visible.value();
@@ -227,7 +227,7 @@ int main(int argc, char **argv) {
   }
 
   RaC::ImageDataset dataset = RaC::loadImageDatasetFromJson(dataset_file.string());
-  std::cout << "Loaded Image dataset \"" << dataset.name << "\" with " << dataset.annotations.size() << " images" << std::endl;
+  std::cout << "Loaded Image dataset \"" << dataset.name << "\" with " << dataset.image_infos.size() << " images" << std::endl;
 
   if (!fs::exists(dataset.rootdir)) {
     std::cout << "Error: Dataset rootdir " << dataset.rootdir << " does not exist\n";
@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  const int num_of_annotations = dataset.annotations.size();
+  const int num_of_image_infos = dataset.image_infos.size();
 
   const std::string img_window_original = "Original Image";
   const std::string img_window_flipped = "Flipped Image";
@@ -253,7 +253,7 @@ int main(int argc, char **argv) {
   bool paused = true;
   int step = 1;
   for (int i = 0;;) {
-    const RaC::ImageInfo& image_info = dataset.annotations[i];
+    const RaC::ImageInfo& image_info = dataset.image_infos[i];
 
     {
       std::cout << "---------------------------------------------------\n";
@@ -291,7 +291,7 @@ int main(int argc, char **argv) {
 
     i += step;
     i = std::max(0, i);
-    i = std::min(i, num_of_annotations - 1);
+    i = std::min(i, num_of_image_infos - 1);
   }
 
   return EXIT_SUCCESS;

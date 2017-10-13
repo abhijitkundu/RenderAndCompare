@@ -52,8 +52,8 @@ class ShapePredictionDataLayer(AbstractDataLayer):
         print '---- Adding data from {} datatset -----'.format(dataset.name())
 
         image_files = []
-        for i in xrange(dataset.num_of_annotations()):
-            annotation = dataset.annotations()[i]
+        for i in xrange(dataset.num_of_images()):
+            annotation = dataset.image_infos()[i]
             img_path = osp.join(dataset.rootdir(), annotation['image_file'])
             image_files.append(img_path)
 

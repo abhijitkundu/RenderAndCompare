@@ -132,14 +132,14 @@ void to_json(nlohmann::json& j, const ImageDataset& dataset) {
   j = nlohmann::json {
     { "name", dataset.name },
     { "rootdir", dataset.rootdir.string() },
-    { "annotations", dataset.annotations }
+    { "image_infos", dataset.image_infos }
   };
 }
 
 void from_json(const nlohmann::json& j, ImageDataset& dataset) {
   dataset.name = j["name"].get<std::string>();
   dataset.rootdir = j["rootdir"].get<std::string>();
-  dataset.annotations = j["annotations"].get<std::vector<ImageInfo>>();
+  dataset.image_infos = j["image_infos"].get<std::vector<ImageInfo>>();
 }
 
 
@@ -149,7 +149,7 @@ void to_json(nlohmann::json& j, const ImageInfo& p) {
     { "segm_file", p.segm_file },
     { "image_size", p.image_size },
     { "image_intrinsic", p.image_intrinsic },
-    { "objects", p.objects }
+    { "object_infos", p.object_infos }
   };
 }
 
@@ -158,7 +158,7 @@ void from_json(const nlohmann::json& j, ImageInfo& p) {
   from_json_if_present(j, "segm_file", p.segm_file);
   from_json_if_present(j, "image_size", p.image_size);
   from_json_if_present(j, "image_intrinsic", p.image_intrinsic);
-  from_json_if_present(j, "objects", p.objects);
+  from_json_if_present(j, "object_infos", p.object_infos);
 }
 
 void to_json(nlohmann::json& j, const ImageObjectInfo& p) {

@@ -13,7 +13,7 @@ if __name__ == '__main__':
     import argparse
     description = ('Test datalayers for Crop prediction')
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("dataset", help="Dataset JSON file")
+    parser.add_argument("dataset", help="ImageDataset JSON file")
     parser.add_argument("-n", "--net_file", default=default_net_file, help="Net (prototxt) file")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
     parser.add_argument("-p", "--pause", default=0, type=int, help="Set number of milliseconds to pause. Use 0 to pause indefinitely")
@@ -26,9 +26,9 @@ if __name__ == '__main__':
     net = caffe.Net(args.net_file, caffe.TEST)
 
     print 'Loading dataset from {}'.format(args.dataset)
-    dataset = rac.datasets.Dataset.from_json(args.dataset)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
-    num_of_images = dataset.num_of_annotations()
+    dataset = rac.datasets.ImageDataset.from_json(args.dataset)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
+    num_of_images = dataset.num_of_images()
 
     net.layers[0].add_dataset(dataset)
     net.layers[0].generate_datum_ids()
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         output = net.forward()
 
         for i in xrange(start_idx, end_idx):
-            annotation = dataset.annotations()[i]
+            annotation = dataset.image_infos()[i]
 
             data_blob = net.blobs['data'].data[i - start_idx]
             cv2.imshow('blob_image', net.layers[0].make_bgr8_from_blob(data_blob))

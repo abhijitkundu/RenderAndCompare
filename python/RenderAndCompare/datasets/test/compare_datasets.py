@@ -14,12 +14,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print 'Loading dataset A from {}'.format(args.dataset_a)
-    datasetA = rac.datasets.Dataset.from_json(args.dataset_a)
-    print 'Loaded {} dataset A with {} annotations'.format(datasetA.name(), datasetA.num_of_annotations())
+    datasetA = rac.datasets.ImageDataset.from_json(args.dataset_a)
+    print 'Loaded {} dataset A with {} annotations'.format(datasetA.name(), datasetA.num_of_images())
 
     print 'Loading dataset B from {}'.format(args.dataset_b)
-    datasetB = rac.datasets.Dataset.from_json(args.dataset_b)
-    print 'Loaded {} dataset B with {} annotations'.format(datasetB.name(), datasetB.num_of_annotations())
+    datasetB = rac.datasets.ImageDataset.from_json(args.dataset_b)
+    print 'Loaded {} dataset B with {} annotations'.format(datasetB.name(), datasetB.num_of_images())
 
     all_equal = (datasetA.data == datasetB.data)
 

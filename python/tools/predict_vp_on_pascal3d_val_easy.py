@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     parser.add_argument("-n", "--net_file", required=True, help="Deploy network")
     parser.add_argument("-w", "--weights_file", required=True, help="trained weights")
-    parser.add_argument("-d", "--dataset", default=osp.join(_init_paths.root_dir, 'data', 'pascal3D', 'pascal3d_voc2012_val_easy', 'pascal3d_voc2012_val_easy_car.json'), help="Dataset JSON file")
+    parser.add_argument("-d", "--dataset", default=osp.join(_init_paths.root_dir, 'data', 'pascal3D', 'pascal3d_voc2012_val_easy', 'pascal3d_voc2012_val_easy_car.json'), help="ImageDataset JSON file")
     parser.add_argument("-m", "--mean_bgr", nargs=3, default=[103.0626238, 115.90288257, 123.15163084], type=float, metavar=('B', 'G', 'R'), help="Mean BGR color value")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="GPU Id.")
     parser.add_argument("-o", "--output_file", help="textfile to save the results to")
@@ -25,13 +25,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print 'Loading dataset from {}'.format(args.dataset)
-    dataset = rac.datasets.Dataset.from_json(args.dataset)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+    dataset = rac.datasets.ImageDataset.from_json(args.dataset)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     image_files = []
     viewpoints_gt = []
-    for i in xrange(dataset.num_of_annotations()):
-        annotation = dataset.annotations()[i]
+    for i in xrange(dataset.num_of_images()):
+        annotation = dataset.image_infos()[i]
         img_path = osp.join(dataset.rootdir(), annotation['image_file'])
         image_files.append(img_path)
 

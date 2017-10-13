@@ -2,7 +2,7 @@
 Geometry sub-module of RenderAndCompare
 """
 
-from .image_dataset import Dataset, NoIndent
+from .image_dataset import ImageDataset, NoIndent
 from .image_loaders import *
 from .kitti_helper import *
 from .dataset_utils import *

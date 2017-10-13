@@ -7,14 +7,14 @@ import numpy as np
 
 import caffe
 import _init_paths
-from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.datasets import ImageDataset
 from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
 
 if __name__ == '__main__':
     import argparse
     description = ('Test RCNN style datalayer')
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("dataset", help="Dataset JSON file")
+    parser.add_argument("dataset", help="ImageDataset JSON file")
     parser.add_argument("-n", "--net_file", required=True, help="Net (prototxt) file")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
     parser.add_argument("-p", "--pause", default=0, type=int, help="Set number of milliseconds to pause. Use 0 to pause indefinitely")
@@ -28,8 +28,8 @@ if __name__ == '__main__':
     net = caffe.Net(args.net_file, caffe.TEST)
 
     print 'Loading dataset from {}'.format(args.dataset)
-    dataset = Dataset.from_json(args.dataset)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+    dataset = ImageDataset.from_json(args.dataset)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     net.layers[0].add_dataset(dataset)
     net.layers[0].print_params()
@@ -140,11 +140,11 @@ if __name__ == '__main__':
 
     # No check the data_layer.data_samples
     print "Verifying data_samples ...",
-    num_of_objects = sum([len(image_info['objects']) for image_info in dataset.annotations()])
+    num_of_objects = sum([len(image_info['object_infos']) for image_info in dataset.image_infos()])
     assert len(net.layers[0].data_samples) == num_of_objects
     data_id = 0
-    for image_id, im_info_dataset in enumerate(dataset.annotations()):
-        for obj_info_dataset in im_info_dataset['objects']:
+    for image_id, im_info_dataset in enumerate(dataset.image_infos()):
+        for obj_info_dataset in im_info_dataset['object_infos']:
             obj_info_layer = net.layers[0].data_samples[data_id]
             assert obj_info_layer['image_id'] == image_id, "{} vs {}".format(obj_info_layer['image_id'], image_id)
             assert obj_info_layer['id'] == obj_info_dataset['id']

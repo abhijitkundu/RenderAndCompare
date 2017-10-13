@@ -11,7 +11,7 @@ from scipy.stats import norm
 from six import print_
 
 import _init_paths
-from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.datasets import ImageDataset
 from RenderAndCompare.geometry import bbx_iou_overlap
 
 
@@ -20,8 +20,8 @@ def plot_viewpoint_statistics(datasets):
     print_('Computing viewpoint statistics ... ', end='', flush=True)
     viewpoints = []
     for dataset in datasets:
-        for img_info in dataset.annotations():
-            for obj_info in img_info['objects']:
+        for img_info in dataset.image_infos():
+            for obj_info in img_info['object_infos']:
                 if 'viewpoint' in obj_info:
                     viewpoints.append(np.array(obj_info['viewpoint'], dtype=np.float))
 
@@ -68,8 +68,8 @@ def plot_bbx_statistics(datasets):
     print_('Computing bbx statistics ... ', end='', flush=True)
     bbx_sizes = []
     for dataset in datasets:
-        for img_info in dataset.annotations():
-            for obj_info in img_info['objects']:
+        for img_info in dataset.image_infos():
+            for obj_info in img_info['object_infos']:
                 if 'bbx_visible' in obj_info:
                     cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
                     wh = cbbx[2:] - cbbx[:2]
@@ -116,9 +116,9 @@ def plot_bbx_overlap_statistics(datasets):
     print_('Computing bbx overlap statistics ... ', end='', flush=True)
     max_ious = []
     for dataset in datasets:
-        for img_info in dataset.annotations():
+        for img_info in dataset.image_infos():
             boxes = []
-            for obj_info in img_info['objects']:
+            for obj_info in img_info['object_infos']:
                 if 'bbx_visible' in obj_info:
                     cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
                     boxes.append(cbbx)
@@ -149,8 +149,8 @@ def plot_abbx_target_statistics(datasets):
     print_('Computing bbx_amodal_target statistics ... ', end='', flush=True)
     abbx_targets = []
     for dataset in datasets:
-        for img_info in dataset.annotations():
-            for obj_info in img_info['objects']:
+        for img_info in dataset.image_infos():
+            for obj_info in img_info['object_infos']:
                 if set(("bbx_visible", "bbx_amodal")) <= set(obj_info):
                     abbx = np.array(obj_info['bbx_amodal'], dtype=np.float)
                     cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
@@ -210,8 +210,8 @@ def plot_cp_target_statistics(datasets):
     print_('Computing center_proj target statistics ... ', end='', flush=True)
     cp_targets = []
     for dataset in datasets:
-        for img_info in dataset.annotations():
-            for obj_info in img_info['objects']:
+        for img_info in dataset.image_infos():
+            for obj_info in img_info['object_infos']:
                 if set(("bbx_visible", "center_proj")) <= set(obj_info):
                     cp = np.array(obj_info['center_proj'], dtype=np.float)
                     cbbx = np.array(obj_info['bbx_visible'], dtype=np.float)
@@ -254,7 +254,7 @@ def plot_cp_target_statistics(datasets):
 #     print 'Computing shape statistics'
 #     shape_params = []
 #     for dataset in datasets:
-#         for annotation in dataset.annotations():
+#         for annotation in dataset.image_infos():
 #             if 'shape_param' in annotation:
 #                 shape_params.append(np.array(annotation['shape_param'], dtype=np.float))
 
@@ -281,8 +281,8 @@ def plot_center_distance_statistics(datasets):
     print_('Computing center_distance statistics ... ', end='', flush=True)
     center_distances = []
     for dataset in datasets:
-        for img_info in dataset.annotations():
-            for obj_info in img_info['objects']:
+        for img_info in dataset.image_infos():
+            for obj_info in img_info['object_infos']:
                 if 'center_dist' in obj_info:
                     center_distances.append(obj_info['center_dist'])
 
@@ -303,9 +303,9 @@ def plot_instance_count_per_image(datasets):
     print_('Computing num_of_objects_per_image statistics ... ', end='', flush=True)
     num_of_objects_per_image = []
     for dataset in datasets:
-        for img_info in dataset.annotations():
-            if 'objects' in img_info:
-                num_of_objects_per_image.append(len(img_info['objects']))
+        for img_info in dataset.image_infos():
+            if 'object_infos' in img_info:
+                num_of_objects_per_image.append(len(img_info['object_infos']))
 
     if not num_of_objects_per_image:
         print('No object information found.')
@@ -328,9 +328,9 @@ def main():
     datasets = []
     for dataset_path in args.datasets:
         print('Loading dataset from {}'.format(dataset_path))
-        dataset = Dataset.from_json(dataset_path)
+        dataset = ImageDataset.from_json(dataset_path)
         datasets.append(dataset)
-        print('Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations()))
+        print('Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images()))
 
     # Plot image level stats
     plot_instance_count_per_image(datasets)

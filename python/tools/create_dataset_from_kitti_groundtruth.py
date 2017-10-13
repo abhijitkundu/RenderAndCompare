@@ -122,7 +122,7 @@ if __name__ == '__main__':
         print 'Will overwrite contents in {}'.format(args.output_folder)
 
     dataset_name = 'kitti_' + osp.splitext(osp.basename(args.split_file))[0]
-    dataset = rac.datasets.Dataset(dataset_name)
+    dataset = rac.datasets.ImageDataset(dataset_name)
     dataset.set_rootdir(args.output_folder)
 
     # Using a slight harder settings thank standard kitti hardness
@@ -209,7 +209,7 @@ if __name__ == '__main__':
                 annotation['viewpoint'] = [azimuth, elevation, 0, distance]
                 annotation['bbx_amodal'] = [amodal_bbx_final[0], amodal_bbx_final[1], amodal_bbx_final[2] - amodal_bbx_final[0], amodal_bbx_final[3] - amodal_bbx_final[1]]
                 annotation['bbx_crop'] = [crop_bbx_final[0], crop_bbx_final[1], crop_bbx_final[2] - crop_bbx_final[0], crop_bbx_final[3] - crop_bbx_final[1]]
-                dataset.add_annotation(annotation)
+                dataset.add_image_info(annotation)
 
                 if np.random.random() < args.flip_ratio:
                     cropped_image = np.fliplr(cropped_image)
@@ -226,7 +226,7 @@ if __name__ == '__main__':
                     annotation['viewpoint'] = [(360.0 - azimuth) % 360, elevation, 0, distance]
                     annotation['bbx_amodal'] = [amodal_bbx_final[0], amodal_bbx_final[1], amodal_bbx_final[2] - amodal_bbx_final[0], amodal_bbx_final[3] - amodal_bbx_final[1]]
                     annotation['bbx_crop'] = [crop_bbx_final[0], crop_bbx_final[1], crop_bbx_final[2] - crop_bbx_final[0], crop_bbx_final[3] - crop_bbx_final[1]]
-                    dataset.add_annotation(annotation)
+                    dataset.add_image_info(annotation)
 
-    print 'Finished creating dataset with {} annotations'.format(dataset.num_of_annotations())
+    print 'Finished creating dataset with {} annotations'.format(dataset.num_of_images())
     dataset.write_data_to_json(osp.join(osp.dirname(args.output_folder), osp.basename(args.output_folder) + '.json'))

@@ -30,19 +30,19 @@ if __name__ == '__main__':
     assert len(shape_params) == num_of_shapes
 
     print 'Loading dataset from {}'.format(args.input_dataset)
-    dataset = rac.datasets.Dataset.from_json(args.input_dataset)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+    dataset = rac.datasets.ImageDataset.from_json(args.input_dataset)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     print 'Updating shape data ...'
     annotations_with_shape = []
-    for annotation in tqdm(dataset.annotations()):
+    for annotation in tqdm(dataset.image_infos()):
         shape_id = annotation['image_file'].partition('/')[0]
         if shape_id in shape_params:
             annotation['shape_param'] = shape_params[shape_id]
             annotations_with_shape.append(annotation)
 
-    dataset.set_annotations(annotations_with_shape)
-    print 'Finished updating annotations. Found {} matches ({} images/shape)'.format(dataset.num_of_annotations(), dataset.num_of_annotations() / num_of_shapes)
+    dataset.set_image_infos(annotations_with_shape)
+    print 'Finished updating annotations. Found {} matches ({} images/shape)'.format(dataset.num_of_images(), dataset.num_of_images() / num_of_shapes)
 
     print 'Saving updated dataset to {}'.format(args.output_dataset)
     dataset.write_data_to_json(args.output_dataset)

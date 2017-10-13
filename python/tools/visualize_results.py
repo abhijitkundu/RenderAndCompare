@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 
 import _init_paths
-from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.datasets import ImageDataset
 
 
 def draw_bbx2d(image, bbx, color=(0, 255, 0)):
@@ -23,11 +23,11 @@ def main():
 
     args = parser.parse_args()
 
-    assert osp.exists(args.pred_dataset_file), "Dataset filepath {} does not exist.".format(args.pred_dataset_file)
+    assert osp.exists(args.pred_dataset_file), "ImageDataset filepath {} does not exist.".format(args.pred_dataset_file)
 
     print 'Loading predited dataset from {}'.format(args.pred_dataset_file)
-    pred_dataset = Dataset.from_json(args.pred_dataset_file)
-    print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_annotations())
+    pred_dataset = ImageDataset.from_json(args.pred_dataset_file)
+    print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_images())
     print "score_threshold = {}".format(args.score_threshold)
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
@@ -44,12 +44,12 @@ def main():
     print "Press w/d/right/up to move to next frame"
     print "Press ESC to move quit"
     while True:
-        i = max(0, min(i, pred_dataset.num_of_annotations() - 1))
-        image_info = pred_dataset.annotations()[i]
+        i = max(0, min(i, pred_dataset.num_of_images() - 1))
+        image_info = pred_dataset.image_infos()[i]
         img_path = osp.join(pred_dataset.rootdir(), image_info['image_file'])
         image = cv2.imread(img_path)
 
-        for obj_info in image_info['objects']:
+        for obj_info in image_info['object_infos']:
             if 'bbx_visible' in  obj_info:
                 if 'score' in obj_info:
                     if obj_info['score'] < args.score_threshold:

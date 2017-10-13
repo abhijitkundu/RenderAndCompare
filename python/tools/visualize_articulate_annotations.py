@@ -10,8 +10,8 @@ import cv2
 def visualize_dataset(dataset):
     cv2.startWindowThread()
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-    for i in xrange(dataset.num_of_annotations()):
-        annotation = dataset.annotations()[i]
+    for i in xrange(dataset.num_of_images()):
+        annotation = dataset.image_infos()[i]
 
         img_path = osp.join(dataset.rootdir(), annotation['image_file'])
         assert osp.exists(img_path), 'Image file {} does not exist'.format(img_path)
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print 'Parsing annotation {} ...'.format(args.annotation_file)
-    dataset = rac.datasets.Dataset.from_json(args.annotation_file)
+    dataset = rac.datasets.ImageDataset.from_json(args.annotation_file)
     print dataset
 
     visualize_dataset(dataset)

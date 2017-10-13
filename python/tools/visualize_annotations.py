@@ -14,14 +14,14 @@ if __name__ == '__main__':
     parser.add_argument("-wh", "--camera_size", nargs=2, default=[960, 540], type=int, metavar=('WIDTH', 'HEIGHT'), help="Camera Image Size [width, height]")
     args = parser.parse_args()
 
-    dataset = rac.datasets.Dataset.from_json(args.annotation_file)
+    dataset = rac.datasets.ImageDataset.from_json(args.annotation_file)
     print dataset
 
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.namedWindow('bbox', cv2.WINDOW_AUTOSIZE)
 
-    for i in xrange(dataset.num_of_annotations()):
-        annotation = dataset.annotations()[i]
+    for i in xrange(dataset.num_of_images()):
+        annotation = dataset.image_infos()[i]
 
         img_path = osp.join(dataset.rootdir(), annotation['image_file'])
         assert osp.exists(img_path), 'Image file {} does not exist'.format(img_path)

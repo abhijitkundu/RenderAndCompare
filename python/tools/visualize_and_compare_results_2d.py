@@ -9,25 +9,25 @@ import numpy as np
 import cv2
 
 import _init_paths
-from RenderAndCompare.datasets import Dataset
+from RenderAndCompare.datasets import ImageDataset
 
 
 def load_datasets(gt_dataset_file, pred_dataset_file):
     """Load gt and results datasets"""
-    assert osp.exists(pred_dataset_file), "Dataset filepath {} does not exist.".format(pred_dataset_file)
+    assert osp.exists(pred_dataset_file), "ImageDataset filepath {} does not exist.".format(pred_dataset_file)
     print 'Loading predited dataset from {}'.format(pred_dataset_file)
-    pred_dataset = Dataset.from_json(pred_dataset_file)
-    print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_annotations())
+    pred_dataset = ImageDataset.from_json(pred_dataset_file)
+    print 'Loaded {} dataset with {} annotations'.format(pred_dataset.name(), pred_dataset.num_of_images())
 
     gt_dataset = None
     if gt_dataset_file:
-        assert osp.exists(gt_dataset_file), "Dataset filepath {} does not exist..".format(gt_dataset_file)
+        assert osp.exists(gt_dataset_file), "ImageDataset filepath {} does not exist..".format(gt_dataset_file)
         print 'Loading groundtruth dataset from {}'.format(gt_dataset_file)
-        gt_dataset = Dataset.from_json(gt_dataset_file)
-        print 'Loaded {} dataset with {} annotations'.format(gt_dataset.name(), gt_dataset.num_of_annotations())
-        assert gt_dataset.num_of_annotations() == pred_dataset.num_of_annotations()
-        num_of_objects_gt = sum([len(image_info['objects']) for image_info in gt_dataset.annotations()])
-        num_of_objects_pred = sum([len(image_info['objects']) for image_info in gt_dataset.annotations()])
+        gt_dataset = ImageDataset.from_json(gt_dataset_file)
+        print 'Loaded {} dataset with {} annotations'.format(gt_dataset.name(), gt_dataset.num_of_images())
+        assert gt_dataset.num_of_images() == pred_dataset.num_of_images()
+        num_of_objects_gt = sum([len(image_info['object_infos']) for image_info in gt_dataset.image_infos()])
+        num_of_objects_pred = sum([len(image_info['object_infos']) for image_info in gt_dataset.image_infos()])
         assert num_of_objects_gt == num_of_objects_pred, "{} ! {}".format(num_of_objects_gt, num_of_objects_pred)
 
     return gt_dataset, pred_dataset
@@ -61,9 +61,9 @@ def main():
 
     i = 0
     while True:
-        i = max(0, min(i, pred_dataset.num_of_annotations() - 1))
-        pred_image_info = pred_dataset.annotations()[i]
-        gt_image_info = gt_dataset.annotations()[i] if gt_dataset else None
+        i = max(0, min(i, pred_dataset.num_of_images() - 1))
+        pred_image_info = pred_dataset.image_infos()[i]
+        gt_image_info = gt_dataset.image_infos()[i] if gt_dataset else None
 
         if gt_image_info:
             assert gt_image_info['image_file'] == pred_image_info['image_file']
@@ -74,9 +74,9 @@ def main():
         assert osp.exists(img_path), 'Image file {} does not exist'.format(img_path)
         image = cv2.imread(img_path)
 
-        for j in xrange(len(pred_image_info['objects'])):
-            pred_obj = pred_image_info['objects'][j]
-            gt_obj = gt_image_info['objects'][j] if gt_image_info else None
+        for j in xrange(len(pred_image_info['object_infos'])):
+            pred_obj = pred_image_info['object_infos'][j]
+            gt_obj = gt_image_info['object_infos'][j] if gt_image_info else None
 
             draw_object(image, pred_obj, (0, 0, 255))
 

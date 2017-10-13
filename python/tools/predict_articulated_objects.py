@@ -21,17 +21,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print 'Loading dataset from {}'.format(args.dataset)
-    dataset = rac.datasets.Dataset.from_json(args.dataset)
-    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+    dataset = rac.datasets.ImageDataset.from_json(args.dataset)
+    print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     image_files = []
     cropping_boxes = []
 
-    shape_params_gt = np.zeros((dataset.num_of_annotations(), dataset.metainfo()['shape_param_dimension']))
-    pose_params_gt = np.zeros((dataset.num_of_annotations(), dataset.metainfo()['pose_param_dimension']))
+    shape_params_gt = np.zeros((dataset.num_of_images(), dataset.metainfo()['shape_param_dimension']))
+    pose_params_gt = np.zeros((dataset.num_of_images(), dataset.metainfo()['pose_param_dimension']))
 
-    for i in xrange(dataset.num_of_annotations()):
-        annotation = dataset.annotations()[i]
+    for i in xrange(dataset.num_of_images()):
+        annotation = dataset.image_infos()[i]
         img_path = osp.join(dataset.rootdir(), annotation['image_file'])
 
         visible_bbx = np.array(annotation['bbx_visible'], dtype=np.float)  # gt box (only visible path)
@@ -67,9 +67,9 @@ if __name__ == '__main__':
     print 'mean_shape_L1 = {}'.format(mean_shape_L1)
     print 'mean_pose_L1 = {}'.format(mean_pose_L1)
 
-    for i in xrange(dataset.num_of_annotations()):
-        dataset.annotations()[i]['shape_param'] = predictions['pred_shape_target'][i, ...].tolist()
-        dataset.annotations()[i]['pose_param'] = predictions['pred_pose_target'][i, ...].tolist()
+    for i in xrange(dataset.num_of_images()):
+        dataset.image_infos()[i]['shape_param'] = predictions['pred_shape_target'][i, ...].tolist()
+        dataset.image_infos()[i]['pose_param'] = predictions['pred_pose_target'][i, ...].tolist()
 
     print 'Saving results at {}'.format(args.output)
     dataset.write_data_to_json(args.output)

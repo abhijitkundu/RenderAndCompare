@@ -13,7 +13,7 @@ def plot_param_statistics(datasets, param_key='body_shape'):
     print 'Computing statistics for param: {}'.format(param_key)
     params = []
     for dataset in datasets:
-        for annotation in dataset.annotations():
+        for annotation in dataset.image_infos():
             if param_key in annotation:
                 params.append(np.array(annotation[param_key], dtype=np.float))
 
@@ -47,9 +47,9 @@ if __name__ == '__main__':
     datasets = []
     for dataset_path in args.datasets:
         print 'Loading dataset from {}'.format(dataset_path)
-        dataset = rac.datasets.Dataset.from_json(dataset_path)
+        dataset = rac.datasets.ImageDataset.from_json(dataset_path)
         datasets.append(dataset)
-        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_annotations())
+        print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     plot_param_statistics(datasets, 'shape_param')
     plot_param_statistics(datasets, 'pose_param')

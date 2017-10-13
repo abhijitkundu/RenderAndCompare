@@ -58,7 +58,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-i", "--input_folder", required=True, help="Input folder containing single image surreal data")
-    parser.add_argument("-d", "--dataset_name", default='surreal_xxxxx', help="Dataset name")
+    parser.add_argument("-d", "--dataset_name", default='surreal_xxxxx', help="ImageDataset name")
     parser.add_argument("-m", "--smpl_model_file", default=osp.join(smpl_data_dir, 'smpl_neutral_lbs_10_207_0.h5'), help="Path to smpl model file")
     parser.add_argument("-p", "--pose_pca_file", help="Pose PCA file. If not provided use full 69 params")
     parser.add_argument("-r", "--remove_empty_bbx", default=1, type=int, help="Remove empty box")
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             image_files.append(osp.join(root, filename))
     print 'Found {:,} images in {}'.format(len(image_files), args.input_folder)
 
-    dataset = rac.datasets.Dataset(args.dataset_name)
+    dataset = rac.datasets.ImageDataset(args.dataset_name)
     dataset.set_rootdir(args.input_folder)
 
     metainfo = {}
@@ -113,9 +113,9 @@ if __name__ == '__main__':
             if (bbx[3] - bbx[1]) <= 0 or (bbx[2] - bbx[0]) <= 0:
                 tqdm.write('Invalid bbx = {} in image {}'.format(bbx, image_file))
                 continue
-        dataset.add_annotation(annotation)
+        dataset.add_image_info(annotation)
 
-    print 'Finished creating dataset with {} annotations from {} images'.format(dataset.num_of_annotations(), len(image_files))
+    print 'Finished creating dataset with {} annotations from {} images'.format(dataset.num_of_images(), len(image_files))
 
     output_json_file = args.dataset_name + '.json'
     print 'Saving JSON dataset file at {}'.format(output_json_file)

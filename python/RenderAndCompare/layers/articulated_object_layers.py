@@ -78,8 +78,8 @@ class ArticulatedObjectDataLayer(AbstractDataLayer):
 
         image_files = []
         cropping_boxes = []
-        for i in xrange(dataset.num_of_annotations()):
-            annotation = dataset.annotations()[i]
+        for i in xrange(dataset.num_of_images()):
+            annotation = dataset.image_infos()[i]
             img_path = osp.join(dataset.rootdir(), annotation['image_file'])
             image_files.append(img_path)
             visible_bbx = np.array(annotation['bbx_visible'], dtype=np.float)  # gt box (only visible path)
