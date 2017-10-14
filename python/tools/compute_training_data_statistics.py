@@ -4,9 +4,10 @@ from __future__ import print_function
 
 import argparse
 
+import numpy as np
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
-import numpy as np
+from matplotlib.colors import LogNorm
 from scipy.stats import norm
 from six import print_
 
@@ -84,7 +85,7 @@ def plot_bbx_statistics(datasets):
     heights = bbx_sizes[:, 1]
     aspect_ratios = widths / heights
 
-    f, ((ax1, ax2, ax3)) = plt.subplots(1, 3, figsize=(21, 7))
+    f, ((ax1, ax2, ax3, ax4)) = plt.subplots(1, 4, figsize=(28, 7))
     f.suptitle('bbx statistics', fontsize=14)
 
     (mu, sigma) = norm.fit(widths)
@@ -107,6 +108,10 @@ def plot_bbx_statistics(datasets):
     ax3.plot(bins, y, 'r--', linewidth=2)
     ax3.set_title('aspect_ratios mean=%.3f, sigma=%.3f' % (mu, sigma))
     ax3.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    ax4.set_title('bbx_width vs bbx_height')
+    _, _, _, im = ax4.hist2d(widths, heights, bins=40, norm=LogNorm())
+    f.colorbar(im, ax=ax4)
 
     print('Done.')
 
@@ -229,7 +234,7 @@ def plot_cp_target_statistics(datasets):
     x_targets = cp_targets[:, 0]
     y_targets = cp_targets[:, 1]
 
-    f, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(14, 7))
+    f, ((ax1, ax2, ax3)) = plt.subplots(1, 3, figsize=(21, 7))
 
     f.suptitle('Center projection target statistics', fontsize=14)
 
@@ -246,6 +251,10 @@ def plot_cp_target_statistics(datasets):
     ax2.plot(bins, y, 'r--', linewidth=2)
     ax2.set_title('y_targets mean=%.3f, sigma=%.3f' % (mu, sigma))
     ax2.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    ax3.set_title('x_targets vs y_targets')
+    _, _, _, im = ax3.hist2d(x_targets, y_targets, bins=40, norm=LogNorm())
+    f.colorbar(im, ax=ax3)
 
     print('Done.')
 
@@ -318,6 +327,45 @@ def plot_instance_count_per_image(datasets):
 
     print('Done.')
 
+def plot_image_size_statistics(datasets):
+    """Plot image size statistics"""
+    print_('Computing image size statistics ... ', end='', flush=True)
+    image_sizes = []
+    for dataset in datasets:
+        for img_info in dataset.image_infos():
+            if 'image_size' in img_info:
+                image_sizes.append(img_info['image_size'])
+
+    if not image_sizes:
+        print('No image_size information found.')
+        return
+
+    image_sizes = np.array(image_sizes)
+    widths = image_sizes[:, 0]
+    heights = image_sizes[:, 1]
+    aspect_ratios = widths.astype(np.float) / heights
+
+    f, ((ax1, ax2, ax3, ax4)) = plt.subplots(1, 4, figsize=(28, 7))
+    f.suptitle('image size statistics', fontsize=14)
+
+    ax1.hist(widths, 60, normed=True, facecolor='green', alpha=0.75)
+    ax1.set_title('widths min={}, max={}'.format(widths.min(), widths.max()))
+    ax1.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    ax2.hist(heights, 60, normed=True, facecolor='green', alpha=0.75)
+    ax2.set_title('heights min={}, max={}'.format(heights.min(), heights.max()))
+    ax2.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    ax3.hist(aspect_ratios, 60, normed=True, facecolor='green', alpha=0.75)
+    ax3.set_title('aspect_ratios min={}, max={}'.format(aspect_ratios.min(), aspect_ratios.max()))
+    ax3.axvline(0.0, color='b', linestyle='dashed', linewidth=2)
+
+    ax4.set_title('image_width vs image_height')
+    _, _, _, im = ax4.hist2d(widths, heights, bins=40, norm=LogNorm())
+    f.colorbar(im, ax=ax4)
+
+    print('Done.')
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -334,6 +382,7 @@ def main():
 
     # Plot image level stats
     plot_instance_count_per_image(datasets)
+    plot_image_size_statistics(datasets)
 
     # Plot object level stats
     plot_viewpoint_statistics(datasets)
