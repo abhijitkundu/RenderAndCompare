@@ -4,20 +4,15 @@ This script visualizes detection bounding boxes stored in ImageDataset json form
 An optional score parameter can be passed to visualize boxes only above certain threshold
 """
 
-import os.path as osp
 import argparse
-import numpy as np
+import os.path as osp
+
 import cv2
+import numpy as np
 
 import _init_paths
 from RenderAndCompare.datasets import ImageDataset
-
-
-def draw_bbx2d(image, bbx, color=(0, 255, 0)):
-    cv2.rectangle(image,
-                  tuple(np.floor(bbx[:2]).astype(int)),
-                  tuple(np.ceil(bbx[2:]).astype(int)),
-                  color, 1)
+from RenderAndCompare.visualization import WaitKeyNavigator, draw_bbx2d
 
 
 def main():
@@ -37,18 +32,12 @@ def main():
     cv2.namedWindow('image', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
     cv2.resizeWindow('image', 2048, 1024)
 
-    paused = True
-    fwd = True
-    i = 0
+    wait_nav = WaitKeyNavigator(pred_dataset.num_of_images())
+    wait_nav.print_key_map()
 
-    print "---------------KeyMap-----------------"
-    print "Press p to toggle pause"
-    print "Press a/s/left/down to move to previous frame"
-    print "Press a/s/left/down to move to previous frame"
-    print "Press w/d/right/up to move to next frame"
-    print "Press ESC to move quit"
-    while True:
-        i = max(0, min(i, pred_dataset.num_of_images() - 1))
+    quit_viz = False
+    while not quit_viz:
+        i = wait_nav.index
         image_info = pred_dataset.image_infos()[i]
         img_path = osp.join(pred_dataset.rootdir(), image_info['image_file'])
         image = cv2.imread(img_path)
@@ -79,17 +68,7 @@ def main():
         cv2.displayOverlay('image', 'Image: {}'.format(osp.splitext(osp.basename(img_path))[0]))
         cv2.imshow('image', image)
 
-        key = cv2.waitKey(not paused)
-        if key == 27:
-            cv2.destroyAllWindows()
-            break
-        elif key in [82, 83, 100, 119, 61, 43]:
-            fwd = True
-        elif key in [81, 84, 97, 115, 45]:
-            fwd = False
-        elif key == ord('p'):
-            paused = not paused        
-        i = i+1 if fwd else i-1
+        quit_viz = wait_nav.process_key()
 
 
 if __name__ == '__main__':

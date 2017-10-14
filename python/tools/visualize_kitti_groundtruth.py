@@ -56,18 +56,12 @@ def main():
     cv2.namedWindow('image', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
     cv2.resizeWindow('image', 2048, 1024)
 
-    paused = True
-    fwd = True
-    i = 0
+    wait_nav = rac.visualization.WaitKeyNavigator(num_of_images)
+    wait_nav.print_key_map()
 
-    print "---------------KeyMap-----------------"
-    print "Press p to toggle pause"
-    print "Press a/s/left/down to move to previous frame"
-    print "Press a/s/left/down to move to previous frame"
-    print "Press w/d/right/up to move to next frame"
-    print "Press ESC to move quit"
-    while True:
-        i = max(0, min(i, num_of_images - 1))
+    quit_viz = False
+    while not quit_viz:
+        i = wait_nav.index
         cv2.displayOverlay('image', 'Image: {} / {}'.format(i, num_of_images - 1))
 
         base_name = '%06d' % (i)
@@ -150,17 +144,7 @@ def main():
 
         cv2.imshow('image', image)
 
-        key = cv2.waitKey(not paused)
-        if key == 27:
-            cv2.destroyAllWindows()
-            break
-        elif key in [82, 83, 100, 119, 61, 43]:
-            fwd = True
-        elif key in [81, 84, 97, 115, 45]:
-            fwd = False
-        elif key == ord('p'):
-            paused = not paused        
-        i = i+1 if fwd else i-1
+        quit_viz = wait_nav.process_key()
 
 
 if __name__ == '__main__':
