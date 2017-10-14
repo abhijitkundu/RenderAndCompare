@@ -9,6 +9,12 @@ import numpy as np
 
 from RenderAndCompare.geometry import bbx_iou_overlap, create_jittered_bbx
 
+def flip_object_info(object_info, width):
+    """horizontally flip object_info"""
+    object_info['bbx_crop'][[0, 2]] = width - object_info['bbx_crop'][[2, 0]]
+    object_info['bbx_amodal'][[0, 2]] = width - object_info['bbx_amodal'][[2, 0]]
+    object_info['center_proj'][0] = width - object_info['center_proj'][0]
+    object_info['viewpoint'][[0, 2]] = -object_info['viewpoint'][[0, 2]]
 
 def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
     """

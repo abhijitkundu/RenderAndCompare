@@ -9,7 +9,9 @@ from RenderAndCompare.datasets import (
     BatchImageLoader,
     crop_and_resize_image,
     uniform_crop_and_resize_image,
-    scale_image, sample_object_infos
+    scale_image, 
+    sample_object_infos,
+    flip_object_info,
 )
 
 
@@ -523,10 +525,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
             for obj_info in obj_infos_curr_batch:
                 if image_flip:
                     W = image_info['image_size'][0]
-                    obj_info['bbx_crop'][[0, 2]] = W - obj_info['bbx_crop'][[2, 0]]
-                    obj_info['bbx_amodal'][[0, 2]] = W - obj_info['bbx_amodal'][[2, 0]]
-                    obj_info['center_proj'][0] = W - obj_info['center_proj'][0]
-                    obj_info['viewpoint'][[0, 2]] = -obj_info['viewpoint'][[0, 2]]
+                    flip_object_info(obj_info, W)
 
                 obj_info['roi'] = np.append(i, obj_info['bbx_crop'] * image_scale)
             obj_infos.extend(obj_infos_curr_batch)
