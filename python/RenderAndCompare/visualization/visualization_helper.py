@@ -6,12 +6,12 @@ import cv2
 import numpy as np
 
 
-def draw_bbx2d(image, bbx, color=(0, 255, 0)):
+def draw_bbx2d(image, bbx, color=(0, 255, 0), thickness=1):
     """Draw a 2d bbx on image"""
     cv2.rectangle(image,
                   tuple(np.floor(bbx[:2]).astype(int)),
                   tuple(np.ceil(bbx[2:]).astype(int)),
-                  color, 1)
+                  color, thickness, cv2.LINE_AA)
 
 
 class WaitKeyNavigator(object):
