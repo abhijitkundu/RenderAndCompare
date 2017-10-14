@@ -9,7 +9,7 @@ import scipy.io as sio
 from pprint import pprint
 
 
-def draw_bbx2d(image, bbx, color=(0, 255, 0)):
+def draw_bbx(image, bbx, color=(0, 255, 0)):
     cv2.rectangle(image,
                   tuple(np.floor(bbx[:2]).astype(int)),
                   tuple(np.ceil(bbx[2:]).astype(int)),
@@ -101,7 +101,7 @@ def main():
             image = cv2.imread(osp.join(image_dir, img_info['image_file']))
 
             for obj_info in filtered_objects:
-                draw_bbx2d(image, obj_info['bbx_visible'])
+                draw_bbx(image, obj_info['bbx_visible'])
 
             cv2.imshow('image', image)
             key = cv2.waitKey(not paused)

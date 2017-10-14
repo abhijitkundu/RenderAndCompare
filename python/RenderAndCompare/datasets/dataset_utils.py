@@ -5,7 +5,6 @@ Some usefule dataset related functionality
 from copy import deepcopy
 from random import shuffle
 
-import cv2
 import numpy as np
 
 from RenderAndCompare.geometry import bbx_iou_overlap, create_jittered_bbx
@@ -20,7 +19,7 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
     assert number_of_gt_objects > 0, "Cannot have 0 objects"
 
     sampled_object_infos = []
-    #if number_of_objects <= 0 (dynamic roi) then return the original object_infos
+    # if number_of_objects <= 0 (dynamic roi) then return the original object_infos
     if number_of_objects <= 0:
         for obj_id, oi in enumerate(object_infos):
             obj_info = deepcopy(oi)
@@ -50,6 +49,7 @@ def sample_object_infos(object_infos, number_of_objects, jitter_iou_min):
         sampled_object_infos.append(obj_info)
     return sampled_object_infos
 
+
 def create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min):
     """Jitter bbx by makin sure the jittered bbx still has the maximum overlap with original bbx"""
     bbx_crop_gt = np.array(object_infos[obj_id]['bbx_visible'])
@@ -59,16 +59,3 @@ def create_jittered_box_with_no_conflicts(obj_id, object_infos, jitter_iou_min):
         if max_iou_obj_id == obj_id:
             break
     return bbx_crop
-
-
-
-def draw_bbx2d(image, boxes, color=(0, 255, 0), thickness=1, copy=True):
-    """Draw 2d boxes on image"""
-    if copy:
-        image_ = image.copy()
-    else:
-        image_ = image
-    for box in boxes:
-        bbx = np.array(box, dtype=np.float32)
-        cv2.rectangle(image_, tuple(bbx[:2]), tuple(bbx[2:]), color, thickness)
-    return image_

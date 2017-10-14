@@ -12,7 +12,7 @@ import numpy as np
 
 import _init_paths
 from RenderAndCompare.datasets import ImageDataset
-from RenderAndCompare.visualization import WaitKeyNavigator, draw_bbx2d
+from RenderAndCompare.visualization import WaitKeyNavigator, draw_bbx
 
 
 def main():
@@ -47,7 +47,7 @@ def main():
                 if 'score' in obj_info:
                     if obj_info['score'] < args.score_threshold:
                         continue
-                draw_bbx2d(image, obj_info['bbx_visible'])
+                draw_bbx(image, obj_info['bbx_visible'])
                 if 'category' in obj_info:
                     obj_text = obj_info['category']
                     tl = tuple(np.floor(obj_info['bbx_visible'][:2]).astype(int))

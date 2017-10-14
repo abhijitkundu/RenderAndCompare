@@ -11,7 +11,7 @@ import numpy as np
 
 import _init_paths
 from RenderAndCompare.datasets import ImageDataset
-from RenderAndCompare.visualization import WaitKeyNavigator, draw_bbx2d
+from RenderAndCompare.visualization import WaitKeyNavigator, draw_bbx
 from RenderAndCompare.geometry import (
     Pose,
     project_point,
@@ -62,9 +62,9 @@ def main():
             h, s, l = random.random(), 0.5 + random.random() / 2.0, 0.4 + random.random() / 5.0
             color = [int(256 * i) for i in colorsys.hls_to_rgb(h, l, s)]
             if 'bbx_visible' in obj_info:
-                draw_bbx2d(image, obj_info['bbx_visible'], color=color, thickness=1)
+                draw_bbx(image, obj_info['bbx_visible'], color=color, thickness=1)
             if 'bbx_amodal' in obj_info:
-                draw_bbx2d(image, obj_info['bbx_amodal'], color=color, thickness=1)
+                draw_bbx(image, obj_info['bbx_amodal'], color=color, thickness=1)
             if 'center_proj'in obj_info:
                 center_proj = np.array(obj_info['center_proj'], dtype=np.float)
                 cv2.circle(image, tuple(center_proj.astype(np.float32)), 3, color, -1)
