@@ -131,8 +131,10 @@ def main():
 
             obj_infos.append(obj_info)
 
-        image_info['object_infos'] = obj_infos
-        dataset.add_image_info(image_info)
+        # only add if we have atleast 1 object
+        if obj_infos:
+            image_info['object_infos'] = obj_infos
+            dataset.add_image_info(image_info)
 
     total_num_of_objects = sum([len(img_info['object_infos']) for img_info in dataset.image_infos()])
     print 'Finished creating dataset with {} images and {} objects.'.format(dataset.num_of_images(), total_num_of_objects)
