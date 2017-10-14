@@ -72,8 +72,8 @@ def main():
                 if 'viewpoint' in obj_info:
                     vp = np.array(obj_info['viewpoint'], dtype=np.float)
                     R_vp = rotation_from_viewpoint(vp)
-                    # R_vp = rotation_from_viewpoint(np.array([math.radians(45.), math.radians(45.), math.radians(10.)]))
-                    obj_pose = Pose(R=R_vp, t=np.array([0., 0., 10.]))
+                    distance = obj_info.get('center_dist', 10.)
+                    obj_pose = Pose(R=R_vp, t=np.array([0., 0., distance]))
 
                     center_proj_ray = K_inv.dot(np.append(center_proj, 1))
                     delta_rot = rotation_from_two_vectors(np.array([0., 0., 1.]), center_proj_ray)
