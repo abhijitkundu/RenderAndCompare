@@ -112,6 +112,7 @@ def main():
             assert_coord2D(center_proj)
 
             obj_info = OrderedDict()
+            obj_info['id'] = obj_id
             obj_info['category'] = category
             obj_info['occluded'] = bool(rec_obj['occluded'].flatten()[0])
             obj_info['truncated'] = bool(rec_obj['truncated'].flatten()[0])
