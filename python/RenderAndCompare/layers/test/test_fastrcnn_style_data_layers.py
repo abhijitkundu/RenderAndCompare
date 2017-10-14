@@ -75,12 +75,12 @@ if __name__ == '__main__':
                 assert_bbx(roi_blob[roi_id, -4:])
 
             # Check the bbx blobs
-            bbx_amodal_blob = net.blobs['gt_bbx_amodal'].data
-            bbx_crop_blob = net.blobs['gt_bbx_crop'].data
-            for bbx_blob in [bbx_amodal_blob, bbx_crop_blob]:
-                assert bbx_blob.shape == (number_of_rois, 4)
-                for roi_id in xrange(number_of_rois):
-                    assert_bbx(bbx_blob[roi_id, :])
+            for bbx_blob_name in ['gt_bbx_amodal', 'gt_bbx_crop']:
+                if bbx_blob_name in net.blobs:
+                    bbx_blob = net.blobs[bbx_blob_name].data
+                    assert bbx_blob.shape == (number_of_rois, 4)
+                    for roi_id in xrange(number_of_rois):
+                        assert_bbx(bbx_blob[roi_id, :])
 
             # Check the center proj blobs
             center_proj_blob = net.blobs['gt_center_proj'].data
@@ -89,7 +89,7 @@ if __name__ == '__main__':
             # Check vp blobs
             vp_blob = net.blobs['gt_viewpoint'].data
             assert vp_blob.shape == (number_of_rois, 3), "Weird vp shape = {}".format(vp_blob)
-            assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all()
+            assert (vp_blob >= -np.pi).all() and (vp_blob < np.pi).all(), "Bad vp = \n{}".format(vp_blob)
 
             for i in xrange(start_idx, end_idx):
                 original_image = cv2.imread(osp.join(dataset.rootdir(), dataset.image_infos()[i]['image_file']))
@@ -124,13 +124,15 @@ if __name__ == '__main__':
         # No check the data_layer.data_samples
         print "Verifying data_samples ...",
         for im_info_layer, im_info_dataset in zip(net.layers[0].data_samples, dataset.image_infos()):
-            assert np.all(im_info_layer['image_size'] == im_info_dataset['image_size'])
-            assert np.all(im_info_layer['image_intrinsic'] == im_info_dataset['image_intrinsic'])
+            for im_field in ['image_size', 'image_intrinsic']:
+                if im_field in im_info_dataset:
+                    assert np.all(im_info_layer[im_field] == im_info_dataset[im_field])
             assert len(im_info_layer['object_infos']) == len(im_info_dataset['object_infos'])
             for obj_info_layer, obj_info_dataset in zip(im_info_layer['object_infos'], im_info_dataset['object_infos']):
                 assert obj_info_layer['id'] == obj_info_dataset['id']
                 assert obj_info_layer['category'] == obj_info_dataset['category']
-                for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
-                    assert np.all(obj_info_layer[field] == np.array(obj_info_dataset[field])), \
-                    "For field '{}': {} vs {}".format(field, obj_info_layer[field], obj_info_dataset[field])
+                for obj_field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
+                    if obj_field in obj_info_dataset:
+                        assert np.all(obj_info_layer[obj_field] == np.array(obj_info_dataset[obj_field])), \
+                                "For obj_field '{}': {} vs {}".format(obj_field, obj_info_layer[obj_field], obj_info_dataset[obj_field])
         print "Done."

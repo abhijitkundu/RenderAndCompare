@@ -530,17 +530,30 @@ class FastRCNNDataLayer(AbstractDataLayer):
                 obj_info['roi'] = np.append(i, obj_info['bbx_crop'] * image_scale)
             obj_infos.extend(obj_infos_curr_batch)
 
+        # number of objects (can be dynamic) for currrent pass
         num_of_objects = len(obj_infos)
-        object_blobs = {}
-        object_blobs['roi'] = np.empty((num_of_objects, 5), dtype=np.float32)
-        object_blobs['bbx_crop'] = np.empty((num_of_objects, 4), dtype=np.float32)
-        object_blobs['bbx_amodal'] = np.empty((num_of_objects, 4), dtype=np.float32)
-        object_blobs['viewpoint'] = np.empty((num_of_objects, 3), dtype=np.float32)
-        object_blobs['center_proj'] = np.empty((num_of_objects, 2), dtype=np.float32)
 
+        blob_shapes = {
+            "roi": (num_of_objects, 5),
+            "bbx_crop": (num_of_objects, 4),
+            "bbx_amodal": (num_of_objects, 4),
+            "viewpoint": (num_of_objects, 3),                        
+            "center_proj": (num_of_objects, 2),
+        }
+
+        # Get a list of object blobs that are required
+        all_object_blob_names = ['roi', 'bbx_crop', 'bbx_amodal', 'viewpoint', 'center_proj']
+        required_object_blob_names = [x for x in all_object_blob_names if x in self.top_names]
+
+        # Allocate object blob data
+        object_blobs = {}
+        for object_blob_name in required_object_blob_names:
+            object_blobs[object_blob_name] = np.empty(blob_shapes[object_blob_name], dtype=np.float32)
+
+        # Set blob data for each sample (object)
         for i, obj_info in enumerate(obj_infos):
-            for field in ['roi', 'bbx_crop', 'bbx_amodal', 'viewpoint', 'center_proj']:
-                object_blobs[field][i, ...] = obj_info[field]
+            for blob_name in required_object_blob_names:
+                object_blobs[blob_name][i, ...] = obj_info[blob_name]
 
         return object_blobs
 
