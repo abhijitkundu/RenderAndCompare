@@ -7,4 +7,4 @@ from RenderAndCompare.evaluation.evaluation_helper import (
     get_bbx_sizes,
 )
 
-__all__ = ['evaluation_helper']
+__all__ = ['evaluation_helper', 'viewpoint_metrics']

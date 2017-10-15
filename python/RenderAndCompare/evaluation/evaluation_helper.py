@@ -5,7 +5,8 @@ import os.path as osp
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from RenderAndCompare.geometry import assert_viewpoint, assert_bbx
+from RenderAndCompare.geometry import assert_bbx
+from .viewpoint_metrics import compute_geodesic_error, compute_viewpoint_error
 
 
 def compute_performance_metrics(gt_dataset, pred_dataset):
@@ -23,7 +24,8 @@ def compute_performance_metrics(gt_dataset, pred_dataset):
     for gt_image_info, pred_image_info in tqdm(zip(gt_dataset.image_infos(), pred_dataset.image_infos())):
         assert gt_image_info['image_file'] == pred_image_info['image_file'], "{} != {}".format(gt_image_info['image_file'], pred_image_info['image_file'])
         assert gt_image_info['image_size'] == pred_image_info['image_size'], "{} != {}".format(gt_image_info['image_size'], pred_image_info['image_size'])
-        assert gt_image_info['image_intrinsic'] == pred_image_info['image_intrinsic']
+        if 'image_intrinsic' in gt_image_info:
+            assert gt_image_info['image_intrinsic'] == pred_image_info['image_intrinsic']
 
         gt_objects = gt_image_info['object_infos']
         pred_objects = pred_image_info['object_infos']
@@ -39,30 +41,22 @@ def compute_performance_metrics(gt_dataset, pred_dataset):
             # compute viewpoint error
             if all('viewpoint' in obj_info for obj_info in (gt_obj, pred_obj)):
                 vp_error_deg = compute_viewpoint_error(gt_obj['viewpoint'], pred_obj['viewpoint'])
-                pm['error_azimuth_deg'] = vp_error_deg[0]
-                pm['error_elevation_deg'] = vp_error_deg[1]
-                pm['error_tilt_deg'] = vp_error_deg[2]
+                pm['azimuth_error_deg'] = vp_error_deg[0]
+                pm['elevation_error_deg'] = vp_error_deg[1]
+                pm['tilt_error_deg'] = vp_error_deg[2]
+                pm['vp_geo_error_deg'] = compute_geodesic_error(gt_obj['viewpoint'], pred_obj['viewpoint'])
 
             # compute pixel center_proj error
             if all('center_proj' in obj_info for obj_info in (gt_obj, pred_obj)):
-                pm['error_center_proj_pixels'] = compute_coord_error(gt_obj['center_proj'], pred_obj['center_proj'])
+                pm['center_proj_error_pixels'] = compute_coord_error(gt_obj['center_proj'], pred_obj['center_proj'])
 
             # compute bbx overlap error
             if all('bbx_amodal' in obj_info for obj_info in (gt_obj, pred_obj)):
-                pm['iou_bbx_amodal'] = compute_bbx_iou(gt_obj['bbx_amodal'], pred_obj['bbx_amodal'])
+                pm['bbx_amodal_iou'] = compute_bbx_iou(gt_obj['bbx_amodal'], pred_obj['bbx_amodal'])
 
             perf_metrics.append(pm)
     perf_metrics_df = pd.DataFrame(perf_metrics).set_index('obj_id')
     return perf_metrics_df
-
-
-def compute_viewpoint_error(vpA, vpB, use_degrees=True):
-    """compute viewpoint error (absolute) in degrees (default) or radians (if use_degrees=False)"""
-    angle_error = (np.array(vpA) - np.array(vpB) + np.pi) % (2 * np.pi) - np.pi
-    assert_viewpoint(angle_error)
-    if use_degrees:
-        angle_error = np.degrees(angle_error)
-    return np.fabs(angle_error)
 
 
 def compute_coord_error(pointA, pointB):
@@ -97,6 +91,7 @@ def compute_bbx_iou(bbxA_, bbxB_):
 
     return float(iou)
 
+
 def get_bbx_sizes(dataset, bbx_type='bbx_visible'):
     obj_ids = []
     widths = []
@@ -107,6 +102,5 @@ def get_bbx_sizes(dataset, bbx_type='bbx_visible'):
             obj_ids.append("{}_{}".format(osp.splitext(osp.basename(img_info['image_file']))[0], obj_info['id']))
             widths.append(bbx[2] - bbx[0])
             heights.append(bbx[3] - bbx[1])
-    
-    return pd.DataFrame({'obj_id': obj_ids, 'width': widths, 'height': heights}).set_index('obj_id')
 
+    return pd.DataFrame({'obj_id': obj_ids, 'width': widths, 'height': heights}).set_index('obj_id')

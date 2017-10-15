@@ -8,6 +8,7 @@ import os.path as osp
 import argparse
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 import _init_paths
 from RenderAndCompare.datasets import ImageDataset
@@ -53,7 +54,18 @@ def main():
     assert (perf_metrics_df.index == bbx_sizes_df.index).all()
     perf_metrics_df = pd.concat([perf_metrics_df, bbx_sizes_df], axis=1)
 
+    pd.set_option('display.width', 1000)
     print "perf_metrics = ...\n", perf_metrics_df.describe()
+
+    if 'vp_geo_error_deg' in perf_metrics_df.columns:
+        vp_geo_errors = perf_metrics_df['vp_geo_error_deg'].values
+        num_of_objects_gt = sum([len(image_info['object_infos']) for image_info in gt_dataset.image_infos()])
+        assert vp_geo_errors.shape == (num_of_objects_gt,)
+        med_err_deg = np.median(vp_geo_errors)
+        acc_pi_by_6 = float(np.sum(vp_geo_errors < np.degrees(np.pi / 6))) / vp_geo_errors.size
+        acc_pi_by_12 = float(np.sum(vp_geo_errors < np.degrees(np.pi / 12))) / vp_geo_errors.size
+        acc_pi_by_24 = float(np.sum(vp_geo_errors < np.degrees(np.pi / 24))) / vp_geo_errors.size
+        print 'Geodesic med_err_deg= {}, acc_pi_by_6= {}, acc_pi_by_12= {}, acc_pi_by_24= {}'.format(med_err_deg, acc_pi_by_6, acc_pi_by_12, acc_pi_by_24)
 
     pm_out_name = "{}.xlsx".format(pred_dataset.name())
     print 'Saving performance metrics to {}'.format(pm_out_name)
@@ -61,7 +73,6 @@ def main():
 
     perf_metrics_df.hist(bins=96)
     plt.show()
-
 
 
 if __name__ == '__main__':
