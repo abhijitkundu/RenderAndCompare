@@ -52,7 +52,8 @@ def run_inference(weights_file, net, input_dataset):
         result_im_info = OrderedDict()
         result_im_info['image_file'] = input_im_info['image_file']
         result_im_info['image_size'] = input_im_info['image_size']
-        result_im_info['image_intrinsic'] = input_im_info['image_intrinsic']
+        if 'image_intrinsic' in input_im_info:
+            result_im_info['image_intrinsic'] = input_im_info['image_intrinsic']
         obj_infos = []
         for input_obj_info in input_im_info['object_infos']:
             obj_info = OrderedDict()
@@ -155,6 +156,7 @@ def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
         print "Evaluating results ... "
         perf_metrics_df = compute_performance_metrics(input_dataset, result_dataset)
         perf_metrics_summary_df = perf_metrics_df.describe()
+        pd.set_option('display.width', 1000)
         print perf_metrics_summary_df
 
         perf_metrics_summary = {}
