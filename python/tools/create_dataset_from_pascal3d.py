@@ -34,6 +34,13 @@ def main():
     parser.add_argument("-s", "--split", default='trainval', choices=split_choices, help="Split type")
     parser.add_argument("-d", "--sub_dataset", default='imagenet', choices=sub_dataset_choices, help="Sub dataset type")
     parser.add_argument("-c", "--category", type=str, nargs=1, default='car', choices=category_choices, help="Object type (category)")
+    parser.add_argument("-n", "--dataset_name", type=str, help="Optional output dataset name")
+    parser.add_argument('--no-truncated', dest='keep_truncated', action='store_false', help="use this to remove truncated objects")
+    parser.set_defaults(keep_truncated=True)
+    parser.add_argument('--no-occluded', dest='keep_occluded', action='store_false', help="use this to remove occluded objects")
+    parser.set_defaults(keep_occluded=True)
+    parser.add_argument('--no-difficult', dest='keep_difficult', action='store_false', help="use this to remove difficult objects")
+    parser.set_defaults(keep_difficult=True)
     args = parser.parse_args()
 
     assert osp.exists(args.root_dir), "Directory '{}' do not exist".format(args.root_dir)
@@ -50,6 +57,9 @@ def main():
     print "category = {}".format(args.category)
     print "anno_dir = {}".format(anno_dir)
     print "image_dir = {}".format(image_dir)
+    print "keep_truncated = {}".format(args.keep_truncated)
+    print "keep_occluded = {}".format(args.keep_occluded)
+    print "keep_difficult = {}".format(args.keep_difficult)
 
     image_names = [x.rstrip() for x in open(split_file)]
     num_of_images = len(image_names)
@@ -58,7 +68,10 @@ def main():
     # imagenet uses JPEG while pascal images are in jpg format
     image_ext = '.JPEG' if args.sub_dataset == 'imagenet' else '.jpg'
 
-    dataset_name = 'pascal3d_{}_{}_{}'.format(args.sub_dataset, args.split, args.category)
+    if args.dataset_name:
+        dataset_name = args.dataset_name
+    else:
+        dataset_name = 'pascal3d_{}_{}_{}'.format(args.sub_dataset, args.split, args.category)
     dataset = ImageDataset(dataset_name)
     dataset.set_rootdir(args.root_dir)
 
@@ -93,6 +106,17 @@ def main():
             if category != args.category:
                 continue
 
+            occluded = bool(rec_obj['occluded'].flatten()[0])
+            truncated = bool(rec_obj['truncated'].flatten()[0])
+            difficult = bool(rec_obj['difficult'].flatten()[0])
+
+            if not args.keep_truncated and truncated:
+                continue
+            if not args.keep_occluded and occluded:
+                continue
+            if not args.keep_difficult and difficult:
+                continue
+
             rec_vp = rec_obj['viewpoint'].flatten()[0]
             distance = rec_vp['distance'].flatten()[0]
             if distance == 0.0:
@@ -114,9 +138,9 @@ def main():
             obj_info = OrderedDict()
             obj_info['id'] = obj_id
             obj_info['category'] = category
-            obj_info['occluded'] = bool(rec_obj['occluded'].flatten()[0])
-            obj_info['truncated'] = bool(rec_obj['truncated'].flatten()[0])
-            obj_info['difficult'] = bool(rec_obj['difficult'].flatten()[0])
+            obj_info['occluded'] = occluded
+            obj_info['truncated'] = truncated
+            obj_info['difficult'] = difficult
 
             vbbx = clip_bbx_by_image_size(rec_obj['bbox'].flatten(), W, H)
             obj_info['bbx_visible'] = NoIndent(vbbx.tolist())
