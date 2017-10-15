@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--dataset", help="ImageDataset JSON file")
     args = parser.parse_args()
 
-    caffe.init_log()
+    # caffe.init_log()
     caffe.log('Using GPU# %s' % str(args.gpu))
 
     # init caffe
