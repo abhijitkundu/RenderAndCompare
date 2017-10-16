@@ -1,4 +1,4 @@
-train_net: "ResNet50_fbn_FPN_roisD_vp96T_train.prototxt"
+train_net: "Resnet50_fbn_FPN_roisF32_vp96T_cpL1_train.prototxt"
 # lr for fine-tuning should be lower than when starting from scratch
 base_lr: 0.001
 lr_policy: "step"
@@ -10,6 +10,5 @@ display: 20
 momentum: 0.9
 weight_decay: 0.0005
 snapshot: 10000
-snapshot_prefix: "ResNet50_fbn_FPN_roisD_vp96T_kitti_3dop"
+snapshot_prefix: "Resnet50_fbn_FPN_roisF32_vp96T_cpL1_pascal3d"
 max_iter: 100000
-clip_gradients: 100.0

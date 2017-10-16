@@ -1,16 +1,22 @@
-name: "ResNet50_fbn_FPN_roisD_vp96T"
+name: "Resnet50_fbn_FPN_roisF32_vp96T_cpL1"
 
 layer {
   name: "data_layer"
   type: "Python"
   top: "input_image"
   top: "rois"
+  top: "gt_bbx_crop"
   python_param {
     module: "RenderAndCompare.layers"
     layer: "FastRCNNDataLayer"
-    param_str: "-i 1 -r -1 -sr 800 800 -sm 4000 -f -1 -j 2 -t input_image roi -m 103.0626238 115.90288257 123.15163084"
+    param_str: "-i 1 -r -1 -sr 800 800 -sm 4000 -f -1 -j 2 -t input_image roi bbx_crop -m 103.0626238 115.90288257 123.15163084"
   }
 }
+
+#-------------------------------------------------#
+#--------- ResNet-50 fixed batch_norm ------------#
+#-------------------------------------------------#
+
 #------------- conv1 (freezed) --------------#
 
 layer {
@@ -2947,6 +2953,10 @@ layer {
   top: "fc2"
 }
 
+####################################################################################
+############################### Viewpoint Head #####################################
+####################################################################################
+
 #-------------------------------------------------#
 #-------------- FC Viewpoint Layers --------------#
 #-------------------------------------------------#
@@ -3025,5 +3035,54 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "AngularExpectation"
+  }
+}
+
+####################################################################################
+########################### Center Projection Head #################################
+####################################################################################
+
+#-------------------------------------------------#
+#------------ FC center_proj Layers --------------#
+#-------------------------------------------------#
+
+layer {
+  name: "fc_camera_proj"
+  type: "InnerProduct"
+  bottom: "fc2"
+  top: "pred_center_proj_targets"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 2
+    weight_filler {
+      type: "gaussian"
+      std: 0.001
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+#-------------------------------------------------#
+#------------- CenterProj prediction -------------#
+#-------------------------------------------------#
+
+layer {
+  name:"pred_center_proj"
+  type: "Python"
+  bottom: "pred_center_proj_targets"
+  bottom: "gt_bbx_crop"
+  top: "pred_center_proj"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "Coord2DTransformationInverse"
+    param_str: "--offsets 0.5"
   }
 }

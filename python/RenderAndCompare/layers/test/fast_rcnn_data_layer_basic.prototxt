@@ -1,0 +1,17 @@
+name: "fast_rcnn_data_layer"
+layer {
+  name: "data_layer"
+  type: "Python"
+  top: "input_image"
+  top: "image_scales"
+  top: "image_flippings"
+  top: "roi"
+  top: "gt_bbx_crop"
+  top: "gt_viewpoint"
+  top: "gt_center_proj"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "FastRCNNDataLayer"
+    param_str: "-i 1 -r 128 -sr 800 1024 -sm 3100 -f 0.5 -j 0.9 -t input_image scales flippings roi bbx_crop viewpoint center_proj -m 103.0626238 115.90288257 123.15163084"
+  }
+}

@@ -1,4 +1,4 @@
-name: "ResNet50_fbn_FPN_roisD_vp96T"
+name: "ResNet50_fbn_FPN_vp96"
 
 layer {
   name: "data_layer"
@@ -8,9 +8,10 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "FastRCNNDataLayer"
-    param_str: "-i 1 -r -1 -sr 800 800 -sm 4000 -f -1 -j 2 -t input_image roi -m 103.0626238 115.90288257 123.15163084"
+    param_str: "-i 1 -r -1 -sr 800 800 -sm 3000 -f -1 -j 2 -t input_image roi -m 103.0626238 115.90288257 123.15163084"
   }
 }
+
 #------------- conv1 (freezed) --------------#
 
 layer {
@@ -2994,36 +2995,23 @@ layer {
 #-------------------------------------------------#
 
 layer {
-  type: "Scale"
-  name: "scale_fc_viewpoint_3x96"
+  name:"argmax_fc_viewpoint_3x96"
+  type: "ArgMax"
   bottom: "fc_viewpoint_3x96"
-  top: "fc_viewpoint_3x96_by_T"
-  scale_param {
-    axis: 1
-    num_axes: 1
-    filler {  type: "constant"  value: 1.0}
-    bias_term: false
-  }
-  param {lr_mult: 1.0 decay_mult: 0.0}
-}
-
-layer {
-  type: "Softmax"
-  name: "prob_viewpoint_3x96"
-  bottom: "fc_viewpoint_3x96_by_T"
-  top: "prob_viewpoint_3x96_by_T"
-  softmax_param {
+  top: "pred_viewpoint_label"
+  argmax_param {
     axis: 2
   }
 }
 
 layer {
-  name: "angular_expectation_viewpoint"
+  name: "dequantize_pred_viewpoint_label"
   type: "Python"
-  bottom: "prob_viewpoint_3x96_by_T"
+  bottom: "pred_viewpoint_label"
   top: "pred_viewpoint"
   python_param {
     module: "RenderAndCompare.layers"
-    layer: "AngularExpectation"
+    layer: "DeQuantizeViewPoint"
+    param_str: "-b 96"
   }
 }
