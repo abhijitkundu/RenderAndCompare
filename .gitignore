@@ -5,6 +5,10 @@
 # Ignore H5 files
 *.h5
 
+# Ignore excel files
+*.xlsx
+*.xls
+
 # Ignore archive dirs
 archive_*/
 
