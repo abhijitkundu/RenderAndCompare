@@ -15,6 +15,13 @@ def wrap_to_pi(radians):
 
     return wrapped
 
+def wrap_to_pi_array(radians):
+    """Wrap an numpy array of angle (in radians) to [-pi, pi)"""
+    # wrap to [0..2*pi]
+    wrapped = radians % (2 * np.pi)
+    wrapped[wrapped >= np.pi] -= 2 * np.pi
+    return wrapped
+
 
 def is_rotation_matrix(R, atol=1e-6):
     """Checks if a matrix is a valid rotation matrix"""
