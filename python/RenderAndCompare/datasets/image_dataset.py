@@ -5,8 +5,6 @@ Contains definition of ImageDataset class used in RenderAndCompare
 import os.path as osp
 from collections import OrderedDict
 import json
-from json import encoder
-encoder.FLOAT_REPR = lambda o: format(o, '.6f')
 
 
 class ImageDataset(object):

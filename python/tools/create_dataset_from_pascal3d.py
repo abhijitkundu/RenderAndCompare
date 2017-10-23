@@ -18,7 +18,8 @@ from RenderAndCompare.geometry import (
     assert_bbx,
     assert_coord2D,
     clip_bbx_by_image_size,
-    wrap_to_pi
+    wrap_to_pi,
+    wrap_to_pi_array
 )
 
 
@@ -127,8 +128,10 @@ def main():
             tilt = math.radians(rec_vp['theta'][0, 0])
             if azimuth == 0.0 and elevation == 0.0 and tilt == 0.0:
                 continue
-
-            viewpoint = np.array([wrap_to_pi(azimuth), wrap_to_pi(elevation), wrap_to_pi(tilt)], dtype=np.float)
+            
+            viewpoint = np.around(np.array([azimuth, elevation, tilt], dtype=np.float), decimals=6)
+            viewpoint = wrap_to_pi_array(viewpoint)
+            
             assert_viewpoint(viewpoint)
 
             assert rec_vp['focal'][0, 0] == 1, "rec_vp['focal'] is expected to be 1 but got {}".format(rec_vp['focal'][0, 0])
@@ -138,21 +141,23 @@ def main():
             obj_info = OrderedDict()
             obj_info['id'] = obj_id
             obj_info['category'] = category
-            obj_info['occluded'] = occluded
-            obj_info['truncated'] = truncated
-            obj_info['difficult'] = difficult
+
+            # since we dont have precise measure, use an approximate measure
+            obj_info['occlusion'] = 0.5 if occluded else 0.0
+            obj_info['truncation'] = 0.5 if truncated else 0.0
+            obj_info['difficulty'] = 0.5 if difficult else 0.0
 
             vbbx = clip_bbx_by_image_size(rec_obj['bbox'].flatten(), W, H)
-            obj_info['bbx_visible'] = NoIndent(vbbx.tolist())
+            obj_info['bbx_visible'] = NoIndent(np.around(vbbx, decimals=6).tolist())
 
             if 'abbx' in rec_obj.dtype.names:
                 abbx = rec_obj['abbx'].flatten()
                 if abbx.shape == (4,):
                     assert_bbx(abbx)
-                    obj_info['bbx_amodal'] = NoIndent(abbx.tolist())
+                    obj_info['bbx_amodal'] = NoIndent(np.around(abbx, decimals=6).tolist())
 
             obj_info['viewpoint'] = NoIndent(viewpoint.tolist())
-            obj_info['center_proj'] = NoIndent(center_proj.tolist())
+            obj_info['center_proj'] = NoIndent(np.around(center_proj, decimals=6).tolist())
 
             obj_infos.append(obj_info)
 
