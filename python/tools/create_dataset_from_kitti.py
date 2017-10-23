@@ -166,7 +166,7 @@ def main():
             obj_info['bbx_amodal'] = NoIndent(np.around(bbx_amodal, decimals=6).tolist())
             obj_info['viewpoint'] = NoIndent(np.around(viewpoint, decimals=6).tolist())
             obj_info['center_proj'] = NoIndent(np.around(obj_origin_proj, decimals=6).tolist())
-            obj_info['center_dist'] = distance
+            obj_info['center_dist'] = round(float(distance), 6)
 
             obj_infos.append(obj_info)
         annotation['object_infos'] = obj_infos
