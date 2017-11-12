@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
-import _init_paths
-import RenderAndCompare as rac
 import os.path as osp
-import numpy as np
+
+import _init_paths
 import caffe
-import cv2
 
 if __name__ == '__main__':
     default_net_file = osp.join(_init_paths.parent_dir, 'model_render.prototxt')
@@ -18,8 +16,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # init caffe
-    # caffe.set_mode_gpu()
     # caffe.set_device(args.gpu)
+    # caffe.set_mode_gpu()
     caffe.set_mode_cpu()
 
     assert osp.exists(args.net_file), 'Net file "{}" do not exist'.format(args.net_file)

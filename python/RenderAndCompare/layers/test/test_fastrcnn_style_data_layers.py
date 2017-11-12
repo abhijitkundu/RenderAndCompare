@@ -10,16 +10,18 @@ import _init_paths
 from RenderAndCompare.datasets import ImageDataset
 from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
 
+
 def check_if_valid_object(obj_info):
     """
     Check if object is indeed added to data layer
     """
-    #TODO Need to se this functor with layer max trucation/occlusion values
+    # TODO Need to se this functor with layer max trucation/occlusion values
     if 'occlusion' in obj_info and obj_info['occlusion'] > 0.8:
         return False
     if 'truncation' in obj_info and obj_info['truncation'] > 0.8:
         return False
     return True
+
 
 if __name__ == '__main__':
     import argparse
@@ -33,8 +35,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # init caffe
-    caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()
 
     assert osp.exists(args.net_file), 'Net file "{}" do not exist'.format(args.net_file)
     net = caffe.Net(args.net_file, caffe.TEST)
@@ -150,5 +152,5 @@ if __name__ == '__main__':
                 for obj_field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
                     if obj_field in obj_info_dataset:
                         assert np.all(obj_info_layer[obj_field] == np.array(obj_info_dataset[obj_field])), \
-                                "For obj_field '{}': {} vs {}".format(obj_field, obj_info_layer[obj_field], obj_info_dataset[obj_field])
+                            "For obj_field '{}': {} vs {}".format(obj_field, obj_info_layer[obj_field], obj_info_dataset[obj_field])
         print "Done."

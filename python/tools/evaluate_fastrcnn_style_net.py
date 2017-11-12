@@ -124,8 +124,9 @@ def try_loading_precomputed_results(result_name, weights_file):
 
 def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     """evaluate net on all weight files"""
-    caffe.set_mode_gpu()
+
     caffe.set_device(gpu_id)
+    caffe.set_mode_gpu()
 
     # Initialize Net
     net = caffe.Net(net_file, caffe.TEST)

@@ -32,8 +32,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # initialize net
-    caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()    
 
     net = caffe.Net(args.net_file, args.weights_file, caffe.TEST)
 

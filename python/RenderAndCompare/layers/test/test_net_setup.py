@@ -2,8 +2,9 @@
 
 import os.path as osp
 from time import time
-import caffe
+
 import _init_paths
+import caffe
 
 if __name__ == '__main__':
     import argparse
@@ -17,8 +18,8 @@ if __name__ == '__main__':
 
     # init caffe
     if args.gpu >= 0:
-        caffe.set_mode_gpu()
         caffe.set_device(args.gpu)
+        caffe.set_mode_gpu()
     else:
         caffe.set_mode_cpu()
 

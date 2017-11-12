@@ -12,8 +12,8 @@ from RenderAndCompare.datasets import ImageDataset
 
 def train(solver_proto, datasets, initialization, gpu_id):
     """Train a network"""
-    caffe.set_mode_gpu()
     caffe.set_device(gpu_id)
+    caffe.set_mode_gpu()    
 
     solver = caffe.get_solver(solver_proto)
 

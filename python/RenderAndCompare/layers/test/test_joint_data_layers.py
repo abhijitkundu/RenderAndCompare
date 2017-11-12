@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-import _init_paths
-import RenderAndCompare as rac
 import os.path as osp
-import numpy as np
-import caffe
+
 import cv2
+import numpy as np
+
+import _init_paths
+import caffe
+import RenderAndCompare as rac
 
 if __name__ == '__main__':
     import argparse
@@ -18,8 +20,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # init caffe
-    caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()
 
     assert osp.exists(args.net_file), 'Net file "{}" do not exist'.format(args.net_file)
     net = caffe.Net(args.net_file, caffe.TEST)

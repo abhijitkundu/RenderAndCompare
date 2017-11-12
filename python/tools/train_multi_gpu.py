@@ -2,12 +2,13 @@
 """
 Trains a model using one or more GPUs.
 """
-import _init_paths
-import RenderAndCompare as rac
-from multiprocessing import Process
-import caffe
 import os.path as osp
 import warnings
+from multiprocessing import Process
+
+import _init_paths
+import caffe
+import RenderAndCompare as rac
 
 
 def train(
@@ -34,8 +35,8 @@ def train(
 
 
 def solve(proto, initialization, datasets, gpus, uid, rank):
-    caffe.set_mode_gpu()
     caffe.set_device(gpus[rank])
+    caffe.set_mode_gpu()    
     caffe.set_solver_count(len(gpus))
     caffe.set_solver_rank(rank)
     caffe.set_multiprocess(True)

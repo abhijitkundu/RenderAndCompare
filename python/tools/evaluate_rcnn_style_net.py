@@ -116,8 +116,9 @@ def test_single_weights_file(weights_file, net, input_dataset):
 
 def test_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     """Run inference on all weight files"""
-    caffe.set_mode_gpu()
+
     caffe.set_device(gpu_id)
+    caffe.set_mode_gpu()
 
     # Initialize Net
     net = caffe.Net(net_file, caffe.TEST)

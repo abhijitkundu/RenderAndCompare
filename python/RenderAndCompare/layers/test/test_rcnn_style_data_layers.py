@@ -5,10 +5,11 @@ import os.path as osp
 import cv2
 import numpy as np
 
-import caffe
 import _init_paths
+import caffe
 from RenderAndCompare.datasets import ImageDataset
-from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
+from RenderAndCompare.geometry import (assert_bbx, assert_coord2D,
+                                       assert_viewpoint)
 
 if __name__ == '__main__':
     import argparse
@@ -21,8 +22,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # init caffe
-    caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()
 
     assert osp.exists(args.net_file), 'Net file "{}" do not exist'.format(args.net_file)
     net = caffe.Net(args.net_file, caffe.TEST)

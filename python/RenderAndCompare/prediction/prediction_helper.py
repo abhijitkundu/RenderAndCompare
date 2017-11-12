@@ -1,9 +1,10 @@
-import caffe
 import math
-import numpy as np
 import os.path as osp
-import cv2
 
+import cv2
+import numpy as np
+
+import caffe
 from RenderAndCompare.datasets import BatchImageLoader
 
 
@@ -14,8 +15,8 @@ def get_predictions_on_image_files(img_files, net_file, weights_file, requested_
 
     num_of_images = len(img_files)
 
-    caffe.set_mode_gpu()
     caffe.set_device(gpu_id)
+    caffe.set_mode_gpu()
 
     net = caffe.Net(net_file, weights_file, caffe.TEST)
 
@@ -125,8 +126,8 @@ def get_predictions_on_image_croppings(img_files, cropping_boxes, net_file, weig
 
     num_of_images = len(img_files)
 
-    caffe.set_mode_gpu()
     caffe.set_device(gpu_id)
+    caffe.set_mode_gpu()
 
     net = caffe.Net(net_file, weights_file, caffe.TEST)
 

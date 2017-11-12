@@ -2,10 +2,10 @@
 """
 Times a net model
 """
+
 import _init_paths
-import RenderAndCompare as rac
 import caffe
-import os.path as osp
+import RenderAndCompare as rac
 
 
 def time(net, iters):
@@ -53,8 +53,8 @@ if __name__ == '__main__':
     caffe.log('Using GPU# %s' % str(args.gpu))
 
     # init caffe
-    caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()
 
     net = caffe.Net(args.net_file, caffe.TRAIN)
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-import _init_paths
-import RenderAndCompare as rac
 import os.path as osp
-import numpy as np
-import caffe
+
 import cv2
+import numpy as np
+
+import _init_paths
+import caffe
+import RenderAndCompare as rac
 
 if __name__ == '__main__':
     default_net_file = osp.join(_init_paths.parent_dir, 'shape_pred.prototxt')
@@ -20,8 +22,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # init caffe
-    caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()
 
     net = caffe.Net(args.net_file, caffe.TEST)
 
@@ -65,7 +67,7 @@ if __name__ == '__main__':
             assert np.isfinite(shape_params).all()
 
             assert np.allclose(shape_params_blob, shape_params)
-            assert np.allclose(shape_targets_blob, shape_params/100.0)
+            assert np.allclose(shape_targets_blob, shape_params / 100.0)
 
             key = cv2.waitKey(args.pause)
             if key == 27:

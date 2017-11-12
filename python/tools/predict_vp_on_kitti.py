@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
-import _init_paths
-import RenderAndCompare as rac
-import caffe
 import os.path as osp
-import numpy as np
-import cv2
-from tqdm import tqdm
 from os import makedirs
+
+import cv2
+import numpy as np
+from tqdm import tqdm
+
+import _init_paths
+import caffe
+import RenderAndCompare as rac
 
 
 def deprocess(image, mean_bgr):
@@ -32,8 +34,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # initialize net
-    caffe.set_mode_gpu()
     caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()    
 
     net = caffe.Net(args.net_file, args.weights_file, caffe.TEST)
 
