@@ -6,6 +6,7 @@ import numpy as np
 
 import caffe
 from RenderAndCompare.datasets import (
+    NaiveImageLoader,
     BatchImageLoader,
     crop_and_resize_image,
     uniform_crop_and_resize_image,
@@ -386,7 +387,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
             top[top_index].reshape(*top_shapes[top_name])
 
         # Create a loader to load the images.
-        self.image_loader = BatchImageLoader(transpose=False)
+        self.image_loader = NaiveImageLoader(transpose=False)
 
         # Create placeholder for annotations
         self.data_samples = []

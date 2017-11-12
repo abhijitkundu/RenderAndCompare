@@ -3,10 +3,41 @@ Image Loaders
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import os.path as osp
 import cv2
 import numpy as np
 import tqdm
+
+
+class NaiveImageLoader(object):
+    """
+    This is a naive imageloader
+    """
+
+    def __init__(self, transpose=True, image_files=None):
+        self.transpose = transpose
+        self.image_list = []
+        if image_files is not None:
+            self.add_images(image_files)
+        print "NaiveImageLoader initialized with {:,} images".format(len(self.image_list))
+
+    def add_images(self, image_files):
+        """Adds a set of image paths to the loader"""
+        print "NaiveImageLoader: Checking {:,} images".format(len(image_files))
+        for image_file in tqdm.tqdm(image_files):
+            assert osp.isfile(image_file), "Bad image file {}".format(image_file)
+        self.image_list.extend(image_files)
+        print "NaiveImageLoader now has {:,} images".format(len(self.image_list))
+
+    def __getitem__(self, index):
+        return read_resize_transpose_image(self.image_list[index], [-1, -1], self.transpose)
+
+    def __len__(self):
+        return len(self.image_list)
+
+    def __repr__(self):
+        'Return a nicely formatted representation string'
+        return "NaiveImageLoader(number_of_images={}, Transpose={})".format(len(self.image_list), self.transpose)
 
 
 class BatchImageLoader(object):
