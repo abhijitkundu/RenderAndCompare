@@ -1,7 +1,15 @@
+"""
+viewpoint related layers
+"""
+import argparse
+
 import numpy as np
+
 import caffe
 
+
 def softmax(x, t=1.0):
+    """computes softmax"""
     if x.ndim == 1:
         x = x.reshape((1, -1))
     assert x.ndim == 2
@@ -9,6 +17,7 @@ def softmax(x, t=1.0):
     exp_x = np.exp((x - max_x) / t)
     out = exp_x / np.sum(exp_x, axis=1).reshape((-1, 1))
     return out
+
 
 class AngularL1LossLayer(caffe.Layer):
     """Compute the L1 Loss for angles (in radians)"""
@@ -111,8 +120,8 @@ class AngularExpectation(caffe.Layer):
             c2_plus_s2 = np.sum(self.prob_dot_cs**2, axis=-1)
 
             d_atan2 = top[0].diff * np.concatenate(((-self.prob_dot_cs[..., 1] / c2_plus_s2)[..., np.newaxis],
-                                                     (self.prob_dot_cs[..., 0] / c2_plus_s2)[..., np.newaxis]),
-                                                     axis = -1)
+                                                    (self.prob_dot_cs[..., 0] / c2_plus_s2)[..., np.newaxis]),
+                                                   axis=-1)
             bottom[0].diff[...] = d_atan2.dot(self.cs.T)
 
 
@@ -178,9 +187,6 @@ class DeQuantizeViewPoint(caffe.Layer):
 
     def backward(self, top, propagate_down, bottom):
         pass
-
-
-
 
 
 class ViewpointExpectation(caffe.Layer):
