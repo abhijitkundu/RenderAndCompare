@@ -1,9 +1,4 @@
-from datalayer import AbstractDataLayer
-from RenderAndCompare.datasets import BatchImageLoader
-from random import shuffle
 import numpy as np
-import os.path as osp
-import argparse
 import caffe
 
 def softmax(x, t=1.0):

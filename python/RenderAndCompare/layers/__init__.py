@@ -5,7 +5,7 @@ Caffe Layers sub-module of RenderAndCompare
 from .data_layers import *
 from .geometry_layers import *
 from .function_layers import *
-# from .viewpoint_pred_layers import *
+from .viewpoint_pred_layers import *
 # from .shape_pred_layers import *
 # from .articulated_object_layers import *
 
