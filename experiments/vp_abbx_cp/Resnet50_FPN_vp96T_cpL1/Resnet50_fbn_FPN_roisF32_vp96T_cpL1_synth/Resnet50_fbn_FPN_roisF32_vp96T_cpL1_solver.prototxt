@@ -10,5 +10,5 @@ display: 20
 momentum: 0.9
 weight_decay: 0.0005
 snapshot: 10000
-snapshot_prefix: "Resnet50_fbn_FPN_roisF32_vp96T_cpL1_SynthCityShapes_SynthKITTI"
+snapshot_prefix: "Resnet50_fbn_FPN_roisF32_vp96T_cpL1_synth"
 max_iter: 100000
