@@ -9,7 +9,7 @@ from RenderAndCompare.datasets import (
     BatchImageLoader,
     crop_and_resize_image,
     uniform_crop_and_resize_image,
-    scale_image, 
+    scale_image,
     sample_object_infos,
     flip_object_info,
 )
@@ -200,6 +200,11 @@ class RCNNDataLayer(AbstractDataLayer):
             image_id = prev_num_of_images + i
 
             for obj_info in image_info['object_infos']:
+                # TODO Use configurable params
+                if 'occlusion' in obj_info and obj_info['occlusion'] > 0.8:
+                    continue
+                if 'truncation' in obj_info and obj_info['truncation'] > 0.8:
+                    continue
                 data_sample = {}
                 data_sample['image_id'] = image_id
                 data_sample['id'] = obj_info['id']
@@ -399,9 +404,6 @@ class FastRCNNDataLayer(AbstractDataLayer):
             if 'object_infos' not in annotation or not annotation['object_infos']:
                 continue
 
-            image_file = osp.join(dataset.rootdir(), annotation['image_file'])
-            image_files.append(image_file)
-
             image_info = {}
             for field in ['image_size', 'image_intrinsic']:
                 if field in annotation:
@@ -409,6 +411,12 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
             obj_infos = []
             for anno_obj in annotation['object_infos']:
+                # TODO Use configurable params
+                if 'occlusion' in anno_obj and anno_obj['occlusion'] > 0.8:
+                    continue
+                if 'truncation' in anno_obj and anno_obj['truncation'] > 0.8:
+                    continue
+
                 obj_info = {}
                 obj_info['id'] = anno_obj['id']
                 obj_info['category'] = anno_obj['category']
@@ -419,8 +427,12 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
                 obj_infos.append(obj_info)
 
-            image_info['object_infos'] = obj_infos
-            image_infos.append(image_info)
+            # Only add if there are at-least one object
+            if obj_infos:
+                image_file = osp.join(dataset.rootdir(), annotation['image_file'])
+                image_files.append(image_file)
+                image_info['object_infos'] = obj_infos
+                image_infos.append(image_info)
 
         assert len(image_files) == len(image_infos)
         self.data_samples.extend(image_infos)
@@ -537,7 +549,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
             "roi": (num_of_objects, 5),
             "bbx_crop": (num_of_objects, 4),
             "bbx_amodal": (num_of_objects, 4),
-            "viewpoint": (num_of_objects, 3),                        
+            "viewpoint": (num_of_objects, 3),
             "center_proj": (num_of_objects, 2),
         }
 

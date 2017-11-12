@@ -10,6 +10,17 @@ import _init_paths
 from RenderAndCompare.datasets import ImageDataset
 from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
 
+def check_if_valid_object(obj_info):
+    """
+    Check if object is indeed added to data layer
+    """
+    #TODO Need to se this functor with layer max trucation/occlusion values
+    if 'occlusion' in obj_info and obj_info['occlusion'] > 0.8:
+        return False
+    if 'truncation' in obj_info and obj_info['truncation'] > 0.8:
+        return False
+    return True
+
 if __name__ == '__main__':
     import argparse
     description = ('Test Fast-RCNN style datalayer')
@@ -35,6 +46,10 @@ if __name__ == '__main__':
     net.layers[0].add_dataset(dataset)
     net.layers[0].print_params()
     net.layers[0].generate_datum_ids()
+
+    # Remove bad objects from dataset
+    for im_info in dataset.image_infos():
+        im_info['object_infos'] = [x for x in im_info['object_infos'] if check_if_valid_object(x)]
 
     assert net.layers[0].number_of_datapoints() == dataset.num_of_images()
     number_of_images = dataset.num_of_images()
@@ -127,6 +142,7 @@ if __name__ == '__main__':
             for im_field in ['image_size', 'image_intrinsic']:
                 if im_field in im_info_dataset:
                     assert np.all(im_info_layer[im_field] == im_info_dataset[im_field])
+            # TODO Since we have changed datalaayer to make it possible to ignore the following is no lonfer possible. Need to FIX THIS.
             assert len(im_info_layer['object_infos']) == len(im_info_dataset['object_infos'])
             for obj_info_layer, obj_info_dataset in zip(im_info_layer['object_infos'], im_info_dataset['object_infos']):
                 assert obj_info_layer['id'] == obj_info_dataset['id']
