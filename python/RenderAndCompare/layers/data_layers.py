@@ -220,7 +220,7 @@ class RCNNDataLayer(AbstractDataLayer):
                 # Add data_sample
                 self.data_samples.append(data_sample)
 
-        self.image_loader.preload_images(image_files)
+        self.image_loader.add_images(image_files)
         print 'Number of data points (annotations) = {:,}'.format(len(self.data_samples))
         print "--------------------------------------------------------------------"
 
@@ -436,7 +436,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         assert len(image_files) == len(image_infos)
         self.data_samples.extend(image_infos)
-        self.image_loader.preload_images(image_files)
+        self.image_loader.add_images(image_files)
 
         print 'Number of images = {:,}'.format(len(self.data_samples))
         print "--------------------------------------------------------------------"

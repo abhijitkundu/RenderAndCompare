@@ -22,10 +22,10 @@ class BatchImageLoader(object):
         self.transpose = transpose
         self.preloaded_images = []
         if image_files is not None:
-            self.preload_images(image_files)
+            self.add_images(image_files)
         print "BatchImageLoader initialized with {:,} images".format(len(self.preloaded_images))
 
-    def preload_images(self, image_files):
+    def add_images(self, image_files):
         print "BatchImageLoader: Preloading {:,} images".format(len(image_files))
         self.preloaded_images += parallel_read_resize_transpose_images(image_files, self.im_size, self.transpose)
         print "BatchImageLoader now has {:,} images".format(len(self.preloaded_images))

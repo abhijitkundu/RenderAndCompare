@@ -59,7 +59,7 @@ class ShapePredictionDataLayer(AbstractDataLayer):
 
             self.shape_params.append(np.array(annotation['shape_param'], dtype=np.float))
 
-        self.image_loader.preload_images(image_files)
+        self.image_loader.add_images(image_files)
         print "--------------------------------------------------------------------"
 
     def generate_datum_ids(self):
