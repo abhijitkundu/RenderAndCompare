@@ -1,19 +1,15 @@
 import argparse
 import os.path as osp
-from random import shuffle, random, randint
+from random import randint, random, shuffle
 
 import numpy as np
+from tqdm import tqdm
 
 import caffe
-from RenderAndCompare.datasets import (
-    NaiveImageLoader,
-    BatchImageLoader,
-    crop_and_resize_image,
-    uniform_crop_and_resize_image,
-    scale_image,
-    sample_object_infos,
-    flip_object_info,
-)
+from RenderAndCompare.datasets import (BatchImageLoader, NaiveImageLoader,
+                                       crop_and_resize_image, flip_object_info,
+                                       sample_object_infos, scale_image,
+                                       uniform_crop_and_resize_image)
 
 
 class AbstractDataLayer(caffe.Layer):
@@ -444,10 +440,10 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
     def verify_data(self):
         """Verify all data"""
-        print "Verifying data ...",
+        print "Verifying data ..."
         assert len(self.data_samples) == len(self.image_loader), "len(self.data_samples) = {} while len(self.image_loader) = {}".format(
             len(self.data_samples), len(self.image_loader))
-        for image_id, image_info in enumerate(self.data_samples):
+        for image_id, image_info in enumerate(tqdm(self.data_samples)):
             if 'image_size' in image_info:
                 image_size = self.image_loader[image_id].shape[:2][::-1]
                 assert np.all(image_info['image_size'] == image_size)
@@ -459,7 +455,6 @@ class FastRCNNDataLayer(AbstractDataLayer):
                 if 'viewpoint' in obj_info:
                     vp = obj_info['viewpoint']
                     assert (vp >= -np.pi).all() and (vp < np.pi).all(), "Bad viewpoint = {}".format(vp)
-        print "Done"
 
     def generate_datum_ids(self):
         """generate data ids"""
