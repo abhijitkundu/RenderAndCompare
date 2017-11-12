@@ -307,6 +307,52 @@ def plot_center_distance_statistics(datasets):
     print('Done.')
 
 
+def plot_occlusion_statistics(datasets):
+    """Plot occlusion statistics"""
+    print_('Computing occlusion statistics ... ', end='', flush=True)
+    occlusions = []
+    for dataset in datasets:
+        for img_info in dataset.image_infos():
+            for obj_info in img_info['object_infos']:
+                if 'occlusion' in obj_info:
+                    occlusions.append(obj_info['occlusion'])
+
+    if not occlusions:
+        print('No occlusion information found.')
+        return
+
+    occlusions = np.array(occlusions)
+
+    f = plt.figure()
+    f.suptitle('occlusion statistics', fontsize=14)
+    plt.hist(occlusions, bins=40, normed=True)
+    plt.xlabel('occlusions', fontsize=11)
+    print('Done.')
+
+
+def plot_truncation_statistics(datasets):
+    """Plot truncation statistics"""
+    print_('Computing truncation statistics ... ', end='', flush=True)
+    truncations = []
+    for dataset in datasets:
+        for img_info in dataset.image_infos():
+            for obj_info in img_info['object_infos']:
+                if 'occlusion' in obj_info:
+                    truncations.append(obj_info['truncation'])
+
+    if not truncations:
+        print('No truncation information found.')
+        return
+
+    truncations = np.array(truncations)
+
+    f = plt.figure()
+    f.suptitle('truncation statistics', fontsize=14)
+    plt.hist(truncations, bins=40, normed=True)
+    plt.xlabel('truncation', fontsize=11)
+    print('Done.')
+
+
 def plot_instance_count_per_image(datasets):
     """Plot num of objects per image histograms"""
     print_('Computing num_of_objects_per_image statistics ... ', end='', flush=True)
@@ -385,6 +431,8 @@ def main():
     plot_image_size_statistics(datasets)
 
     # Plot object level stats
+    plot_truncation_statistics(datasets)
+    plot_occlusion_statistics(datasets)
     plot_viewpoint_statistics(datasets)
     plot_bbx_statistics(datasets)
     plot_bbx_overlap_statistics(datasets)
