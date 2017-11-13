@@ -437,7 +437,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
                 image_files.append(image_file)
                 image_info['object_infos'] = obj_infos
                 image_infos.append(image_info)
-        
+
         num_of_images = len(image_files)
         assert len(image_infos) == num_of_images
 
@@ -445,7 +445,6 @@ class FastRCNNDataLayer(AbstractDataLayer):
         num_of_objects_added = sum([len(image_info['object_infos']) for image_info in image_infos])
         print 'Added {:,} objects (skipped:{:,}) from {:,} images'.format(num_of_objects_added, num_of_objects_dataset - num_of_objects_added, num_of_images)
 
-        
         self.data_samples.extend(image_infos)
         self.image_loader.add_images(image_files)
 

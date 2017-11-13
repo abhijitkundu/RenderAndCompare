@@ -3,12 +3,11 @@ KITTI Helper functions
 """
 
 from math import atan
+
 import numpy as np
-from ..geometry import (Pose,
-                        wrap_to_pi,
-                        is_rotation_matrix,
-                        rotationZ,
-                        eulerZYX_from_rotation)
+
+from ..geometry import (Pose, eulerZYX_from_rotation, is_rotation_matrix,
+                        rotationZ, wrap_to_pi)
 
 
 def write_kitti_object_labels(objects, filepath):

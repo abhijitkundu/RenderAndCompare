@@ -2,9 +2,9 @@
 Contains definition of ImageDataset class used in RenderAndCompare
 """
 
+import json
 import os.path as osp
 from collections import OrderedDict
-import json
 
 
 class ImageDataset(object):

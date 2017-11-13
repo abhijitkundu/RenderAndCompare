@@ -2,8 +2,9 @@
 Image Loaders
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import os.path as osp
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import cv2
 import numpy as np
 import tqdm
