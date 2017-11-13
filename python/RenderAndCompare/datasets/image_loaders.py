@@ -23,11 +23,15 @@ class NaiveImageLoader(object):
 
     def add_images(self, image_files):
         """Adds a set of image paths to the loader"""
-        print "NaiveImageLoader: Checking {:,} images".format(len(image_files))
-        for image_file in tqdm.tqdm(image_files):
-            assert osp.isfile(image_file), "Bad image file {}".format(image_file)
+        print "NaiveImageLoader: Adding {:,} images".format(len(image_files))
         self.image_list.extend(image_files)
         print "NaiveImageLoader now has {:,} images".format(len(self.image_list))
+
+    def verify_image_sizes(self, image_sizes):
+        """Verify images have same size as provided by image_sizes (list of [W, H])"""
+        assert len(self.image_list) == len(image_sizes)
+        print "NaiveImageLoader: Checking {:,} images".format(len(self.image_list))
+        parallel_read_and_verify_images(self.image_list, image_sizes, n_jobs=12)
 
     def __getitem__(self, index):
         return read_resize_transpose_image(self.image_list[index], [-1, -1], self.transpose)
@@ -87,6 +91,7 @@ def makeRGB8image(image):
 def makeBGR8image(image):
     rgb8_image = image.transpose(1, 2, 0)
     return np.uint8(rgb8_image)
+
 
 def scale_image(image, target_size, max_size):
     """uniformly scales an image's shorter size to target size bounded by max_size"""
@@ -149,6 +154,40 @@ def uniform_crop_and_resize_image(image, bbx_crop, target_size, mean_bgr):
 
     cropped_image = cv2.resize(canvas, (target_size[0], target_size[1]), interpolation=cv2.INTER_LINEAR)
     return cropped_image
+
+
+def read_and_verify_image(image_file, image_size):
+    assert osp.isfile(image_file), "Image file {} do not exist".format(image_file)
+    image = cv2.imread(image_file)
+    assert image.size != 0, 'Invalid image'
+    expected_image_shape = (image_size[1], image_size[0], 3)
+    assert image.shape == expected_image_shape, 'Loaded image shape {} does not meet expected {} for {}'.format(image.shape, expected_image_shape, image_file)
+
+
+def parallel_read_and_verify_images(image_files, image_sizes, n_jobs=12):
+    num_of_images = len(image_files)
+    assert num_of_images == len(image_sizes)
+    # If we set n_jobs to 1, just run a list comprehension. This is useful for benchmarking and debugging.
+    if n_jobs == 1:
+        for image_file, image_size in tqdm.tqdm(zip(image_files, image_sizes), total=num_of_images):
+            read_and_verify_image(image_file, image_size)
+        return
+
+    #  Use with statement to ensure threads are cleaned up promptly
+    with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+        # generate a list of futures by submitting jobs
+        futures = [executor.submit(read_and_verify_image, image_file, image_size) for image_file, image_size in zip(image_files, image_sizes)]
+        kwargs = {
+            'total': len(futures),
+            'unit': 'it',
+            'unit_scale': True,
+            'leave': True
+        }
+        # Print out the progress as tasks complete
+        for _ in tqdm.tqdm(as_completed(futures), **kwargs):
+            pass
+    for f in futures:
+        f.result()
 
 
 def read_resize_transpose_image(image_file, target_size, transpose):
@@ -228,7 +267,8 @@ def parallel_read_crop_resize_transpose_images(images, cropping_boxes, target_si
     # Assemble the workers
     with ThreadPoolExecutor(max_workers=n_jobs) as pool:
         # Pass the elements of array into function
-        futures = [pool.submit(read_crop_resize_transpose_image, images[i], cropping_boxes[i], target_size, transpose) for i in xrange(front_num, num_of_images)]
+        futures = [pool.submit(read_crop_resize_transpose_image, images[i], cropping_boxes[i], target_size, transpose)
+                   for i in xrange(front_num, num_of_images)]
         kwargs = {
             'total': len(futures),
             'unit': 'it',

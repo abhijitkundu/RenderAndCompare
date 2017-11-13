@@ -440,14 +440,16 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
     def verify_data(self):
         """Verify all data"""
-        print "Verifying data ..."
-        assert len(self.data_samples) == len(self.image_loader), "len(self.data_samples) = {} while len(self.image_loader) = {}".format(
-            len(self.data_samples), len(self.image_loader))
-        for image_id, image_info in enumerate(tqdm(self.data_samples)):
-            if 'image_size' in image_info:
-                image_size = self.image_loader[image_id].shape[:2][::-1]
-                assert np.all(image_info['image_size'] == image_size)
 
+        num_of_data_samples = len(self.data_samples)
+        assert num_of_data_samples == len(self.image_loader), "{} vs {}".format(num_of_data_samples, len(self.image_loader))
+
+        # Verify images
+        image_sizes = [image_info['image_size'] for image_info in self.data_samples]
+        self.image_loader.verify_image_sizes(image_sizes)
+
+        print "Verifying gt data ..."
+        for image_info in tqdm(self.data_samples):
             if 'image_intrinsic' in image_info:
                 assert image_info['image_intrinsic'].shape == (3, 3)
 

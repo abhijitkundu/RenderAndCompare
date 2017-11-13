@@ -9,7 +9,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "FastRCNNDataLayer"
-    param_str: "-i 1 -r -1 -sr 800 800 -sm 4000 -f -1 -j 2 -t input_image roi bbx_crop -m 103.0626238 115.90288257 123.15163084"
+    param_str: "-i 1 -r -1 -sr 900 900 -sm 4000 -f -1 -j 2 -t input_image roi bbx_crop -m 103.0626238 115.90288257 123.15163084"
   }
 }
 
