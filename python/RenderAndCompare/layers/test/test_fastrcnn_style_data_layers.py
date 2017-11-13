@@ -1,30 +1,38 @@
 #!/usr/bin/env python
 
+import argparse
 import os.path as osp
 
 import cv2
 import numpy as np
 
-import caffe
 import _init_paths
+import caffe
 from RenderAndCompare.datasets import ImageDataset
-from RenderAndCompare.geometry import assert_viewpoint, assert_bbx, assert_coord2D
+from RenderAndCompare.geometry import assert_bbx
 
 
-def check_if_valid_object(obj_info):
-    """
-    Check if object is indeed added to data layer
-    """
-    # TODO Need to se this functor with layer max trucation/occlusion values
-    if 'occlusion' in obj_info and obj_info['occlusion'] > 0.8:
-        return False
-    if 'truncation' in obj_info and obj_info['truncation'] > 0.8:
-        return False
-    return True
+def filter_dataset(dataset, required_object_info_fields):
+    """Filter Dataset"""
+    filterd_image_infos = []
+    for image_info in dataset.image_infos():
+        filtered_obj_infos = []
+        for obj_info in image_info['object_infos']:
+            if 'occlusion' in obj_info and obj_info['occlusion'] > 0.8:
+                continue
+            if 'truncation' in obj_info and obj_info['truncation'] > 0.8:
+                continue
+            # If any field is not present skip
+            if any((field not in obj_info for field in required_object_info_fields)):
+                continue
+            filtered_obj_infos.append(obj_info)
+        if filtered_obj_infos:
+            image_info['object_infos'] = filtered_obj_infos
+            filterd_image_infos.append(image_info)
+    dataset.set_image_infos(filterd_image_infos)
 
-
-if __name__ == '__main__':
-    import argparse
+def main():
+    """Main function"""
     description = ('Test Fast-RCNN style datalayer')
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("dataset", help="ImageDataset JSON file")
@@ -50,8 +58,7 @@ if __name__ == '__main__':
     net.layers[0].generate_datum_ids()
 
     # Remove bad objects from dataset
-    for im_info in dataset.image_infos():
-        im_info['object_infos'] = [x for x in im_info['object_infos'] if check_if_valid_object(x)]
+    filter_dataset(dataset, net.layers[0].required_object_info_fields)
 
     assert net.layers[0].number_of_datapoints() == dataset.num_of_images()
     number_of_images = dataset.num_of_images()
@@ -154,3 +161,7 @@ if __name__ == '__main__':
                         assert np.all(obj_info_layer[obj_field] == np.array(obj_info_dataset[obj_field])), \
                             "For obj_field '{}': {} vs {}".format(obj_field, obj_info_layer[obj_field], obj_info_dataset[obj_field])
         print "Done."
+
+
+if __name__ == '__main__':
+    main()

@@ -388,7 +388,11 @@ class FastRCNNDataLayer(AbstractDataLayer):
         # Create placeholder for annotations
         self.data_samples = []
 
-        print 'RCNNDataLayer has been setup.'
+        optional_object_blob_names = ['bbx_amodal', 'viewpoint', 'center_proj', 'dimension']
+        self.required_object_info_fields = ['bbx_visible']
+        self.required_object_info_fields.extend([x for x in optional_object_blob_names if x in self.top_names])
+
+        print 'FastRCNNDataLayer has been setup.'
 
     def add_dataset(self, dataset):
         """Add annotations from a json dataset"""
@@ -397,7 +401,7 @@ class FastRCNNDataLayer(AbstractDataLayer):
 
         image_files = []
         image_infos = []
-        for annotation in dataset.image_infos():
+        for annotation in tqdm(dataset.image_infos()):
             if 'object_infos' not in annotation or not annotation['object_infos']:
                 continue
 
@@ -414,13 +418,16 @@ class FastRCNNDataLayer(AbstractDataLayer):
                 if 'truncation' in anno_obj and anno_obj['truncation'] > 0.8:
                     continue
 
+                # If any field is not present skip
+                if any((field not in anno_obj for field in self.required_object_info_fields)):
+                    continue
+
                 obj_info = {}
                 obj_info['id'] = anno_obj['id']
                 obj_info['category'] = anno_obj['category']
 
-                for field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
-                    if field in anno_obj:
-                        obj_info[field] = np.array(anno_obj[field])
+                for field in self.required_object_info_fields:
+                    obj_info[field] = np.array(anno_obj[field])
 
                 obj_infos.append(obj_info)
 
@@ -430,8 +437,15 @@ class FastRCNNDataLayer(AbstractDataLayer):
                 image_files.append(image_file)
                 image_info['object_infos'] = obj_infos
                 image_infos.append(image_info)
+        
+        num_of_images = len(image_files)
+        assert len(image_infos) == num_of_images
 
-        assert len(image_files) == len(image_infos)
+        num_of_objects_dataset = sum([len(image_info['object_infos']) for image_info in dataset.image_infos()])
+        num_of_objects_added = sum([len(image_info['object_infos']) for image_info in image_infos])
+        print 'Added {:,} objects (skipped:{:,}) from {:,} images'.format(num_of_objects_added, num_of_objects_dataset - num_of_objects_added, num_of_images)
+
+        
         self.data_samples.extend(image_infos)
         self.image_loader.add_images(image_files)
 
