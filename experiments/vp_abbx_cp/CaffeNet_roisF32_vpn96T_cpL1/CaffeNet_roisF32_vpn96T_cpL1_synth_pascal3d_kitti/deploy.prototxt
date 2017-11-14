@@ -1,0 +1,414 @@
+name: "CaffeNet"
+
+layer {
+  name: "data_layer"
+  type: "Python"
+  top: "input_image"
+  top: "rois"
+  top: "gt_bbx_crop"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "FastRCNNDataLayer"
+    param_str: "-i 1 -r -1 -sr 900 900 -sm 3000 -f -1 -j 2 -t input_image roi bbx_crop -m 104.0 117.0 123.0"
+  }
+}
+
+#-------------------------------------------------#
+#-------------------- CaffeNet -------------------#
+#-------------------------------------------------#
+
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "input_image"
+  top: "conv1"
+  param {
+    lr_mult: 0
+    decay_mult: 0
+  }
+  param {
+    lr_mult: 0
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 96
+    kernel_size: 11
+    pad: 5
+    stride: 4
+  }
+}
+layer {
+  name: "relu1"
+  type: "ReLU"
+  bottom: "conv1"
+  top: "conv1"
+}
+layer {
+  name: "pool1"
+  type: "Pooling"
+  bottom: "conv1"
+  top: "pool1"
+  pooling_param {
+    pool: MAX
+    kernel_size: 3
+    pad: 1
+    stride: 2
+  }
+}
+layer {
+  name: "norm1"
+  type: "LRN"
+  bottom: "pool1"
+  top: "norm1"
+  lrn_param {
+    local_size: 5
+    alpha: 0.0001
+    beta: 0.75
+  }
+}
+layer {
+  name: "conv2"
+  type: "Convolution"
+  bottom: "norm1"
+  top: "conv2"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 256
+    kernel_size: 5
+    pad: 2
+    group: 2
+  }
+}
+layer {
+  name: "relu2"
+  type: "ReLU"
+  bottom: "conv2"
+  top: "conv2"
+}
+layer {
+  name: "pool2"
+  type: "Pooling"
+  bottom: "conv2"
+  top: "pool2"
+  pooling_param {
+    pool: MAX
+    kernel_size: 3
+    pad: 1
+    stride: 2
+  }
+}
+layer {
+  name: "norm2"
+  type: "LRN"
+  bottom: "pool2"
+  top: "norm2"
+  lrn_param {
+    local_size: 5
+    alpha: 0.0001
+    beta: 0.75
+  }
+}
+layer {
+  name: "conv3"
+  type: "Convolution"
+  bottom: "norm2"
+  top: "conv3"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 384
+    kernel_size: 3
+    pad: 1
+  }
+}
+layer {
+  name: "relu3"
+  type: "ReLU"
+  bottom: "conv3"
+  top: "conv3"
+}
+layer {
+  name: "conv4"
+  type: "Convolution"
+  bottom: "conv3"
+  top: "conv4"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 384
+    kernel_size: 3
+    pad: 1
+    group: 2
+  }
+}
+layer {
+  name: "relu4"
+  type: "ReLU"
+  bottom: "conv4"
+  top: "conv4"
+}
+layer {
+  name: "conv5"
+  type: "Convolution"
+  bottom: "conv4"
+  top: "conv5"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 256
+    kernel_size: 3
+    pad: 1
+    group: 2
+  }
+}
+layer {
+  name: "relu5"
+  type: "ReLU"
+  bottom: "conv5"
+  top: "conv5"
+}
+
+#-------------------------------------------------#
+#------------------- ROI Pooling -----------------#
+#-------------------------------------------------#
+
+layer {
+  name: "roi_pool5"
+  type: "ROIPooling"
+  bottom: "conv5"
+  bottom: "rois"
+  top: "pool5"
+  roi_pooling_param {
+    pooled_w: 6
+    pooled_h: 6
+    spatial_scale: 0.0625 # 1/16
+  }
+}
+
+#-------------------------------------------------#
+#------------ Shared FC Layers 2fc MLP -----------#
+#-------------------------------------------------#
+
+layer {
+  name: "fc6"
+  type: "InnerProduct"
+  bottom: "pool5"
+  top: "fc6"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 4096
+  }
+}
+layer {
+  name: "relu6"
+  type: "ReLU"
+  bottom: "fc6"
+  top: "fc6"
+}
+layer {
+  name: "drop6"
+  type: "Dropout"
+  bottom: "fc6"
+  top: "fc6"
+  dropout_param {
+    dropout_ratio: 0.5
+  }
+}
+layer {
+  name: "fc7"
+  type: "InnerProduct"
+  bottom: "fc6"
+  top: "fc7"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 4096
+  }
+}
+layer {
+  name: "relu7"
+  type: "ReLU"
+  bottom: "fc7"
+  top: "fc7"
+}
+layer {
+  name: "drop7"
+  type: "Dropout"
+  bottom: "fc7"
+  top: "fc7"
+  dropout_param {
+    dropout_ratio: 0.5
+  }
+}
+
+####################################################################################
+############################### Viewpoint Head #####################################
+####################################################################################
+
+#-------------------------------------------------#
+#-------------- FC Viewpoint Layers --------------#
+#-------------------------------------------------#
+
+layer {
+  name: "fc_viewpoint_288"
+  type: "InnerProduct"
+  bottom: "fc7"
+  top: "fc_viewpoint_288"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 288 # 288 = 3 x 96
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "reshape_fc_viewpoint"
+  type: "Reshape"
+  bottom: "fc_viewpoint_288"
+  top: "fc_viewpoint_3x96"
+  reshape_param {
+    shape {
+      dim: 0  # copy the dimension from below
+      dim: 3
+      dim: -1 # infer it from the other dimensions
+    }
+  }
+}
+
+#-------------------------------------------------#
+#-------------- Continious Viewpoint -------------#
+#-------------------------------------------------#
+
+layer {
+  type: "Scale"
+  name: "scale_fc_viewpoint_3x96"
+  bottom: "fc_viewpoint_3x96"
+  top: "fc_viewpoint_3x96_by_T"
+  scale_param {
+    axis: 1
+    num_axes: 1
+    filler {  type: "constant"  value: 1.0}
+    bias_term: false
+  }
+  param {lr_mult: 1.0 decay_mult: 0.0}
+}
+
+layer {
+  type: "Softmax"
+  name: "prob_viewpoint_3x96"
+  bottom: "fc_viewpoint_3x96_by_T"
+  top: "prob_viewpoint_3x96_by_T"
+  softmax_param {
+    axis: 2
+  }
+}
+
+layer {
+  name: "angular_expectation_viewpoint"
+  type: "Python"
+  bottom: "prob_viewpoint_3x96_by_T"
+  top: "pred_viewpoint"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "AngularExpectation"
+  }
+}
+
+####################################################################################
+########################### Center Projection Head #################################
+####################################################################################
+
+#-------------------------------------------------#
+#------------ FC center_proj Layers --------------#
+#-------------------------------------------------#
+
+layer {
+  name: "fc_camera_proj"
+  type: "InnerProduct"
+  bottom: "fc7"
+  top: "pred_center_proj_targets"
+  param {
+    lr_mult: 1
+  }
+  param {
+    lr_mult: 2
+  }
+  inner_product_param {
+    num_output: 2
+    weight_filler {
+      type: "gaussian"
+      std: 0.001
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+#-------------------------------------------------#
+#------------- CenterProj prediction -------------#
+#-------------------------------------------------#
+
+layer {
+  name:"pred_center_proj"
+  type: "Python"
+  bottom: "pred_center_proj_targets"
+  bottom: "gt_bbx_crop"
+  top: "pred_center_proj"
+  python_param {
+    module: "RenderAndCompare.layers"
+    layer: "Coord2DTransformationInverse"
+    param_str: "--offsets 0.5"
+  }
+}

@@ -1,0 +1,13 @@
+train_net: "train.prototxt"
+base_lr: 0.001
+lr_policy: "step"
+gamma: 0.1
+stepsize: 24000
+display: 20
+average_loss: 100
+momentum: 0.9
+weight_decay: 0.0005
+snapshot: 10000
+snapshot_prefix: "VGG16_roisF32_vp96T_cpL1_synth_pascal3d_kitti"
+max_iter: 100000
+# clip_gradients: 100.0
