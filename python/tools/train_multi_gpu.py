@@ -8,7 +8,7 @@ from multiprocessing import Process
 
 import _init_paths
 import caffe
-import RenderAndCompare as rac
+from RenderAndCompare.datasets import ImageDataset
 
 
 def train(
@@ -20,7 +20,7 @@ def train(
     # NCCL uses a uid to identify a session
     uid = caffe.NCCL.new_uid()
 
-    caffe.init_log()
+    # caffe.init_log()
     caffe.log('Using devices %s' % str(gpus))
 
     procs = []
@@ -35,8 +35,8 @@ def train(
 
 
 def solve(proto, initialization, datasets, gpus, uid, rank):
-    caffe.set_device(gpus[rank])
-    caffe.set_mode_gpu()    
+    caffe.set_mode_gpu()
+    caffe.set_device(gpus[rank])        
     caffe.set_solver_count(len(gpus))
     caffe.set_solver_rank(rank)
     caffe.set_multiprocess(True)
@@ -58,6 +58,7 @@ def solve(proto, initialization, datasets, gpus, uid, rank):
 
     for dataset in datasets:
         solver.net.layers[0].add_dataset(dataset)
+    solver.net.layers[0].print_params()
     solver.net.layers[0].generate_datum_ids()
 
     nccl = caffe.NCCL(solver, uid)
@@ -69,8 +70,8 @@ def solve(proto, initialization, datasets, gpus, uid, rank):
         solver.net.after_backward(nccl)
     solver.step(solver.param.max_iter)
 
-
-if __name__ == '__main__':
+def main():
+    """Main function"""
     import argparse
     parser = argparse.ArgumentParser()
 
@@ -83,8 +84,12 @@ if __name__ == '__main__':
     datasets = []
     for dataset_path in args.datasets:
         print 'Loading dataset from {}'.format(dataset_path)
-        dataset = rac.datasets.ImageDataset.from_json(dataset_path)
+        dataset = ImageDataset.from_json(dataset_path)
         datasets.append(dataset)
         print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     train(args.solver, args.init, datasets, args.gpus)
+
+
+if __name__ == '__main__':
+    main()

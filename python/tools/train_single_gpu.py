@@ -40,7 +40,7 @@ def train(solver_proto, datasets, initialization, gpu_id):
 
 
 def main():
-    """Mian function"""
+    """Main function"""
     import argparse
     parser = argparse.ArgumentParser()
 
