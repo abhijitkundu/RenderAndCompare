@@ -1,0 +1,13 @@
+train_net: "train.prototxt"
+base_lr: 0.002
+lr_policy: "step"
+gamma: 0.1
+stepsize: 30000
+display: 20
+average_loss: 100
+momentum: 0.9
+weight_decay: 0.0005
+snapshot: 10000
+snapshot_prefix: "CaffeNet_roisF16_vpn96T_cpL1_synth_pascal3d_kitti"
+max_iter: 150000
+# clip_gradients: 200.0

@@ -11,7 +11,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "FastRCNNDataLayer"
-    param_str: "-i 16 -r 16 -sr 700 1000 -sm 3000 -f 0.5 -j 0.8 -t input_image roi viewpoint bbx_crop center_proj -m 104.0 117.0 123.0"
+    param_str: "-i 8 -r 16 -sr 700 1000 -sm 3000 -f 0.5 -j 0.8 -t input_image roi viewpoint bbx_crop center_proj -m 104.0 117.0 123.0"
   }
 }
 
@@ -329,7 +329,7 @@ layer {
     num_output: 288 # 288 = 3 x 96
     weight_filler {
       type: "gaussian"
-      std: 0.01
+      std: 0.02
     }
     bias_filler {
       type: "constant"
