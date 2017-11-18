@@ -5,6 +5,7 @@ import os.path as osp
 
 import cv2
 import numpy as np
+from tqdm import trange
 
 import _init_paths
 import caffe
@@ -57,11 +58,17 @@ def main():
     net.layers[0].print_params()
     net.layers[0].generate_datum_ids()
 
-    # Remove bad objects from dataset
-    filter_dataset(dataset, net.layers[0].required_object_info_fields)
+    required_object_info_fields = net.layers[0].required_object_info_fields
+    print("required_object_info_fields = {}".format(required_object_info_fields))
 
-    assert net.layers[0].number_of_datapoints() == dataset.num_of_images()
+    # Make sure we remove bad objects like tha data layer does
+    filter_dataset(dataset, required_object_info_fields)
+
     number_of_images = dataset.num_of_images()
+    assert net.layers[0].number_of_datapoints() == number_of_images
+    num_of_layer_objects = sum([len(img_info['object_infos']) for img_info in net.layers[0].data_samples])
+    num_of_dataset_objects = sum([len(img_info['object_infos']) for img_info in dataset.image_infos()])
+    assert num_of_layer_objects == num_of_dataset_objects, "{} != {}".format(num_of_layer_objects, num_of_dataset_objects)
 
     cv2.namedWindow('blob_image', cv2.WINDOW_AUTOSIZE)
     cv2.namedWindow('original_image', cv2.WINDOW_AUTOSIZE)
@@ -75,13 +82,13 @@ def main():
     exit_loop = False
     for epoch_id in xrange(args.epochs):
         print "-----------------------Epoch # {} / {} -----------------------------".format(epoch_id, args.epochs)
-        for b in xrange(num_of_batches):
+        for b in trange(num_of_batches):
             start_idx = batch_size * b
             end_idx = min(batch_size * (b + 1), number_of_images)
-            print 'Working on batch: {}/{} (Images# {} - {}) of epoch {}'.format(b, num_of_batches, start_idx, end_idx, epoch_id)
+            # print 'Working on batch: {}/{} (Images# {} - {}) of epoch {}'.format(b, num_of_batches, start_idx, end_idx, epoch_id)
 
             # Run forward pass
-            output = net.forward()
+            _ = net.forward()
 
             # Get image_scales and image_flippings
             image_scales = net.blobs['image_scales'].data
@@ -151,15 +158,17 @@ def main():
             for im_field in ['image_size', 'image_intrinsic']:
                 if im_field in im_info_dataset:
                     assert np.all(im_info_layer[im_field] == im_info_dataset[im_field])
-            # TODO Since we have changed datalaayer to make it possible to ignore the following is no lonfer possible. Need to FIX THIS.
-            assert len(im_info_layer['object_infos']) == len(im_info_dataset['object_infos'])
-            for obj_info_layer, obj_info_dataset in zip(im_info_layer['object_infos'], im_info_dataset['object_infos']):
+
+            layer_obj_infos = im_info_layer['object_infos']
+            dataset_obj_infos = im_info_dataset['object_infos']
+
+            assert len(layer_obj_infos) == len(dataset_obj_infos), "{} != {}".format(len(layer_obj_infos), len(dataset_obj_infos))
+            for obj_info_layer, obj_info_dataset in zip(layer_obj_infos, dataset_obj_infos):
                 assert obj_info_layer['id'] == obj_info_dataset['id']
                 assert obj_info_layer['category'] == obj_info_dataset['category']
-                for obj_field in ['bbx_visible', 'bbx_amodal', 'viewpoint', 'center_proj', 'dimension']:
-                    if obj_field in obj_info_dataset:
-                        assert np.all(obj_info_layer[obj_field] == np.array(obj_info_dataset[obj_field])), \
-                            "For obj_field '{}': {} vs {}".format(obj_field, obj_info_layer[obj_field], obj_info_dataset[obj_field])
+                for obj_field in required_object_info_fields:
+                    assert np.all(obj_info_layer[obj_field] == np.array(obj_info_dataset[obj_field])), \
+                        "For obj_field '{}': {} vs {}".format(obj_field, obj_info_layer[obj_field], obj_info_dataset[obj_field])
         print "Done."
 
 
