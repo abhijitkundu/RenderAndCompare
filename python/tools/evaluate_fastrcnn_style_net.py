@@ -21,6 +21,26 @@ from RenderAndCompare.geometry import (assert_bbx, assert_coord2D,
                                        assert_viewpoint)
 
 
+def filter_dataset(dataset, required_object_info_fields):
+    """Filter Dataset"""
+    filterd_image_infos = []
+    for image_info in dataset.image_infos():
+        filtered_obj_infos = []
+        for obj_info in image_info['object_infos']:
+            if 'occlusion' in obj_info and obj_info['occlusion'] > 0.8:
+                continue
+            if 'truncation' in obj_info and obj_info['truncation'] > 0.8:
+                continue
+            # If any field is not present skip
+            if any((field not in obj_info for field in required_object_info_fields)):
+                continue
+            filtered_obj_infos.append(obj_info)
+        if filtered_obj_infos:
+            image_info['object_infos'] = filtered_obj_infos
+            filterd_image_infos.append(image_info)
+    dataset.set_image_infos(filterd_image_infos)
+
+
 def run_inference(weights_file, net, input_dataset):
     """Run inference with already initalized net with a new set of weights"""
     net.copy_from(weights_file)
@@ -66,6 +86,9 @@ def run_inference(weights_file, net, input_dataset):
         result_dataset.add_image_info(result_im_info)
 
     assert result_dataset.num_of_images() == num_of_images
+    assert len(net.layers[0].data_samples) == num_of_images
+    for result_img_info, layer_img_info in zip(result_dataset.image_infos(), net.layers[0].data_samples):
+        assert len(result_img_info['object_infos']) == len(layer_img_info['object_infos'])
 
     assert_funcs = {
         "viewpoint": assert_viewpoint,
@@ -81,7 +104,7 @@ def run_inference(weights_file, net, input_dataset):
 
         img_info = result_dataset.image_infos()[image_id]
         expected_num_of_rois = len(img_info['object_infos'])
-        assert net.blobs['rois'].data.shape == (expected_num_of_rois, 5)
+        assert net.blobs['rois'].data.shape == (expected_num_of_rois, 5), "{}_{}".format(net.blobs['rois'].data.shape, expected_num_of_rois)
 
         for info in ["bbx_amodal", "viewpoint", "center_proj"]:
             pred_info = "pred_" + info
@@ -100,6 +123,7 @@ def run_inference(weights_file, net, input_dataset):
 
 
 def prepare_dataset_for_saving(dataset):
+    """This one helps with saving in a more nicer format. TODO should be part of ImageDataset"""
     for im_info in dataset.image_infos():
         for im_info_field in ['image_size', 'image_intrinsic']:
             if im_info_field in im_info:
@@ -136,6 +160,16 @@ def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
 
     # print data layer params
     net.layers[0].print_params()
+
+    # Make sure we remove bad objects like tha data layer does
+    filter_dataset(input_dataset, net.layers[0].required_object_info_fields)
+
+    # Check if we have same total number of objects per image
+    number_of_images = input_dataset.num_of_images()
+    assert len(net.layers[0].data_samples) == number_of_images, "{} vs {}".format(len(net.layers[0].data_samples), number_of_images)
+    num_of_layer_objects = sum([len(img_info['object_infos']) for img_info in net.layers[0].data_samples])
+    num_of_dataset_objects = sum([len(img_info['object_infos']) for img_info in input_dataset.image_infos()])
+    assert num_of_layer_objects == num_of_dataset_objects, "{} != {}".format(num_of_layer_objects, num_of_dataset_objects)
 
     perf_metrics_summaries = []
     iter_regex = re.compile('iter_([0-9]*).caffemodel')
