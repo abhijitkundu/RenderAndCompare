@@ -10,6 +10,6 @@ display: 20
 momentum: 0.9
 weight_decay: 0.0005
 snapshot: 10000
-snapshot_prefix: "Resnet50_fbn_FPN_roisF16_vp96T_cpL1_abbxL1_kitti_3dop"
+snapshot_prefix: "Resnet50_fbn_FPN_roisF16_vp96T_cpL1_abbxL1_synth_pascal3d_kitti_3dvp"
 max_iter: 200000
-# clip_gradients: 50.0
+clip_gradients: 100.0

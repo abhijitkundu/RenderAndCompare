@@ -11,7 +11,7 @@ layer {
   python_param {
     module: "RenderAndCompare.layers"
     layer: "FastRCNNDataLayer"
-    param_str: "-i 2 -r 32 -sr 650 850 -sm 2500 -f 0.5 -j 0.8 -t input_image roi viewpoint bbx_crop center_proj -m 103.939 116.779 123.68"
+    param_str: "-i 1 -r 32 -sr 700 900 -sm 3000 -f 0.5 -j 0.8 -t input_image roi viewpoint bbx_crop center_proj -m 103.939 116.779 123.68"
   }
 }
 
