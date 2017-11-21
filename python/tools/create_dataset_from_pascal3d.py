@@ -34,7 +34,7 @@ def main():
     parser.add_argument("-r", "--root_dir", default=root_dir_default, help="Path to Pascal3d Object directory")
     parser.add_argument("-s", "--split", default='trainval', choices=split_choices, help="Split type")
     parser.add_argument("-d", "--sub_dataset", default='imagenet', choices=sub_dataset_choices, help="Sub dataset type")
-    parser.add_argument("-c", "--category", type=str, nargs=1, default='car', choices=category_choices, help="Object type (category)")
+    parser.add_argument("-c", "--category", type=str, default='car', choices=category_choices, help="Object type (category)")
     parser.add_argument("-n", "--dataset_name", type=str, help="Optional output dataset name")
     parser.add_argument('--no-truncated', dest='keep_truncated', action='store_false', help="use this to remove truncated objects")
     parser.set_defaults(keep_truncated=True)
@@ -138,6 +138,12 @@ def main():
             center_proj = np.array([rec_vp['px'][0, 0], rec_vp['py'][0, 0]], dtype=np.float)
             assert_coord2D(center_proj)
 
+            vbbx = rec_obj['bbox'].flatten()
+            assert_bbx(vbbx)
+            vbbx = clip_bbx_by_image_size(vbbx, W, H)
+            if np.any(vbbx[:2] >= vbbx[2:]):
+                continue
+
             obj_info = OrderedDict()
             obj_info['id'] = obj_id
             obj_info['category'] = category
@@ -147,8 +153,9 @@ def main():
             obj_info['truncation'] = 0.5 if truncated else 0.0
             obj_info['difficulty'] = 0.5 if difficult else 0.0
 
-            vbbx = clip_bbx_by_image_size(rec_obj['bbox'].flatten(), W, H)
-            obj_info['bbx_visible'] = NoIndent(np.around(vbbx, decimals=6).tolist())
+            vbbx = np.around(vbbx, decimals=6)
+            assert_bbx(vbbx)
+            obj_info['bbx_visible'] = NoIndent(vbbx.tolist())
 
             if 'abbx' in rec_obj.dtype.names:
                 abbx = rec_obj['abbx'].flatten()

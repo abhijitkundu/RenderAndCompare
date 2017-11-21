@@ -3,7 +3,6 @@ BoundingBox helper
 """
 
 import numpy as np
-from asserts import assert_bbx
 
 
 def bbx_iou_overlap(bbxA, bbxB):
@@ -110,5 +109,4 @@ def clip_bbx_by_image_size(bbx, width, height):
     clipped_bbx = np.empty_like(bbx)
     clipped_bbx[:2] = np.maximum(bbx[:2], [0.0, 0.0])
     clipped_bbx[2:] = np.minimum(bbx[2:], [width, height])
-    assert_bbx(clipped_bbx)
     return clipped_bbx
