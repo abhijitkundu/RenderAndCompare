@@ -77,9 +77,9 @@ def run_inference(weights_file, net, input_dataset):
         obj_infos = []
         for input_obj_info in input_im_info['object_infos']:
             obj_info = OrderedDict()
-            obj_info['id'] = input_obj_info['id']
-            obj_info['category'] = input_obj_info['category']
-            obj_info['bbx_visible'] = input_obj_info['bbx_visible']
+            for field in ['id', 'category', 'score', 'bbx_visible']:
+                if field in input_obj_info:
+                    obj_info[field] = input_obj_info[field]
             obj_infos.append(obj_info)
         result_im_info['object_infos'] = obj_infos
         assert len(result_im_info['object_infos']) == len(input_im_info['object_infos'])
@@ -146,7 +146,7 @@ def try_loading_precomputed_results(result_name, weights_file):
             return result_dataset
 
 
-def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
+def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id, compute_perf_metrics=True):
     """evaluate net on all weight files"""
 
     caffe.set_device(gpu_id)
@@ -171,8 +171,9 @@ def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
     num_of_dataset_objects = sum([len(img_info['object_infos']) for img_info in input_dataset.image_infos()])
     assert num_of_layer_objects == num_of_dataset_objects, "{} != {}".format(num_of_layer_objects, num_of_dataset_objects)
 
-    perf_metrics_summaries = []
-    iter_regex = re.compile('iter_([0-9]*).caffemodel')
+    if compute_perf_metrics:
+        perf_metrics_summaries = []
+        iter_regex = re.compile('iter_([0-9]*).caffemodel')
 
     for weights_file in weights_files:
         weight_name = osp.splitext(osp.basename(weights_file))[0]
@@ -188,51 +189,54 @@ def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id):
             # run inference
             result_dataset = run_inference(weights_file, net, input_dataset)
 
-        print "Evaluating results ... "
-        perf_metrics_df = compute_performance_metrics(input_dataset, result_dataset)
-        perf_metrics_summary_df = perf_metrics_df.describe()
-        pd.set_option('display.width', 1000)
-        print perf_metrics_summary_df
+        if compute_perf_metrics:
+            print "Evaluating results ... "
+            perf_metrics_df = compute_performance_metrics(input_dataset, result_dataset)
+            perf_metrics_summary_df = perf_metrics_df.describe()
+            pd.set_option('display.width', 1000)
+            print perf_metrics_summary_df
 
-        perf_metrics_summary = {}
-        perf_metrics_summary['iter'] = int(iter_regex.findall(weights_file)[0])
-        for metric in perf_metrics_summary_df:
-            perf_metrics_summary[metric + '_mean'] = perf_metrics_summary_df[metric]['mean']
-            perf_metrics_summary[metric + '_std'] = perf_metrics_summary_df[metric]['std']
+            perf_metrics_summary = {}
+            perf_metrics_summary['iter'] = int(iter_regex.findall(weights_file)[0])
+            for metric in perf_metrics_summary_df:
+                perf_metrics_summary[metric + '_mean'] = perf_metrics_summary_df[metric]['mean']
+                perf_metrics_summary[metric + '_std'] = perf_metrics_summary_df[metric]['std']
 
-        perf_metrics_summaries.append(perf_metrics_summary)
+            perf_metrics_summaries.append(perf_metrics_summary)
 
         result_dataset.set_name(result_name)
         prepare_dataset_for_saving(result_dataset)
         result_dataset.write_data_to_json(result_name + ".json")
         print '--------------------------------------------------'
 
-    perf_metrics_df = pd.DataFrame(perf_metrics_summaries).set_index('iter')
+    # Display final summary perf metrics
+    if compute_perf_metrics:
+        perf_metrics_df = pd.DataFrame(perf_metrics_summaries).set_index('iter')
 
-    print 'Saving performance metrics to {}.csv'.format(input_dataset.name() + '_all_metrics')
-    perf_metrics_df.to_csv(input_dataset.name() + '_all_metrics' + '.csv')
+        print 'Saving performance metrics to {}.csv'.format(input_dataset.name() + '_all_metrics')
+        perf_metrics_df.to_csv(input_dataset.name() + '_all_metrics' + '.csv')
 
-    iters = perf_metrics_df.index.values
-    metric_names = []
-    for metric in list(perf_metrics_df.columns.values):
-        if metric.endswith('_mean'):
-            metric_names.append(metric[:-5])
+        iters = perf_metrics_df.index.values
+        metric_names = []
+        for metric in list(perf_metrics_df.columns.values):
+            if metric.endswith('_mean'):
+                metric_names.append(metric[:-5])
 
-    cmap = plt.get_cmap('viridis')
-    colors = cmap(np.linspace(0, 1, len(metric_names)))
+        cmap = plt.get_cmap('viridis')
+        colors = cmap(np.linspace(0, 1, len(metric_names)))
 
-    for (metric, color) in zip(metric_names, colors):
-        mean = perf_metrics_df[metric + '_mean'].values
-        std = perf_metrics_df[metric + '_std'].values
-        plt.plot(iters, mean, label=metric, c=color)
-        plt.fill_between(iters, mean - std, mean + std, facecolor=color, alpha=0.5)
-        arg_min = np.argmin(mean)
-        plt.plot([iters[arg_min]], [mean[arg_min]], marker='o', color=color)
-    plt.legend()
-    plt.xlabel('iterations')
-    print 'Saving error plot to {}_all_metrics.png'.format(input_dataset.name())
-    plt.savefig(input_dataset.name() + '_all_metrics.png')
-    plt.show()
+        for (metric, color) in zip(metric_names, colors):
+            mean = perf_metrics_df[metric + '_mean'].values
+            std = perf_metrics_df[metric + '_std'].values
+            plt.plot(iters, mean, label=metric, c=color)
+            plt.fill_between(iters, mean - std, mean + std, facecolor=color, alpha=0.5)
+            arg_min = np.argmin(mean)
+            plt.plot([iters[arg_min]], [mean[arg_min]], marker='o', color=color)
+        plt.legend()
+        plt.xlabel('iterations')
+        print 'Saving error plot to {}_all_metrics.png'.format(input_dataset.name())
+        plt.savefig(input_dataset.name() + '_all_metrics.png')
+        plt.show()
 
 
 def main():
@@ -244,6 +248,8 @@ def main():
     parser.add_argument("-n", "--net_file", required=True, help="Deploy network")
     parser.add_argument("-d", "--dataset_file", required=True, help="Path to RenderAndCompare JSON dataset file")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
+    parser.add_argument('--no_perf_metrics', dest='compute_perf_metrics', action='store_false', help="use this to disable compute_perf_metrics")
+    parser.set_defaults(compute_perf_metrics=True)
     args = parser.parse_args()
 
     assert osp.exists(args.net_file), "Net filepath {} does not exist.".format(args.net_file)
@@ -261,7 +267,7 @@ def main():
     print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     print 'User provided {} weight files'.format(len(args.weights_files))
-    evaluate_all_weights_files(args.weights_files, args.net_file, dataset, args.gpu)
+    evaluate_all_weights_files(args.weights_files, args.net_file, dataset, args.gpu, args.compute_perf_metrics)
 
 
 if __name__ == '__main__':
