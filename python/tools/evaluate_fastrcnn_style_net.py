@@ -146,7 +146,7 @@ def try_loading_precomputed_results(result_name, weights_file):
             return result_dataset
 
 
-def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id, compute_perf_metrics=True):
+def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id, compute_perf_metrics=True, force_eval=False):
     """evaluate net on all weight files"""
 
     caffe.set_device(gpu_id)
@@ -180,8 +180,11 @@ def evaluate_all_weights_files(weights_files, net_file, input_dataset, gpu_id, c
         print 'Working with weights_file: {}'.format(weight_name)
         result_name = "{}_{}_result".format(input_dataset.name(), weight_name)
 
-        # Check if results has been pre computed
-        result_dataset = try_loading_precomputed_results(result_name, weights_file)
+        if force_eval:
+            result_dataset = None
+        else:
+            # Check if results has been pre computed
+            result_dataset = try_loading_precomputed_results(result_name, weights_file)
 
         if result_dataset:
             print "Skipping inference and using existing results from {}.json".format(result_name)
@@ -248,6 +251,8 @@ def main():
     parser.add_argument("-n", "--net_file", required=True, help="Deploy network")
     parser.add_argument("-d", "--dataset_file", required=True, help="Path to RenderAndCompare JSON dataset file")
     parser.add_argument("-g", "--gpu", type=int, default=0, help="Gpu Id.")
+    parser.add_argument('--force_eval', dest='force_eval', action='store_true', help="use this to force evaluation")
+    parser.set_defaults(force_eval=False)
     parser.add_argument('--no_perf_metrics', dest='compute_perf_metrics', action='store_false', help="use this to disable compute_perf_metrics")
     parser.set_defaults(compute_perf_metrics=True)
     args = parser.parse_args()
@@ -267,7 +272,7 @@ def main():
     print 'Loaded {} dataset with {} annotations'.format(dataset.name(), dataset.num_of_images())
 
     print 'User provided {} weight files'.format(len(args.weights_files))
-    evaluate_all_weights_files(args.weights_files, args.net_file, dataset, args.gpu, args.compute_perf_metrics)
+    evaluate_all_weights_files(args.weights_files, args.net_file, dataset, args.gpu, args.compute_perf_metrics, args.force_eval)
 
 
 if __name__ == '__main__':
